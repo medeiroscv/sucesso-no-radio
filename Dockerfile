@@ -58,6 +58,7 @@ RUN mkdir -p \
       /var/www/html/uploads/conteudos \
       /var/www/html/uploads/banners \
       /var/www/html/uploads/demos \
+      /var/www/html/uploads/site \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 \
       /var/www/html/config \

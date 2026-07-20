@@ -43,9 +43,36 @@ img { max-width: 100%; display: block; }
   background: linear-gradient(135deg, var(--accent), #0ea5e9);
   display: grid; place-items: center; font-size: 18px;
 }
+.brand-logo {
+  display: block;
+  max-height: 44px;
+  max-width: min(220px, 46vw);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.footer-logo {
+  display: block;
+  max-height: 40px;
+  max-width: 180px;
+  width: auto;
+  margin-bottom: 10px;
+  object-fit: contain;
+}
 .nav-links { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .nav-links a { color: var(--muted); font-weight: 600; font-size: .95rem; }
-.nav-links a:hover { color: var(--text); }
+.nav-links a:hover, .nav-links a.active { color: var(--text); }
+.forms-grid {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 24px;
+  margin-bottom: 48px;
+}
+.field-row-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 800px) {
+  .forms-grid { grid-template-columns: 1fr; }
+  .field-row-form { grid-template-columns: 1fr; }
+}
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 700;

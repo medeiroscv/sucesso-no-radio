@@ -79,8 +79,11 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
   - **Programetes**  
   (capa, duração, blocos, dias, inserções, demos MP3, WhatsApp)  
 - **Banners** da home  
-- **Contatos** recebidos no site  
-- **Configurações** (nome, slogan, WhatsApp, e-mail, sobre)  
+- **Contatos** — envios do formulário de contato e textos para gravação  
+- **Configurações** — hub com:  
+  - **Site** (nome, slogan, logo, favicon, WhatsApp, e-mail, sobre)  
+  - **Formulário de contato**  
+  - **Envio de texto** (texto que será gravado)  
 
 
 Tudo que aparece no front vem do banco via admin — sem editar HTML à mão.

@@ -154,9 +154,25 @@ function app_bootstrap_database(PDO $pdo): void {
         nome VARCHAR(160) DEFAULT '',
         email VARCHAR(200) DEFAULT '',
         telefone VARCHAR(40) DEFAULT '',
+        whatsapp VARCHAR(40) DEFAULT '',
         cidade VARCHAR(120) DEFAULT '',
         radio VARCHAR(160) DEFAULT '',
         mensagem TEXT DEFAULT '',
+        lido SMALLINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+    )");
+    // colunas extras se a tabela já existia
+    try { $pdo->exec("ALTER TABLE contatos ADD COLUMN IF NOT EXISTS whatsapp VARCHAR(40) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+
+    // Textos enviados para gravação
+    $pdo->exec("CREATE TABLE IF NOT EXISTS textos_gravacao (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(160) DEFAULT '',
+        email VARCHAR(200) DEFAULT '',
+        telefone VARCHAR(40) DEFAULT '',
+        whatsapp VARCHAR(40) DEFAULT '',
+        titulo VARCHAR(200) DEFAULT '',
+        texto TEXT DEFAULT '',
         lido SMALLINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
     )");
@@ -209,7 +225,20 @@ function app_bootstrap_database(PDO $pdo): void {
         'telefone' => '',
         'email' => '',
         'sobre' => 'Conteúdo profissional para rádios e web rádios: diários, semanais, informativos e programetes.',
-        'db_version' => '3',
+        'site_logo' => '',
+        'site_favicon' => '',
+        // Formulário de contato
+        'form_contato_ativo' => '1',
+        'form_contato_titulo' => 'Contato',
+        'form_contato_intro' => 'Fale com a nossa equipe. Responderemos o mais breve possível.',
+        'form_contato_btn' => 'Enviar mensagem',
+        // Formulário de texto para gravação
+        'form_texto_ativo' => '1',
+        'form_texto_titulo' => 'Envio de texto para gravação',
+        'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
+        'form_texto_btn' => 'Enviar texto',
+        'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
+        'db_version' => '4',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -220,7 +249,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['3']);
+            )->execute(['4']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -482,6 +511,35 @@ function app_setting(string $chave, string $default = ''): string {
     } catch (Throwable $e) {
         return $default;
     }
+}
+
+function app_setting_set(string $chave, string $valor): void {
+    $st = app_pdo()->prepare(
+        "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
+         ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
+    );
+    $st->execute([$chave, $valor]);
+}
+
+/** Seções do hub de Configurações. */
+function app_config_secoes(): array {
+    return [
+        'site' => [
+            'label' => 'Configurações do site',
+            'icon' => '🌐',
+            'desc' => 'Nome, slogan, logo, favicon, WhatsApp e textos gerais',
+        ],
+        'formulario_contato' => [
+            'label' => 'Formulário de contato',
+            'icon' => '✉️',
+            'desc' => 'Formulário padrão: nome, e-mail, telefone, WhatsApp e mensagem',
+        ],
+        'formulario_texto' => [
+            'label' => 'Envio de texto',
+            'icon' => '🎙️',
+            'desc' => 'Formulário para envio de texto que será gravado',
+        ],
+    ];
 }
 
 function app_slug(string $text): string {

@@ -13,6 +13,12 @@ function site_settings_all(): array {
     }
 }
 
+function layout_media_url(string $rel, string $base = ''): string {
+    $rel = ltrim(str_replace('\\', '/', $rel), '/');
+    if ($rel === '') return '';
+    return ($base === '' ? '' : $base) . '/' . $rel;
+}
+
 function layout_header(string $title = '', string $active = ''): void {
     $s = site_settings_all();
     $nome = $s['site_nome'] ?? APP_NAME;
@@ -21,6 +27,10 @@ function layout_header(string $title = '', string $active = ''): void {
     $base = app_base_path();
     $css = ($base === '' ? '' : $base) . '/assets/css/site.css';
     $home = ($base === '' ? '/' : $base . '/');
+    $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
+    $favicon = !empty($s['site_favicon']) ? layout_media_url((string)$s['site_favicon'], $base) : '';
+    $formTextoAtivo = ($s['form_texto_ativo'] ?? '1') === '1';
+    $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -29,21 +39,34 @@ function layout_header(string $title = '', string $active = ''): void {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="<?= e($s['site_slogan'] ?? 'Programas e conteúdo para rádio') ?>">
     <title><?= e($pageTitle) ?></title>
+    <?php if ($favicon): ?>
+        <link rel="icon" href="<?= e($favicon) ?>" type="image/png">
+        <link rel="apple-touch-icon" href="<?= e($favicon) ?>">
+    <?php endif; ?>
     <link rel="stylesheet" href="<?= e($css) ?>">
 </head>
 <body>
 <header class="site-header">
     <div class="container nav">
         <a class="brand" href="<?= e($home) ?>">
-            <span class="brand-badge">🎙</span>
-            <span><?= e($nome) ?></span>
+            <?php if ($logo): ?>
+                <img class="brand-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>">
+            <?php else: ?>
+                <span class="brand-badge">🎙</span>
+                <span><?= e($nome) ?></span>
+            <?php endif; ?>
         </a>
         <nav class="nav-links">
             <a href="<?= e($home) ?>#diarios">Diários</a>
             <a href="<?= e($home) ?>#semanais">Semanais</a>
             <a href="<?= e($home) ?>#informativos">Informativos</a>
             <a href="<?= e($home) ?>#programetes">Programetes</a>
-            <a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>">Contato</a>
+            <?php if ($formContatoAtivo): ?>
+                <a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
+            <?php endif; ?>
+            <?php if ($formTextoAtivo): ?>
+                <a href="<?= e(($base === '' ? '' : $base) . '/texto.php') ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">Enviar texto</a>
+            <?php endif; ?>
         </nav>
         <a class="btn btn-wa btn-small" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
     </div>
@@ -57,17 +80,25 @@ function layout_footer(): void {
     $wa = preg_replace('/\D+/', '', $s['whatsapp'] ?? '');
     $base = app_base_path();
     $home = ($base === '' ? '/' : $base . '/');
+    $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
+    $formTextoAtivo = ($s['form_texto_ativo'] ?? '1') === '1';
+    $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
     ?>
 <footer class="site-footer">
     <div class="container footer-grid">
         <div>
-            <strong><?= e($nome) ?></strong>
+            <?php if ($logo): ?>
+                <img class="footer-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>">
+            <?php else: ?>
+                <strong><?= e($nome) ?></strong>
+            <?php endif; ?>
             <p><?= e($s['sobre'] ?? '') ?></p>
         </div>
         <div>
             <strong>Navegação</strong>
             <p><a href="<?= e($home) ?>">Início</a></p>
-            <p><a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>">Contato</a></p>
+            <?php if ($formContatoAtivo): ?><p><a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>">Contato</a></p><?php endif; ?>
+            <?php if ($formTextoAtivo): ?><p><a href="<?= e(($base === '' ? '' : $base) . '/texto.php') ?>">Enviar texto</a></p><?php endif; ?>
             <p><a href="<?= e(($base === '' ? '' : $base) . '/admin/') ?>">Área admin</a></p>
         </div>
         <div>

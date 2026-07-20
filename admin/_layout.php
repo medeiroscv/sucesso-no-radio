@@ -244,6 +244,94 @@ function admin_image_rotate($img, int $angle) {
     return $rotated;
 }
 
+/**
+ * Upload de logo/favicon em PNG (leve, com transparência quando possível).
+ * $mode: 'logo' (máx. 480×160) | 'favicon' (64×64 quadrado).
+ */
+function admin_upload_asset(string $field, string $subdir, string $mode = 'logo'): string {
+    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+        return '';
+    }
+    if (($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        return '';
+    }
+    $tmp = (string)$_FILES[$field]['tmp_name'];
+    $info = @getimagesize($tmp);
+    if (!$info) {
+        return '';
+    }
+
+    $type = (int)$info[2];
+    $src = match ($type) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp),
+        IMAGETYPE_PNG  => @imagecreatefrompng($tmp),
+        IMAGETYPE_GIF  => @imagecreatefromgif($tmp),
+        IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($tmp) : false,
+        default        => false,
+    };
+    if (!$src) {
+        return '';
+    }
+    if ($type === IMAGETYPE_JPEG) {
+        $src = admin_image_apply_exif_orientation($src, $tmp);
+    }
+
+    $w = imagesx($src);
+    $h = imagesy($src);
+    if ($w < 1 || $h < 1) {
+        imagedestroy($src);
+        return '';
+    }
+
+    if ($mode === 'favicon') {
+        $size = 64;
+        $dst = imagecreatetruecolor($size, $size);
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+        imagefill($dst, 0, 0, $transparent);
+        // cover crop central
+        $scale = max($size / $w, $size / $h);
+        $nw = (int)round($w * $scale);
+        $nh = (int)round($h * $scale);
+        $ox = (int)round(($size - $nw) / 2);
+        $oy = (int)round(($size - $nh) / 2);
+        imagecopyresampled($dst, $src, $ox, $oy, 0, 0, $nw, $nh, $w, $h);
+    } else {
+        $maxW = 480;
+        $maxH = 160;
+        $scale = 1.0;
+        if ($w > $maxW || $h > $maxH) {
+            $scale = min($maxW / $w, $maxH / $h);
+        }
+        $nw = max(1, (int)round($w * $scale));
+        $nh = max(1, (int)round($h * $scale));
+        $dst = imagecreatetruecolor($nw, $nh);
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+        imagefill($dst, 0, 0, $transparent);
+        imagealphablending($dst, true);
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+    }
+    imagedestroy($src);
+
+    $dir = dirname(__DIR__) . '/uploads/' . trim($subdir, '/');
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    $name = $mode . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(3)) . '.png';
+    $dest = $dir . '/' . $name;
+    $ok = @imagepng($dst, $dest, 6);
+    imagedestroy($dst);
+    if (!$ok || !is_file($dest)) {
+        return '';
+    }
+    return 'uploads/' . trim($subdir, '/') . '/' . $name;
+}
+
 /** Upload de vários áudios do campo demos[] (ou demos com índices). */
 function admin_upload_demos_multi(string $subdir = 'demos'): array {
     $extOk = ['mp3', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'aac'];
