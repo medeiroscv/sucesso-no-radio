@@ -8,7 +8,7 @@ $tipos = app_conteudo_tipos_cliente();
 if (isset($_GET['del'])) {
     $id = intval($_GET['del']);
     try {
-        $pdo->prepare('DELETE FROM cliente_conteudos WHERE cliente_id = ?')->execute([$id]);
+        $pdo->prepare('DELETE FROM cliente_tipos WHERE cliente_id = ?')->execute([$id]);
     } catch (Throwable $e) { /* ok */ }
     $pdo->prepare('DELETE FROM clientes WHERE id = ?')->execute([$id]);
     header('Location: clientes.php?ok=1');
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ativo = !empty($_POST['ativo']) ? 1 : 0;
     $acessoTotal = !empty($_POST['acesso_total']) ? 1 : 0;
     $senha = (string)($_POST['senha'] ?? '');
-    $liberados = $_POST['conteudos'] ?? [];
+    $liberados = $_POST['tipos'] ?? [];
     if (!is_array($liberados)) $liberados = [];
 
     if ($nome === '' || $email === '') {
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'ativo' => $ativo,
         'acesso_total' => $acessoTotal,
     ];
-    $idsLiberados = array_map('intval', $liberados);
+    $tiposLiberados = array_values(array_filter(array_map('strval', $liberados), 'app_conteudo_tipo_valido'));
 }
 
 if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
@@ -96,28 +96,14 @@ if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
         $st = $pdo->prepare('SELECT * FROM clientes WHERE id = ?');
         $st->execute([intval($_GET['id'])]);
         $edit = $st->fetch() ?: null;
-        $idsLiberados = $edit ? cliente_conteudo_ids(intval($edit['id'])) : [];
+        $tiposLiberados = $edit ? cliente_tipos_liberados(intval($edit['id'])) : [];
     } else {
         $edit = [
             'id' => 0, 'nome' => '', 'email' => '', 'whatsapp' => '', 'telefone' => '',
             'radio' => '', 'cidade' => '', 'observacoes' => '', 'ativo' => 1, 'acesso_total' => 0,
         ];
-        $idsLiberados = [];
+        $tiposLiberados = [];
     }
-}
-
-// Só conteúdos da área do cliente (não demonstrativos públicos)
-$todosConteudos = [];
-try {
-    $todosConteudos = $pdo->query(
-        "SELECT id, titulo, tipo, ativo FROM conteudos WHERE area = 'conteudo' ORDER BY tipo, ordem, titulo"
-    )->fetchAll() ?: [];
-} catch (Throwable $e) {
-    $todosConteudos = [];
-}
-$porTipo = [];
-foreach ($todosConteudos as $c) {
-    $porTipo[$c['tipo']][] = $c;
 }
 
 $lista = [];
@@ -125,10 +111,10 @@ try {
     $lista = $pdo->query('SELECT * FROM clientes ORDER BY ativo DESC, nome ASC')->fetchAll() ?: [];
 } catch (Throwable $e) { /* ok */ }
 
-// contagem de liberados por cliente (lista)
+// contagem de categorias liberadas por cliente
 $qtdLib = [];
 try {
-    foreach ($pdo->query('SELECT cliente_id, COUNT(*) AS n FROM cliente_conteudos GROUP BY cliente_id') as $r) {
+    foreach ($pdo->query('SELECT cliente_id, COUNT(*) AS n FROM cliente_tipos GROUP BY cliente_id') as $r) {
         $qtdLib[intval($r['cliente_id'])] = intval($r['n']);
     }
 } catch (Throwable $e) { /* ok */ }
@@ -139,7 +125,7 @@ admin_header($edit !== null ? (!empty($edit['id']) ? 'Editar cliente' : 'Novo cl
 admin_flash($ok, $err);
 
 if ($edit !== null):
-    if (!isset($idsLiberados)) $idsLiberados = [];
+    if (!isset($tiposLiberados)) $tiposLiberados = [];
     $acessoTotalChecked = !empty($edit['acesso_total']);
 ?>
 <div class="actions" style="margin-bottom:12px;">
@@ -168,48 +154,32 @@ if ($edit !== null):
         <div class="field"><label>Observações internas</label><textarea name="observacoes" rows="2"><?= e($edit['observacoes'] ?? '') ?></textarea></div>
         <div class="field">
             <label><input type="checkbox" name="ativo" value="1" <?= !empty($edit['ativo']) ? 'checked' : '' ?>> Cliente ativo (pode logar)</label>
-            <p class="muted" style="margin-top:6px;font-size:.82rem;">Ativo sozinho não libera conteúdos nem textos — use a liberação abaixo.</p>
+            <p class="muted" style="margin-top:6px;font-size:.82rem;">Ativo sozinho não libera categorias — marque abaixo.</p>
         </div>
 
-        <h3 style="margin:22px 0 10px;">Liberar conteúdos (produto)</h3>
+        <h3 style="margin:22px 0 10px;">Liberar categorias</h3>
         <p class="muted" style="margin-bottom:12px;">
-            Cliente <strong>ativo</strong> só pode logar. Para ver conteúdos e enviar textos, é preciso liberar manualmente abaixo
-            (ou marcar acesso total). Demonstrativos do site público não entram aqui.
+            Liberar a <strong>categoria inteira</strong> (ex.: Programetes). Tudo que estiver nela fica acessível (arquivos e detalhes).
+            Sem a categoria marcada, o cliente pode ver os <strong>nomes</strong>, mas não acessa os arquivos.
         </p>
         <div class="field" style="margin-bottom:14px;">
             <label>
                 <input type="checkbox" name="acesso_total" value="1" id="acessoTotal" <?= $acessoTotalChecked ? 'checked' : '' ?>>
-                <strong>Acesso total</strong> — liberar todos os conteúdos do produto
+                <strong>Acesso total</strong> — todas as categorias liberadas
             </label>
         </div>
         <div id="listaLiberacoes" style="<?= $acessoTotalChecked ? 'opacity:.45;pointer-events:none;' : '' ?>">
-            <?php if (!$todosConteudos): ?>
-                <p class="muted">Nenhum conteúdo cadastrado ainda. Cadastre em Conteúdos primeiro.</p>
-            <?php else: ?>
+            <div style="display:grid;gap:10px;">
                 <?php foreach ($tipos as $tKey => $tMeta):
-                    $itens = $porTipo[$tKey] ?? [];
-                    if (!$itens) continue;
+                    $checked = in_array($tKey, $tiposLiberados, true);
                 ?>
-                    <div style="margin-bottom:16px;background:#0f172a;border:1px solid var(--line);border-radius:12px;padding:12px 14px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
-                            <strong><?= $tMeta['icon'] ?> <?= e($tMeta['label']) ?></strong>
-                            <button type="button" class="btn btn-secondary btn-small" onclick="toggleGrupo(this)">Marcar todos</button>
-                        </div>
-                        <div style="display:grid;gap:6px;" class="grupo-checks">
-                            <?php foreach ($itens as $item):
-                                $cid = intval($item['id']);
-                                $checked = in_array($cid, $idsLiberados, true);
-                            ?>
-                                <label style="font-weight:500;color:var(--text);display:flex;gap:8px;align-items:center;">
-                                    <input type="checkbox" name="conteudos[]" value="<?= $cid ?>" <?= $checked ? 'checked' : '' ?>>
-                                    <?= e($item['titulo']) ?>
-                                    <?php if (empty($item['ativo'])): ?><span class="muted">(inativo)</span><?php endif; ?>
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
+                    <label style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-weight:600;color:var(--text);cursor:pointer;">
+                        <input type="checkbox" name="tipos[]" value="<?= e($tKey) ?>" <?= $checked ? 'checked' : '' ?>>
+                        <span><?= $tMeta['icon'] ?> <?= e($tMeta['label']) ?></span>
+                        <span class="muted" style="font-weight:500;font-size:.85rem;margin-left:auto;"><?= e($tMeta['desc']) ?></span>
+                    </label>
                 <?php endforeach; ?>
-            <?php endif; ?>
+            </div>
         </div>
 
         <div class="actions" style="margin-top:16px;">
@@ -233,15 +203,6 @@ if ($edit !== null):
             }
         });
     }
-    window.toggleGrupo = function (btn) {
-        var group = btn.closest('div').parentElement.querySelector('.grupo-checks');
-        if (!group) return;
-        var checks = group.querySelectorAll('input[type=checkbox]');
-        var allOn = true;
-        checks.forEach(function (c) { if (!c.checked) allOn = false; });
-        checks.forEach(function (c) { c.checked = !allOn; });
-        btn.textContent = allOn ? 'Marcar todos' : 'Desmarcar todos';
-    };
 })();
 </script>
 <?php else: ?>
@@ -265,7 +226,7 @@ if ($edit !== null):
         </thead>
         <tbody>
         <?php foreach ($lista as $c):
-            $lib = !empty($c['acesso_total']) ? 'Todos' : ((int)($qtdLib[intval($c['id'])] ?? 0) . ' liberado(s)');
+            $lib = !empty($c['acesso_total']) ? 'Todas as categorias' : ((int)($qtdLib[intval($c['id'])] ?? 0) . ' categoria(s)');
         ?>
             <tr>
                 <td><strong><?= e($c['nome']) ?></strong></td>

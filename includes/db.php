@@ -268,14 +268,15 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_entregas_conteudo ON conteudo_entregas (conteudo_id, ativo, data_ref DESC, ordem, id)');
 
-    // Conteúdos liberados por cliente
-    $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_conteudos (
+    // Liberação por CATEGORIA (tipo) para o cliente — não por item
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_tipos (
         cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-        conteudo_id INT NOT NULL REFERENCES conteudos(id) ON DELETE CASCADE,
+        tipo VARCHAR(40) NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
-        PRIMARY KEY (cliente_id, conteudo_id)
+        PRIMARY KEY (cliente_id, tipo)
     )");
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_cliente_conteudos_conteudo ON cliente_conteudos (conteudo_id)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_cliente_tipos_tipo ON cliente_tipos (tipo)');
+    // legado: tabela antiga por item (mantida se existir; não é mais usada)
 
     // seed settings
     $defaults = [
@@ -567,17 +568,18 @@ function app_conteudos_por_tipo(string $tipo, bool $somenteAtivos = true, string
     }
 }
 
-/** IDs de conteúdos (área cliente) liberados manualmente. */
-function cliente_conteudo_ids(int $clienteId): array {
+/** Categorias (tipos) liberadas para o cliente. */
+function cliente_tipos_liberados(int $clienteId): array {
     if ($clienteId <= 0) return [];
     try {
-        $st = app_pdo()->prepare(
-            'SELECT cc.conteudo_id FROM cliente_conteudos cc
-             INNER JOIN conteudos c ON c.id = cc.conteudo_id AND c.area = \'conteudo\'
-             WHERE cc.cliente_id = ?'
-        );
+        $st = app_pdo()->prepare('SELECT tipo FROM cliente_tipos WHERE cliente_id = ?');
         $st->execute([$clienteId]);
-        return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_COLUMN) ?: [] as $t) {
+            $t = (string)$t;
+            if (app_conteudo_tipo_valido($t)) $out[] = $t;
+        }
+        return $out;
     } catch (Throwable $e) {
         return [];
     }
@@ -590,14 +592,23 @@ function cliente_tem_acesso_total(?array $cli = null): bool {
 }
 
 /**
- * Cliente ativo + liberação (acesso total OU ao menos um conteúdo liberado).
+ * Cliente ativo + liberação de ao menos uma CATEGORIA (ou acesso total).
  * Só "ativo" no cadastro NÃO libera nada.
  */
 function cliente_tem_liberacao(?array $cli = null): bool {
     if ($cli === null) $cli = cliente_atual();
     if (!$cli || empty($cli['ativo'])) return false;
     if (cliente_tem_acesso_total($cli)) return true;
-    return count(cliente_conteudo_ids(intval($cli['id']))) > 0;
+    return count(cliente_tipos_liberados(intval($cli['id']))) > 0;
+}
+
+/** Cliente pode acessar arquivos/detalhes de uma categoria (tipo). */
+function cliente_pode_acessar_tipo(string $tipo, ?array $cli = null): bool {
+    if (!app_conteudo_tipo_valido($tipo)) return false;
+    if ($cli === null) $cli = cliente_atual();
+    if (!$cli || !cliente_tem_liberacao($cli)) return false;
+    if (cliente_tem_acesso_total($cli)) return true;
+    return in_array($tipo, cliente_tipos_liberados(intval($cli['id'])), true);
 }
 
 function cliente_pode_acessar_conteudo(int $conteudoId, ?array $cli = null): bool {
@@ -605,19 +616,21 @@ function cliente_pode_acessar_conteudo(int $conteudoId, ?array $cli = null): boo
     if ($cli === null) $cli = cliente_atual();
     if (!$cli || !cliente_tem_liberacao($cli)) return false;
     try {
-        $st = app_pdo()->prepare('SELECT id, area FROM conteudos WHERE id = ? AND ativo = 1 LIMIT 1');
+        $st = app_pdo()->prepare('SELECT id, area, tipo FROM conteudos WHERE id = ? AND ativo = 1 LIMIT 1');
         $st->execute([$conteudoId]);
         $c = $st->fetch();
         if (!$c || ($c['area'] ?? '') !== 'conteudo') return false;
+        return cliente_pode_acessar_tipo((string)$c['tipo'], $cli);
     } catch (Throwable $e) {
         return false;
     }
-    if (!empty($cli['acesso_total'])) return true;
-    $ids = cliente_conteudo_ids(intval($cli['id']));
-    return in_array($conteudoId, $ids, true);
 }
 
-/** Conteúdos liberados para o cliente, por tipo (só área conteudo). */
+/**
+ * Lista itens de um tipo (área conteudo).
+ * Sempre lista os nomes se o cliente tem alguma liberação.
+ * Arquivos/detalhe só se a CATEGORIA estiver liberada.
+ */
 function cliente_conteudos_por_tipo(int $clienteId, string $tipo, ?array $cli = null): array {
     if (!app_conteudo_tipo_valido($tipo) || $clienteId <= 0) return [];
     if ($cli === null) {
@@ -630,38 +643,25 @@ function cliente_conteudos_por_tipo(int $clienteId, string $tipo, ?array $cli = 
         }
     }
     if (!$cli || !cliente_tem_liberacao($cli)) return [];
-    if (!empty($cli['acesso_total'])) {
-        return app_conteudos_por_tipo($tipo, true, 'conteudo');
-    }
-    try {
-        $st = app_pdo()->prepare(
-            'SELECT c.* FROM conteudos c
-             INNER JOIN cliente_conteudos cc ON cc.conteudo_id = c.id AND cc.cliente_id = ?
-             WHERE c.tipo = ? AND c.area = \'conteudo\' AND c.ativo = 1
-             ORDER BY c.destaque DESC, c.ordem ASC, c.titulo ASC'
-        );
-        $st->execute([$clienteId, $tipo]);
-        return $st->fetchAll() ?: [];
-    } catch (Throwable $e) {
-        return [];
-    }
+    // Catálogo da categoria (nomes) — acesso a arquivos é checado à parte
+    return app_conteudos_por_tipo($tipo, true, 'conteudo');
 }
 
-function cliente_salvar_liberacoes(int $clienteId, array $conteudoIds, bool $acessoTotal): void {
+/** Salva liberação por CATEGORIA (tipos). */
+function cliente_salvar_liberacoes(int $clienteId, array $tipos, bool $acessoTotal): void {
     $pdo = app_pdo();
     $pdo->prepare('UPDATE clientes SET acesso_total = ?, updated_at = NOW() WHERE id = ?')
         ->execute([$acessoTotal ? 1 : 0, $clienteId]);
-    $pdo->prepare('DELETE FROM cliente_conteudos WHERE cliente_id = ?')->execute([$clienteId]);
+    $pdo->prepare('DELETE FROM cliente_tipos WHERE cliente_id = ?')->execute([$clienteId]);
     if ($acessoTotal) return;
     $ins = $pdo->prepare(
-        'INSERT INTO cliente_conteudos (cliente_id, conteudo_id, created_at)
-         SELECT ?, c.id, NOW() FROM conteudos c
-         WHERE c.id = ? AND c.area = \'conteudo\'
-         ON CONFLICT DO NOTHING'
+        'INSERT INTO cliente_tipos (cliente_id, tipo, created_at) VALUES (?,?,NOW()) ON CONFLICT DO NOTHING'
     );
-    foreach ($conteudoIds as $cid) {
-        $cid = intval($cid);
-        if ($cid > 0) $ins->execute([$clienteId, $cid]);
+    foreach ($tipos as $tipo) {
+        $tipo = trim((string)$tipo);
+        if (app_conteudo_tipo_valido($tipo)) {
+            $ins->execute([$clienteId, $tipo]);
+        }
     }
 }
 

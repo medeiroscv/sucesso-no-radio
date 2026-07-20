@@ -17,7 +17,7 @@ try {
     $stats['clientes'] = (int)$pdo->query('SELECT COUNT(*) FROM clientes')->fetchColumn();
     $stats['clientes_ativos'] = (int)$pdo->query('SELECT COUNT(*) FROM clientes WHERE ativo = 1')->fetchColumn();
     $stats['clientes_liberados'] = (int)$pdo->query(
-        "SELECT COUNT(*) FROM clientes WHERE ativo = 1 AND (acesso_total = 1 OR id IN (SELECT DISTINCT cliente_id FROM cliente_conteudos))"
+        "SELECT COUNT(*) FROM clientes WHERE ativo = 1 AND (acesso_total = 1 OR id IN (SELECT DISTINCT cliente_id FROM cliente_tipos))"
     )->fetchColumn();
     $stats['textos_novos'] = (int)$pdo->query('SELECT COUNT(*) FROM textos_gravacao WHERE lido = 0')->fetchColumn();
     $stats['banners'] = (int)$pdo->query('SELECT COUNT(*) FROM banners')->fetchColumn();
@@ -51,8 +51,8 @@ admin_header('Dashboard', 'dash');
     <ul class="muted" style="margin-left:18px;line-height:1.8;">
         <li><strong>Demonstrativos</strong> — amostras na home do site (público).</li>
         <li><strong>Conteúdos</strong> — programas do produto (diários, semanais, informativos) para quem comprou.</li>
-        <li><strong>Clientes</strong> — ativo só permite login; a liberação de conteúdos é manual (ou acesso total).</li>
-        <li>Sem liberação, o cliente entra mas fica bloqueado (sem conteúdos e sem textos).</li>
+        <li><strong>Clientes</strong> — ativo só permite login; liberação é por <strong>categoria</strong> (Diários, Semanais…).</li>
+        <li>Sem categoria liberada, o cliente entra mas fica bloqueado (sem arquivos e sem textos).</li>
     </ul>
 </div>
 <?php admin_footer(); ?>

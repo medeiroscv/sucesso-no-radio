@@ -30,18 +30,21 @@ if ($liberado) {
                  LIMIT 12"
             )->fetchAll() ?: [];
         } else {
-            $st = app_pdo()->prepare(
-                "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
-                        c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
-                 FROM conteudo_entregas e
-                 INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1 AND c.area = 'conteudo'
-                 INNER JOIN cliente_conteudos cc ON cc.conteudo_id = c.id AND cc.cliente_id = ?
-                 WHERE e.ativo = 1
-                 ORDER BY e.created_at DESC, e.id DESC
-                 LIMIT 12"
-            );
-            $st->execute([$cliId]);
-            $recentes = $st->fetchAll() ?: [];
+            $tiposOk = cliente_tipos_liberados($cliId);
+            if ($tiposOk) {
+                $ph = implode(',', array_fill(0, count($tiposOk), '?'));
+                $st = app_pdo()->prepare(
+                    "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
+                            c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
+                     FROM conteudo_entregas e
+                     INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1 AND c.area = 'conteudo'
+                     WHERE e.ativo = 1 AND c.tipo IN ($ph)
+                     ORDER BY e.created_at DESC, e.id DESC
+                     LIMIT 12"
+                );
+                $st->execute($tiposOk);
+                $recentes = $st->fetchAll() ?: [];
+            }
         }
     } catch (Throwable $e) {
         $recentes = [];
@@ -74,12 +77,16 @@ endif;
 </p>
 
 <div class="cliente-hub">
-    <?php foreach ($tipos as $key => $meta): ?>
+    <?php foreach ($tipos as $key => $meta):
+        $okTipo = cliente_pode_acessar_tipo($key, $cli);
+    ?>
         <a class="cliente-hub-card" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($key))) ?>">
             <div class="conteudo-hub-icon"><?= $meta['icon'] ?></div>
-            <h3><?= e($meta['label']) ?></h3>
+            <h3><?= e($meta['label']) ?><?= $okTipo ? '' : ' 🔒' ?></h3>
             <p><?= e($meta['desc']) ?></p>
-            <div class="conteudo-hub-count"><?= (int)($counts[$key] ?? 0) ?> liberado(s)</div>
+            <div class="conteudo-hub-count">
+                <?= $okTipo ? ((int)($counts[$key] ?? 0) . ' item(ns)') : 'Só nomes · sem arquivos' ?>
+            </div>
         </a>
     <?php endforeach; ?>
     <a class="cliente-hub-card cliente-hub-accent" href="<?= e(app_url('cliente/texto.php')) ?>">
