@@ -11,8 +11,6 @@ if (!app_conteudo_tipo_valido($tipo)) {
 }
 $meta = $tipos[$tipo];
 $lista = cliente_conteudos_por_tipo($cliId, $tipo, $cli);
-$base = app_base_path();
-$prefix = $base === '' ? '' : $base;
 
 cliente_header($meta['label'], $tipo);
 ?>
@@ -20,7 +18,7 @@ cliente_header($meta['label'], $tipo);
 
 <div class="actions">
     <?php foreach ($tipos as $key => $m): ?>
-        <a class="btn btn-small <?= $key === $tipo ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($key)) ?>">
+        <a class="btn btn-small <?= $key === $tipo ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($key))) ?>">
             <?= $m['icon'] ?> <?= e($m['label']) ?>
         </a>
     <?php endforeach; ?>
@@ -36,7 +34,7 @@ cliente_header($meta['label'], $tipo);
 <?php else: ?>
     <div class="grid-cards">
         <?php foreach ($lista as $p):
-            $capa = $p['capa'] ? ($prefix . '/' . ltrim($p['capa'], '/')) : '';
+            $capa = $p['capa'] ? app_url(ltrim($p['capa'], '/')) : '';
             $nEnt = count(app_entregas(intval($p['id']), true));
         ?>
             <article class="card">
@@ -56,7 +54,7 @@ cliente_header($meta['label'], $tipo);
                     </div>
                     <p class="card-desc"><?= e($p['resumo'] ?: mb_strimwidth(strip_tags($p['descricao'] ?? ''), 0, 140, '…')) ?></p>
                     <div class="card-actions">
-                        <a class="btn btn-primary btn-small" href="<?= e($prefix . '/cliente/conteudo.php?id=' . intval($p['id'])) ?>">Acessar</a>
+                        <a class="btn btn-primary btn-small" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($p['id']))) ?>">Acessar</a>
                     </div>
                 </div>
             </article>

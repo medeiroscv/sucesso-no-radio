@@ -700,8 +700,7 @@ function cliente_require_auth(string $redirectAfter = ''): void {
     if (cliente_logado() && cliente_atual()) {
         return;
     }
-    $base = app_base_path();
-    $login = ($base === '' ? '' : $base) . '/cliente/login.php';
+    $login = app_url('cliente/login.php');
     if ($redirectAfter !== '') {
         $login .= '?redirect=' . rawurlencode($redirectAfter);
     }
@@ -725,8 +724,7 @@ function cliente_logout(bool $redirect = true): void {
     cliente_session_start();
     unset($_SESSION['cliente_logado'], $_SESSION['cliente_id'], $_SESSION['cliente_nome'], $_SESSION['cliente_email']);
     if ($redirect) {
-        $base = app_base_path();
-        header('Location: ' . ($base === '' ? '' : $base) . '/cliente/login.php');
+        header('Location: ' . app_url('cliente/login.php'));
         exit;
     }
 }
@@ -791,20 +789,43 @@ function app_slug(string $text): string {
     return trim($t, '-') ?: 'item';
 }
 
+/**
+ * Caminho base da aplicação (sem barra final).
+ * Ex.: '' na raiz, '/app' se o site estiver em subpasta.
+ * Páginas em /admin, /api ou /cliente sobem um nível para a raiz do app.
+ */
 function app_base_path(): string {
-    $script = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
-    // se estiver em /admin ou /api, sobe um nível
-    if (str_ends_with($script, '/admin') || str_ends_with($script, '/api')) {
-        $script = dirname($script);
+    $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    $dir = dirname($script);
+    // Normaliza: /foo/cliente/login.php → /foo/cliente → sobe para /foo
+    $dir = rtrim($dir, '/');
+    if ($dir === '' || $dir === '.' || $dir === '\\') {
+        return '';
     }
-    if ($script === '/' || $script === '\\' || $script === '.') return '';
-    return rtrim($script, '/');
+    // Pastas internas do app: não fazem parte do base path público
+    while (preg_match('#/(admin|api|cliente)$#', $dir)) {
+        $dir = dirname($dir);
+        $dir = rtrim(str_replace('\\', '/', $dir), '/');
+        if ($dir === '' || $dir === '.' || $dir === '/' || $dir === '\\') {
+            return '';
+        }
+    }
+    if ($dir === '/' || $dir === '\\' || $dir === '.') {
+        return '';
+    }
+    return $dir;
 }
 
+/** URL relativa à raiz do app. Sempre aponta para o arquivo correto. */
 function app_url(string $path = ''): string {
     $base = app_base_path();
     $path = ltrim($path, '/');
     return ($base === '' ? '' : $base) . ($path !== '' ? '/' . $path : '/');
+}
+
+/** URL da home da área do cliente (index.php explícito). */
+function cliente_home_url(): string {
+    return app_url('cliente/index.php');
 }
 
 function e(?string $s): string {

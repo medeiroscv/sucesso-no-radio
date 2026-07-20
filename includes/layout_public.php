@@ -31,8 +31,8 @@ function layout_header(string $title = '', string $active = ''): void {
     $favicon = !empty($s['site_favicon']) ? layout_media_url((string)$s['site_favicon'], $base) : '';
     $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
     $clienteLogado = function_exists('cliente_logado') && cliente_logado();
-    $areaCliente = ($base === '' ? '' : $base) . '/cliente/';
-    $loginCliente = ($base === '' ? '' : $base) . '/cliente/login.php';
+    $areaCliente = function_exists('cliente_home_url') ? cliente_home_url() : (($base === '' ? '' : $base) . '/cliente/index.php');
+    $loginCliente = function_exists('app_url') ? app_url('cliente/login.php') : (($base === '' ? '' : $base) . '/cliente/login.php');
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

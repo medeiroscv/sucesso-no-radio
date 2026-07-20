@@ -158,12 +158,16 @@ function cliente_header(string $title, string $active = ''): void {
     } catch (Throwable $e) { /* ok */ }
     $nomeSite = $s['site_nome'] ?? APP_NAME;
     $nomeCli = $_SESSION['cliente_nome'] ?? 'Cliente';
-    $base = app_base_path();
-    $prefix = $base === '' ? '' : $base;
-    $logo = !empty($s['site_logo']) ? ($prefix . '/' . ltrim((string)$s['site_logo'], '/')) : '';
-    $favicon = !empty($s['site_favicon']) ? ($prefix . '/' . ltrim((string)$s['site_favicon'], '/')) : '';
+    $logo = !empty($s['site_logo']) ? app_url(ltrim((string)$s['site_logo'], '/')) : '';
+    $favicon = !empty($s['site_favicon']) ? app_url(ltrim((string)$s['site_favicon'], '/')) : '';
     $tipos = app_conteudo_tipos();
     $styles = cliente_styles_inline();
+    $uHome = cliente_home_url();
+    $uConteudos = app_url('cliente/conteudos.php');
+    $uTexto = app_url('cliente/texto.php');
+    $uPerfil = app_url('cliente/perfil.php');
+    $uLogout = app_url('cliente/logout.php');
+    $uSite = app_url('') ?: '/';
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -179,7 +183,7 @@ function cliente_header(string $title, string $active = ''): void {
 <div class="cliente-shell">
     <aside class="cliente-sidebar" id="clienteSidebar">
         <div class="cliente-sidebar-brand">
-            <a href="<?= e($prefix . '/cliente/') ?>">
+            <a href="<?= e($uHome) ?>">
                 <?php if ($logo): ?>
                     <img src="<?= e($logo) ?>" alt="<?= e($nomeSite) ?>">
                 <?php else: ?>
@@ -190,21 +194,21 @@ function cliente_header(string $title, string $active = ''): void {
             <div class="cliente-sidebar-label">Área do cliente</div>
         </div>
         <nav class="cliente-sidebar-nav">
-            <a href="<?= e($prefix . '/cliente/') ?>" class="<?= $active === 'home' ? 'active' : '' ?>">🏠 Início</a>
+            <a href="<?= e($uHome) ?>" class="<?= $active === 'home' ? 'active' : '' ?>">🏠 Início</a>
             <div class="cliente-nav-group">Conteúdos</div>
             <?php foreach ($tipos as $key => $meta): ?>
-                <a href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($key)) ?>" class="<?= $active === $key ? 'active' : '' ?>">
+                <a href="<?= e($uConteudos . '?tipo=' . rawurlencode($key)) ?>" class="<?= $active === $key ? 'active' : '' ?>">
                     <?= $meta['icon'] ?> <?= e($meta['label']) ?>
                 </a>
             <?php endforeach; ?>
             <div class="cliente-nav-group">Serviços</div>
-            <a href="<?= e($prefix . '/cliente/texto.php') ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">🎙️ Enviar texto</a>
-            <a href="<?= e($prefix . '/cliente/perfil.php') ?>" class="<?= $active === 'perfil' ? 'active' : '' ?>">👤 Meus dados</a>
+            <a href="<?= e($uTexto) ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">🎙️ Enviar texto</a>
+            <a href="<?= e($uPerfil) ?>" class="<?= $active === 'perfil' ? 'active' : '' ?>">👤 Meus dados</a>
         </nav>
         <div class="cliente-sidebar-foot">
             <div class="cliente-user-chip">Olá, <strong><?= e($nomeCli) ?></strong></div>
-            <a class="btn btn-ghost btn-small" href="<?= e($prefix === '' ? '/' : $prefix . '/') ?>">Site público</a>
-            <a class="btn btn-secondary btn-small" href="<?= e($prefix . '/cliente/logout.php') ?>">Sair</a>
+            <a class="btn btn-ghost btn-small" href="<?= e($uSite) ?>">Site público</a>
+            <a class="btn btn-secondary btn-small" href="<?= e($uLogout) ?>">Sair</a>
         </div>
     </aside>
 

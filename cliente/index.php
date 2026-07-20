@@ -45,8 +45,6 @@ try {
 }
 
 cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
-$base = app_base_path();
-$prefix = $base === '' ? '' : $base;
 ?>
 <p class="cliente-intro">
     Aqui ficam os conteúdos <strong>liberados para o seu cadastro</strong>.
@@ -60,14 +58,14 @@ $prefix = $base === '' ? '' : $base;
 
 <div class="cliente-hub">
     <?php foreach ($tipos as $key => $meta): ?>
-        <a class="cliente-hub-card" href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($key)) ?>">
+        <a class="cliente-hub-card" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($key))) ?>">
             <div class="conteudo-hub-icon"><?= $meta['icon'] ?></div>
             <h3><?= e($meta['label']) ?></h3>
             <p><?= e($meta['desc']) ?></p>
             <div class="conteudo-hub-count"><?= (int)($counts[$key] ?? 0) ?> liberado(s)</div>
         </a>
     <?php endforeach; ?>
-    <a class="cliente-hub-card cliente-hub-accent" href="<?= e($prefix . '/cliente/texto.php') ?>">
+    <a class="cliente-hub-card cliente-hub-accent" href="<?= e(app_url('cliente/texto.php')) ?>">
         <div class="conteudo-hub-icon">🎙️</div>
         <h3>Enviar texto</h3>
         <p>Envie o texto para gravação — já vinculado aos seus dados.</p>
@@ -90,7 +88,7 @@ $prefix = $base === '' ? '' : $base;
                 $tipoLabel = $tipos[$r['tipo']]['label'] ?? $r['tipo'];
                 $data = $r['data_ref'] ?: substr((string)$r['created_at'], 0, 10);
             ?>
-                <a class="cliente-list-item" href="<?= e($prefix . '/cliente/conteudo.php?id=' . intval($r['conteudo_id'])) ?>">
+                <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($r['conteudo_id']))) ?>">
                     <div>
                         <strong><?= e($r['entrega_titulo'] ?: $r['conteudo_titulo']) ?></strong>
                         <div class="muted" style="font-size:.88rem;margin-top:4px;">

@@ -5,13 +5,11 @@ cliente_require_auth();
 $cli = cliente_atual();
 $id = intval($_GET['id'] ?? 0);
 $item = app_conteudo_by_id($id, true);
-$base = app_base_path();
-$prefix = $base === '' ? '' : $base;
 
 if (!$item || !cliente_pode_acessar_conteudo($id, $cli)) {
     http_response_code(404);
     cliente_header('Conteúdo não disponível', 'home');
-    echo '<div class="empty">Este conteúdo não está liberado para o seu cadastro. <a href="' . e($prefix . '/cliente/') . '">Voltar</a></div>';
+    echo '<div class="empty">Este conteúdo não está liberado para o seu cadastro. <a href="' . e(cliente_home_url()) . '">Voltar</a></div>';
     cliente_footer();
     exit;
 }
@@ -20,12 +18,12 @@ $tipos = app_conteudo_tipos();
 $tipo = (string)$item['tipo'];
 $tipoLabel = $tipos[$tipo]['label'] ?? $tipo;
 $entregas = app_entregas($id, true);
-$capa = !empty($item['capa']) ? ($prefix . '/' . ltrim($item['capa'], '/')) : '';
+$capa = !empty($item['capa']) ? app_url(ltrim($item['capa'], '/')) : '';
 
 cliente_header($item['titulo'], $tipo);
 ?>
 <p class="cliente-intro" style="margin-bottom:12px;">
-    <a href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($tipo)) ?>">← <?= e($tipoLabel) ?></a>
+    <a href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>">← <?= e($tipoLabel) ?></a>
 </p>
 
 <div class="cliente-detail">
@@ -51,7 +49,7 @@ cliente_header($item['titulo'], $tipo);
             <div class="cliente-list">
                 <?php foreach ($entregas as $ent):
                     $data = $ent['data_ref'] ?: substr((string)$ent['created_at'], 0, 10);
-                    $dl = $prefix . '/cliente/download.php?id=' . intval($ent['id']);
+                    $dl = app_url('cliente/download.php?id=' . intval($ent['id']));
                 ?>
                     <div class="cliente-list-item cliente-list-item-static">
                         <div style="flex:1;min-width:0;">

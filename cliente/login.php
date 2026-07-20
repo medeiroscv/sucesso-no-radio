@@ -3,22 +3,34 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/db.php';
 cliente_session_start();
 
-$base = app_base_path();
-$prefix = $base === '' ? '' : $base;
 $redirect = trim((string)($_GET['redirect'] ?? $_POST['redirect'] ?? ''));
 if ($redirect !== '' && (str_contains($redirect, '://') || str_starts_with($redirect, '//') || str_contains($redirect, '..'))) {
     $redirect = '';
 }
 
-if (cliente_logado() && cliente_atual()) {
+/** Destino pós-login (sempre URL válida da área do cliente). */
+function cliente_redirect_after_login(string $redirect): string {
     if ($redirect === 'texto') {
-        header('Location: ' . $prefix . '/cliente/texto.php');
-    } elseif ($redirect !== '' && !str_contains($redirect, '://')) {
-        $dest = str_starts_with($redirect, '/') ? $redirect : ($prefix . '/cliente/' . ltrim($redirect, '/'));
-        header('Location: ' . $dest);
-    } else {
-        header('Location: ' . $prefix . '/cliente/');
+        return app_url('cliente/texto.php');
     }
+    if ($redirect === 'perfil') {
+        return app_url('cliente/perfil.php');
+    }
+    if ($redirect !== '' && !str_contains($redirect, '://') && !str_starts_with($redirect, '//')) {
+        // só permite caminhos relativos seguros dentro de cliente/
+        $redirect = ltrim($redirect, '/');
+        if (str_starts_with($redirect, 'cliente/')) {
+            return app_url($redirect);
+        }
+        if (preg_match('#^[a-z0-9_\-\./]+\.php(\?.*)?$#i', $redirect)) {
+            return app_url('cliente/' . $redirect);
+        }
+    }
+    return cliente_home_url(); // cliente/index.php
+}
+
+if (cliente_logado() && cliente_atual()) {
+    header('Location: ' . cliente_redirect_after_login($redirect));
     exit;
 }
 
@@ -32,14 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cli = $st->fetch();
         if ($cli && password_verify($senha, $cli['senha_hash'])) {
             cliente_login_ok($cli);
-            if ($redirect === 'texto') {
-                header('Location: ' . $prefix . '/cliente/texto.php');
-            } elseif ($redirect !== '' && !str_contains($redirect, '://')) {
-                $dest = str_starts_with($redirect, '/') ? $redirect : ($prefix . '/cliente/' . ltrim($redirect, '/'));
-                header('Location: ' . $dest);
-            } else {
-                header('Location: ' . $prefix . '/cliente/');
-            }
+            header('Location: ' . cliente_redirect_after_login($redirect));
             exit;
         }
         $erro = 'E-mail ou senha inválidos.';
@@ -55,9 +60,11 @@ try {
     }
 } catch (Throwable $e) { /* ok */ }
 $nomeSite = $s['site_nome'] ?? APP_NAME;
-$logo = !empty($s['site_logo']) ? ($prefix . '/' . ltrim((string)$s['site_logo'], '/')) : '';
-$favicon = !empty($s['site_favicon']) ? ($prefix . '/' . ltrim((string)$s['site_favicon'], '/')) : '';
+$logo = !empty($s['site_logo']) ? app_url(ltrim((string)$s['site_logo'], '/')) : '';
+$favicon = !empty($s['site_favicon']) ? app_url(ltrim((string)$s['site_favicon'], '/')) : '';
 $emailVal = e($_POST['email'] ?? '');
+$homePublico = app_url('');
+if ($homePublico === '') $homePublico = '/';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -246,7 +253,7 @@ $emailVal = e($_POST['email'] ?? '');
 
         <p class="foot">
             Acesso liberado pela equipe<br>
-            <a href="<?= e($prefix === '' ? '/' : $prefix . '/') ?>">← Voltar ao site</a>
+            <a href="<?= e($homePublico) ?>">← Voltar ao site</a>
         </p>
     </div>
 </div>
