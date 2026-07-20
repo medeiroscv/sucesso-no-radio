@@ -31,7 +31,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ativo = !empty($_POST['ativo']) ? 1 : 0;
     $whatsapp_msg = trim((string)($_POST['whatsapp_msg'] ?? ''));
     $capaAtual = trim((string)($_POST['capa_atual'] ?? ''));
-    $capa = admin_upload('capa', 'programas') ?: $capaAtual;
+    $capaNova = admin_upload('capa', 'programas');
+    if ($capaNova !== '') {
+        if ($capaAtual !== '' && $capaAtual !== $capaNova) {
+            admin_delete_local_upload($capaAtual);
+        }
+        $capa = $capaNova;
+    } else {
+        $capa = $capaAtual;
+    }
 
     if ($titulo === '') {
         $err = 'Título obrigatório.';
@@ -125,6 +133,7 @@ if ($edit !== null):
         <div class="field"><label>Mensagem WhatsApp (opcional)</label><input name="whatsapp_msg" value="<?= htmlspecialchars($edit['whatsapp_msg']) ?>" placeholder="Olá! Quero o programa..."></div>
         <div class="field">
             <label>Capa (imagem)</label>
+            <p class="muted" style="margin:4px 0 8px;">Convertida para JPEG e redimensionada (máx. 540×675) para ficar leve.</p>
             <?php if (!empty($edit['capa'])): ?><p class="muted">Atual: <img class="thumb" src="../<?= htmlspecialchars($edit['capa']) ?>" alt=""></p><?php endif; ?>
             <input type="file" name="capa" accept="image/*">
         </div>

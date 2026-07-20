@@ -8,6 +8,7 @@ RUN set -eux; \
         libpng-dev \
         libjpeg62-turbo-dev \
         libfreetype6-dev \
+        libwebp-dev \
         libzip-dev \
         libonig-dev \
         libicu-dev \
@@ -16,11 +17,12 @@ RUN set -eux; \
         unzip \
         curl \
     ; \
-    docker-php-ext-configure gd --with-freetype --with-jpeg; \
+    docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp; \
     docker-php-ext-install -j"$(nproc)" \
         pdo_pgsql \
         pgsql \
         gd \
+        exif \
         zip \
         intl \
         mbstring \

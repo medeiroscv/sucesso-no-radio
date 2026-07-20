@@ -48,20 +48,202 @@ function admin_flash(?string $ok = null, ?string $err = null): void {
     if ($err) echo '<div class="alert alert-err">' . htmlspecialchars($err) . '</div>';
 }
 
-function admin_upload(string $field, string $subdir, array $extensoes = ['jpg', 'jpeg', 'png', 'webp', 'gif']): string {
+/**
+ * Upload de imagem: converte para JPEG, corrige orientação EXIF,
+ * redimensiona (máx. 540×675 = metade de 1080×1350, mantendo proporção) e compacta.
+ * Retorna caminho relativo (ex: uploads/programas/xxx.jpg) ou '' se falhar.
+ */
+function admin_upload(
+    string $field,
+    string $subdir,
+    array $extensoes = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'jfif', 'bmp'],
+    int $maxW = 540,
+    int $maxH = 675,
+    int $quality = 82
+): string {
     if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
         return '';
     }
-    $ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
-    if (!in_array($ext, $extensoes, true)) {
+    if (($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         return '';
     }
+
+    $tmp = (string)$_FILES[$field]['tmp_name'];
+    $origName = (string)($_FILES[$field]['name'] ?? '');
+    $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+    // Aceita por extensão ou por MIME real (celulares às vezes mandam sem extensão útil)
+    $info = @getimagesize($tmp);
+    $mimeOk = $info && in_array($info['mime'] ?? '', [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
+    ], true);
+    if (!$mimeOk && !in_array($ext, $extensoes, true)) {
+        return '';
+    }
+
     $dir = dirname(__DIR__) . '/uploads/' . trim($subdir, '/');
-    if (!is_dir($dir)) @mkdir($dir, 0775, true);
-    $name = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+
+    $name = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.jpg';
     $dest = $dir . '/' . $name;
-    if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dest)) return '';
+
+    if (!admin_image_to_jpeg($tmp, $dest, $maxW, $maxH, $quality)) {
+        return '';
+    }
+
     return 'uploads/' . trim($subdir, '/') . '/' . $name;
+}
+
+/** Remove arquivo local sob uploads/ (não apaga URLs externas). */
+function admin_delete_local_upload(string $relPath): void {
+    $relPath = str_replace('\\', '/', trim($relPath));
+    if ($relPath === '' || str_contains($relPath, '..')) return;
+    if (!str_starts_with($relPath, 'uploads/')) return;
+    $full = dirname(__DIR__) . '/' . $relPath;
+    if (is_file($full)) {
+        @unlink($full);
+    }
+}
+
+/**
+ * Processa imagem: EXIF, resize proporcional dentro do box, JPEG progressivo.
+ */
+function admin_image_to_jpeg(string $srcPath, string $destPath, int $maxW = 540, int $maxH = 675, int $quality = 82): bool {
+    if (!function_exists('imagecreatetruecolor')) {
+        return false;
+    }
+
+    $info = @getimagesize($srcPath);
+    if (!$info || empty($info[0]) || empty($info[1])) {
+        return false;
+    }
+
+    $type = (int)$info[2];
+    $src = match ($type) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($srcPath),
+        IMAGETYPE_PNG  => @imagecreatefrompng($srcPath),
+        IMAGETYPE_GIF  => @imagecreatefromgif($srcPath),
+        IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($srcPath) : false,
+        IMAGETYPE_BMP  => function_exists('imagecreatefrombmp') ? @imagecreatefrombmp($srcPath) : false,
+        default        => false,
+    };
+    if (!$src) {
+        return false;
+    }
+
+    // Corrigir rotação de fotos de celular (JPEG)
+    if ($type === IMAGETYPE_JPEG) {
+        $src = admin_image_apply_exif_orientation($src, $srcPath);
+    }
+
+    $w = imagesx($src);
+    $h = imagesy($src);
+    if ($w < 1 || $h < 1) {
+        imagedestroy($src);
+        return false;
+    }
+
+    $maxW = max(1, $maxW);
+    $maxH = max(1, $maxH);
+    $scale = 1.0;
+    if ($w > $maxW || $h > $maxH) {
+        $scale = min($maxW / $w, $maxH / $h);
+    }
+    $nw = max(1, (int)round($w * $scale));
+    $nh = max(1, (int)round($h * $scale));
+
+    $dst = imagecreatetruecolor($nw, $nh);
+    if (!$dst) {
+        imagedestroy($src);
+        return false;
+    }
+
+    // Fundo branco (PNG/WebP com transparência → JPEG)
+    $white = imagecolorallocate($dst, 255, 255, 255);
+    imagefill($dst, 0, 0, $white);
+
+    imagealphablending($src, true);
+    imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+    imagedestroy($src);
+
+    // JPEG progressivo = carrega mais suave e costuma ser um pouco menor
+    if (function_exists('imageinterlace')) {
+        imageinterlace($dst, true);
+    }
+
+    $quality = max(60, min(92, $quality));
+    $ok = @imagejpeg($dst, $destPath, $quality);
+    imagedestroy($dst);
+
+    if (!$ok || !is_file($destPath)) {
+        return false;
+    }
+
+    // Se ainda ficou pesado (>180KB no tamanho reduzido), recompacta um pouco mais
+    $size = filesize($destPath);
+    if ($size !== false && $size > 180 * 1024 && $quality > 72) {
+        $re = @imagecreatefromjpeg($destPath);
+        if ($re) {
+            if (function_exists('imageinterlace')) {
+                imageinterlace($re, true);
+            }
+            @imagejpeg($re, $destPath, 72);
+            imagedestroy($re);
+        }
+    }
+
+    return is_file($destPath);
+}
+
+/** Aplica orientação EXIF (fotos de iPhone/Android). */
+function admin_image_apply_exif_orientation($img, string $path) {
+    if (!function_exists('exif_read_data')) {
+        return $img;
+    }
+    $exif = @exif_read_data($path);
+    if (!$exif || empty($exif['Orientation'])) {
+        return $img;
+    }
+    $orientation = (int)$exif['Orientation'];
+    switch ($orientation) {
+        case 2:
+            imageflip($img, IMG_FLIP_HORIZONTAL);
+            break;
+        case 3:
+            $img = admin_image_rotate($img, 180);
+            break;
+        case 4:
+            imageflip($img, IMG_FLIP_VERTICAL);
+            break;
+        case 5:
+            imageflip($img, IMG_FLIP_HORIZONTAL);
+            $img = admin_image_rotate($img, 270);
+            break;
+        case 6:
+            $img = admin_image_rotate($img, 270); // 90° CW
+            break;
+        case 7:
+            imageflip($img, IMG_FLIP_HORIZONTAL);
+            $img = admin_image_rotate($img, 90);
+            break;
+        case 8:
+            $img = admin_image_rotate($img, 90); // 90° CCW
+            break;
+    }
+    return $img;
+}
+
+function admin_image_rotate($img, int $angle) {
+    // imagerotate usa ângulo anti-horário; fundo branco
+    $bg = imagecolorallocate($img, 255, 255, 255);
+    $rotated = imagerotate($img, $angle, $bg);
+    if ($rotated === false) {
+        return $img;
+    }
+    imagedestroy($img);
+    return $rotated;
 }
 
 /** Upload de vários áudios do campo demos[] (ou demos com índices). */

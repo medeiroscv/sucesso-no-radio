@@ -17,7 +17,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ordem = intval($_POST['ordem'] ?? 0);
     $ativo = !empty($_POST['ativo']) ? 1 : 0;
     $imgAtual = trim((string)($_POST['imagem_atual'] ?? ''));
-    $imagem = admin_upload('imagem', 'banners') ?: $imgAtual;
+    $imgNova = admin_upload('imagem', 'banners');
+    if ($imgNova !== '') {
+        if ($imgAtual !== '' && $imgAtual !== $imgNova) {
+            admin_delete_local_upload($imgAtual);
+        }
+        $imagem = $imgNova;
+    } else {
+        $imagem = $imgAtual;
+    }
     if ($id > 0) {
         $pdo->prepare('UPDATE banners SET titulo=?, subtitulo=?, imagem=?, link=?, botao_texto=?, ativo=?, ordem=? WHERE id=?')
             ->execute([$titulo, $subtitulo, $imagem, $link, $botao, $ativo, $ordem, $id]);
@@ -56,6 +64,7 @@ if ($edit):
     </div>
     <div class="field">
         <label>Imagem</label>
+        <p class="muted" style="margin:4px 0 8px;">Convertida para JPEG e redimensionada (máx. 540×675) para ficar leve.</p>
         <?php if ($edit['imagem']): ?><img class="thumb" src="../<?= htmlspecialchars($edit['imagem']) ?>" alt=""><?php endif; ?>
         <input type="file" name="imagem" accept="image/*">
     </div>
