@@ -76,11 +76,6 @@ function layout_header(string $title = '', string $active = ''): void {
             <?php if ($formContatoAtivo): ?>
                 <a href="<?= e(app_url('contato.php')) ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
             <?php endif; ?>
-            <?php if ($clienteLogado): ?>
-                <a href="<?= e($areaCliente) ?>" class="<?= in_array($active, ['cliente', 'home', 'texto', 'perfil', 'diario', 'semanal', 'informativo', 'programete'], true) && str_contains($_SERVER['SCRIPT_NAME'] ?? '', '/cliente/') ? 'active' : '' ?>">Minha área</a>
-            <?php else: ?>
-                <a href="<?= e($loginCliente) ?>">Área do cliente</a>
-            <?php endif; ?>
         </nav>
         <div class="nav-actions">
             <?php if ($clienteLogado): ?>
@@ -89,8 +84,8 @@ function layout_header(string $title = '', string $active = ''): void {
                 <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
             <?php else: ?>
                 <a class="btn btn-primary btn-small" href="<?= e($loginCliente) ?>">Entrar</a>
+                <a class="btn btn-wa btn-small" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
             <?php endif; ?>
-            <a class="btn btn-wa btn-small" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
         </div>
     </div>
 </header>
