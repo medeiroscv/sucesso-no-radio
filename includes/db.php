@@ -182,7 +182,33 @@ function app_bootstrap_database(PDO $pdo): void {
         updated_at TIMESTAMP NULL
     )");
     try { $pdo->exec("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS acesso_total SMALLINT DEFAULT 0"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cpf VARCHAR(14) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_clientes_ativo ON clientes (ativo, nome)');
+
+    // Faturas / área financeira (EFI Pix + boleto)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS faturas (
+        id SERIAL PRIMARY KEY,
+        cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+        descricao VARCHAR(255) DEFAULT 'Mensalidade',
+        valor_centavos INT NOT NULL DEFAULT 0,
+        vencimento DATE NOT NULL,
+        status VARCHAR(40) NOT NULL DEFAULT 'aberta',
+        pix_txid VARCHAR(80) DEFAULT '',
+        pix_loc_id VARCHAR(80) DEFAULT '',
+        pix_qrcode TEXT DEFAULT '',
+        pix_copia_cola TEXT DEFAULT '',
+        pix_expira_em TIMESTAMP NULL,
+        boleto_charge_id VARCHAR(80) DEFAULT '',
+        boleto_url TEXT DEFAULT '',
+        boleto_barcode VARCHAR(120) DEFAULT '',
+        boleto_pdf TEXT DEFAULT '',
+        pago_em TIMESTAMP NULL,
+        observacao TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP NULL
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_cliente ON faturas (cliente_id, status, vencimento DESC, id DESC)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_pix_txid ON faturas (pix_txid)');
 
     // Textos enviados para gravação (sempre vinculados ao cliente logado)
     $pdo->exec("CREATE TABLE IF NOT EXISTS textos_gravacao (
@@ -299,7 +325,10 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
         'form_texto_btn' => 'Enviar texto',
         'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
-        'db_version' => '8',
+        // Financeiro / EFI
+        'finance_ativo' => '0',
+        'finance_bloquear_atraso' => '1',
+        'db_version' => '9',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -310,7 +339,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['8']);
+            )->execute(['9']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -669,10 +698,91 @@ function cliente_salvar_liberacoes(int $clienteId, array $tipos, bool $acessoTot
 function cliente_require_liberacao(string $redirectLogin = ''): void {
     cliente_require_auth($redirectLogin);
     $cli = cliente_atual();
-    if (cliente_tem_liberacao($cli)) return;
-    // logado mas sem liberação → dashboard bloqueado
-    header('Location: ' . cliente_home_url() . '?bloqueado=1');
-    exit;
+    if (!cliente_tem_liberacao($cli)) {
+        header('Location: ' . cliente_home_url() . '?bloqueado=1');
+        exit;
+    }
+    if (!cliente_financeiro_em_dia($cli)) {
+        header('Location: ' . app_url('cliente/financeiro.php') . '?atraso=1');
+        exit;
+    }
+}
+
+function app_finance_ativo(): bool {
+    return app_setting('finance_ativo', '0') === '1';
+}
+
+function app_finance_bloquear_atraso(): bool {
+    return app_setting('finance_bloquear_atraso', '1') === '1';
+}
+
+/** Sem faturas vencidas em aberto (quando financeiro ativo e bloqueio ligado). */
+function cliente_financeiro_em_dia(?array $cli = null): bool {
+    if (!app_finance_ativo() || !app_finance_bloquear_atraso()) {
+        return true;
+    }
+    if ($cli === null) $cli = cliente_atual();
+    if (!$cli) return false;
+    try {
+        // marca vencidas
+        app_pdo()->prepare(
+            "UPDATE faturas SET status = 'vencida', updated_at = NOW()
+             WHERE cliente_id = ? AND status = 'aberta' AND vencimento < CURRENT_DATE"
+        )->execute([intval($cli['id'])]);
+
+        $st = app_pdo()->prepare(
+            "SELECT COUNT(*) FROM faturas
+             WHERE cliente_id = ? AND status IN ('aberta','vencida') AND vencimento < CURRENT_DATE"
+        );
+        $st->execute([intval($cli['id'])]);
+        return intval($st->fetchColumn()) === 0;
+    } catch (Throwable $e) {
+        return true;
+    }
+}
+
+function app_fatura_by_id(int $id): ?array {
+    if ($id <= 0) return null;
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM faturas WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        $r = $st->fetch();
+        return $r ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function app_faturas_cliente(int $clienteId, int $limit = 50): array {
+    if ($clienteId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT * FROM faturas WHERE cliente_id = ? ORDER BY vencimento DESC, id DESC LIMIT ' . max(1, min(200, $limit))
+        );
+        $st->execute([$clienteId]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_fatura_status_meta(?string $status = null): array {
+    $all = [
+        'aberta' => ['label' => 'Em aberto', 'color' => '#38bdf8', 'bg' => 'rgba(56,189,248,.15)'],
+        'paga' => ['label' => 'Paga', 'color' => '#86efac', 'bg' => 'rgba(34,197,94,.15)'],
+        'vencida' => ['label' => 'Vencida', 'color' => '#fca5a5', 'bg' => 'rgba(239,68,68,.15)'],
+        'cancelada' => ['label' => 'Cancelada', 'color' => '#94a3b8', 'bg' => 'rgba(148,163,184,.15)'],
+    ];
+    if ($status === null) return $all;
+    return $all[$status] ?? $all['aberta'];
+}
+
+function app_money_br(int $centavos): string {
+    return 'R$ ' . number_format($centavos / 100, 2, ',', '.');
+}
+
+function app_only_digits(string $s): string {
+    return preg_replace('/\D+/', '', $s) ?? '';
 }
 
 function app_conteudo_by_slug(string $slug, string $area = 'demonstrativo'): ?array {

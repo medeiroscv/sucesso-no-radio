@@ -35,7 +35,24 @@ BOOTSTRAP_ADMIN_NAME=Administrador
 
 APP_TIMEZONE=America/Sao_Paulo
 APP_NAME=Sucesso no Rádio
+
+# Efí Bank (financeiro — Pix + boleto)
+# EFI_CLIENT_ID=
+# EFI_CLIENT_SECRET=
+# EFI_SANDBOX=true
+# EFI_PIX_KEY=sua-chave-pix
+# EFI_CERT_PATH=/var/www/html/config/efi-cert.p12
+# EFI_CERT_PASSWORD=
 ```
+
+### Financeiro (Efí)
+
+1. Crie aplicação na conta Efí com **API Pix** + **API Cobranças**.  
+2. Gere certificado e monte o arquivo em volume `config/` (ex.: `/var/www/html/config/efi-cert.p12`).  
+3. Preencha as variáveis `EFI_*` acima.  
+4. No admin → **Financeiro**, ative o módulo e o bloqueio por atraso.  
+5. Cadastre webhook Pix: `https://seu-dominio/api/efi-webhook.php`  
+6. Informe **CPF** no cadastro do cliente (boleto/Pix).
 
 Hostname interno do Postgres no EasyPanel: `{nome_do_projeto}_{servico}`  
 (ex.: `sucesso_postgres`). Veja **Credentials** no painel.

@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = strtolower(trim((string)($_POST['email'] ?? '')));
     $whatsapp = trim((string)($_POST['whatsapp'] ?? ''));
     $telefone = trim((string)($_POST['telefone'] ?? ''));
+    $cpf = app_only_digits((string)($_POST['cpf'] ?? ''));
     $radio = trim((string)($_POST['radio'] ?? ''));
     $cidade = trim((string)($_POST['cidade'] ?? ''));
     $observacoes = trim((string)($_POST['observacoes'] ?? ''));
@@ -34,6 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = 'Nome e e-mail são obrigatórios.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $err = 'E-mail inválido.';
+    } elseif ($cpf !== '' && strlen($cpf) !== 11 && strlen($cpf) !== 14) {
+        $err = 'CPF/CNPJ inválido.';
     } elseif ($id <= 0 && $senha === '') {
         $err = 'Informe a senha inicial do cliente.';
     } elseif ($senha !== '' && strlen($senha) < 6) {
@@ -49,23 +52,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($senha !== '') {
                         $hash = password_hash($senha, PASSWORD_DEFAULT);
                         $pdo->prepare(
-                            'UPDATE clientes SET nome=?, email=?, whatsapp=?, telefone=?, radio=?, cidade=?, observacoes=?, ativo=?, senha_hash=?, updated_at=NOW() WHERE id=?'
-                        )->execute([$nome, $email, $whatsapp, $telefone, $radio, $cidade, $observacoes, $ativo, $hash, $id]);
+                            'UPDATE clientes SET nome=?, email=?, whatsapp=?, telefone=?, cpf=?, radio=?, cidade=?, observacoes=?, ativo=?, senha_hash=?, updated_at=NOW() WHERE id=?'
+                        )->execute([$nome, $email, $whatsapp, $telefone, $cpf, $radio, $cidade, $observacoes, $ativo, $hash, $id]);
                     } else {
                         $pdo->prepare(
-                            'UPDATE clientes SET nome=?, email=?, whatsapp=?, telefone=?, radio=?, cidade=?, observacoes=?, ativo=?, updated_at=NOW() WHERE id=?'
-                        )->execute([$nome, $email, $whatsapp, $telefone, $radio, $cidade, $observacoes, $ativo, $id]);
+                            'UPDATE clientes SET nome=?, email=?, whatsapp=?, telefone=?, cpf=?, radio=?, cidade=?, observacoes=?, ativo=?, updated_at=NOW() WHERE id=?'
+                        )->execute([$nome, $email, $whatsapp, $telefone, $cpf, $radio, $cidade, $observacoes, $ativo, $id]);
                     }
                 } else {
                     $hash = password_hash($senha, PASSWORD_DEFAULT);
                     $pdo->prepare(
-                        'INSERT INTO clientes (nome,email,senha_hash,whatsapp,telefone,radio,cidade,observacoes,ativo,created_at)
-                         VALUES (?,?,?,?,?,?,?,?,?,NOW())'
-                    )->execute([$nome, $email, $hash, $whatsapp, $telefone, $radio, $cidade, $observacoes, $ativo]);
+                        'INSERT INTO clientes (nome,email,senha_hash,whatsapp,telefone,cpf,radio,cidade,observacoes,ativo,created_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,NOW())'
+                    )->execute([$nome, $email, $hash, $whatsapp, $telefone, $cpf, $radio, $cidade, $observacoes, $ativo]);
                     $id = intval($pdo->lastInsertId());
                 }
 
-                // Liberação de conteúdos
+                // Liberação de categorias
                 cliente_salvar_liberacoes($id, $liberados, (bool)$acessoTotal);
 
                 header('Location: clientes.php?id=' . $id . '&ok=1');
@@ -82,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'email' => $email,
         'whatsapp' => $whatsapp,
         'telefone' => $telefone,
+        'cpf' => $cpf,
         'radio' => $radio,
         'cidade' => $cidade,
         'observacoes' => $observacoes,
@@ -99,7 +103,7 @@ if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
         $tiposLiberados = $edit ? cliente_tipos_liberados(intval($edit['id'])) : [];
     } else {
         $edit = [
-            'id' => 0, 'nome' => '', 'email' => '', 'whatsapp' => '', 'telefone' => '',
+            'id' => 0, 'nome' => '', 'email' => '', 'whatsapp' => '', 'telefone' => '', 'cpf' => '',
             'radio' => '', 'cidade' => '', 'observacoes' => '', 'ativo' => 1, 'acesso_total' => 0,
         ];
         $tiposLiberados = [];
@@ -140,8 +144,12 @@ if ($edit !== null):
             <div class="field"><label>E-mail (login) *</label><input type="email" name="email" required value="<?= e($edit['email'] ?? '') ?>"></div>
         </div>
         <div class="field-row">
+            <div class="field"><label>CPF (obrigatório para boleto/Pix)</label><input name="cpf" value="<?= e($edit['cpf'] ?? '') ?>" placeholder="000.000.000-00"></div>
             <div class="field"><label>WhatsApp</label><input name="whatsapp" value="<?= e($edit['whatsapp'] ?? '') ?>" placeholder="(00) 00000-0000"></div>
+        </div>
+        <div class="field-row">
             <div class="field"><label>Telefone</label><input name="telefone" value="<?= e($edit['telefone'] ?? '') ?>"></div>
+            <div class="field"></div>
         </div>
         <div class="field-row">
             <div class="field"><label>Rádio / empresa</label><input name="radio" value="<?= e($edit['radio'] ?? '') ?>"></div>

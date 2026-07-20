@@ -26,13 +26,16 @@ function cliente_subnav(string $active = ''): void {
     ?>
     <nav class="cliente-subnav" aria-label="Menu da área do cliente">
         <a href="<?= e(cliente_home_url()) ?>" class="<?= $active === 'home' || $active === 'cliente' ? 'active' : '' ?>">Início</a>
-        <?php if ($liberado): ?>
+        <?php if ($liberado && function_exists('cliente_financeiro_em_dia') && cliente_financeiro_em_dia($cli)): ?>
             <?php foreach ($tipos as $key => $meta): ?>
                 <a href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($key))) ?>" class="<?= $active === $key ? 'active' : '' ?>">
                     <?= e($meta['label']) ?>
                 </a>
             <?php endforeach; ?>
             <a href="<?= e(app_url('cliente/texto.php')) ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">Meus textos</a>
+        <?php endif; ?>
+        <?php if (function_exists('app_finance_ativo') && app_finance_ativo()): ?>
+            <a href="<?= e(app_url('cliente/financeiro.php')) ?>" class="<?= $active === 'financeiro' ? 'active' : '' ?>">Financeiro</a>
         <?php endif; ?>
         <a href="<?= e(app_url('cliente/perfil.php')) ?>" class="<?= $active === 'perfil' ? 'active' : '' ?>">Meus dados</a>
         <a href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>

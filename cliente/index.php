@@ -57,9 +57,21 @@ if ($bloqueado):
 ?>
 <div class="empty" style="margin-bottom:28px;">
     <strong style="display:block;font-size:1.1rem;margin-bottom:10px;color:var(--text);">Acesso aos conteúdos bloqueado</strong>
-    Sua conta está ativa, mas ainda <strong>não há conteúdos liberados</strong> para o seu cadastro.<br>
+    Sua conta está ativa, mas ainda <strong>não há categorias liberadas</strong> para o seu cadastro.<br>
     Você não consegue visualizar programas nem enviar textos até a equipe liberar o produto.<br>
     <span class="muted" style="display:block;margin-top:12px;">Fale com a Sucesso no Rádio para ativar sua liberação.</span>
+</div>
+<?php
+cliente_footer();
+exit;
+endif;
+
+if (!cliente_financeiro_em_dia($cli)):
+?>
+<div class="empty" style="margin-bottom:28px;">
+    <strong style="display:block;font-size:1.1rem;margin-bottom:10px;color:var(--text);">Pagamento em atraso</strong>
+    Há fatura vencida. Regularize em <strong>Financeiro</strong> para liberar conteúdos e textos.<br>
+    <a class="btn btn-primary" style="margin-top:16px;" href="<?= e(app_url('cliente/financeiro.php')) ?>">Ir para Financeiro</a>
 </div>
 <?php
 cliente_footer();
