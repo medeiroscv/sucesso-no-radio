@@ -55,7 +55,6 @@ cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
         <br><span class="muted" style="font-size:.9rem;"><?= (int)$totalLiberados ?> conteúdo(s) liberado(s)</span>
     <?php endif; ?>
 </p>
-<section class="section" style="padding-top:0;">
 
 <div class="cliente-hub">
     <?php foreach ($tipos as $key => $meta): ?>
@@ -74,7 +73,7 @@ cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
     </a>
 </div>
 
-<section class="section">
+<section class="section" style="padding-top:12px;">
     <div class="section-head">
         <h2>Atualizações recentes</h2>
         <p>Últimos arquivos de entrega dos conteúdos liberados para você.</p>
@@ -104,6 +103,5 @@ cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
-</section>
 </section>
 <?php cliente_footer(); ?>

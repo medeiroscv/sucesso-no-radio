@@ -26,7 +26,7 @@ cliente_header($item['titulo'], $tipo);
     <a href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>">← <?= e($tipoLabel) ?></a>
 </p>
 
-<div class="cliente-detail">
+<div class="destaque cliente-detail">
     <div>
         <div class="card-meta" style="margin-bottom:12px;">
             <span class="chip"><?= e($tipoLabel) ?></span>
