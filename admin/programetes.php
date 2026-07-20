@@ -52,7 +52,7 @@ admin_flash($ok, $err);
 if ($edit):
 ?>
 <div class="card">
-<form method="post">
+<form method="post" enctype="multipart/form-data">
     <input type="hidden" name="id" value="<?= intval($edit['id']) ?>">
     <div class="field"><label>Título</label><input name="titulo" required value="<?= htmlspecialchars($edit['titulo']) ?>"></div>
     <div class="field"><label>Descrição</label><textarea name="descricao" rows="3"><?= htmlspecialchars($edit['descricao']) ?></textarea></div>
