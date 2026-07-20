@@ -10,17 +10,18 @@ $cliId = intval($cli['id']);
 $ok = $err = '';
 $formAtivo = app_setting('form_texto_ativo', '1') === '1';
 $verId = intval($_GET['id'] ?? 0);
+$modoNovo = isset($_GET['novo']);
 $editando = null;
 
 // Carrega texto do cliente para ver/corrigir
 if ($verId > 0) {
+    $modoNovo = false;
     $editando = app_texto_by_id($verId);
     if (!$editando || intval($editando['cliente_id'] ?? 0) !== $cliId) {
         $editando = null;
         $err = 'Texto não encontrado.';
         $verId = 0;
     } else {
-        // marca como lido pelo cliente
         if (empty($editando['lido_cliente'])) {
             try {
                 app_pdo()->prepare('UPDATE textos_gravacao SET lido_cliente = 1 WHERE id = ? AND cliente_id = ?')
@@ -40,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
 
     if ($texto === '') {
         $err = 'Informe o texto para gravação.';
+        if ($acao === 'novo') $modoNovo = true;
     } elseif ($acao === 'corrigir' && $idPost > 0) {
         $row = app_texto_by_id($idPost);
         if (!$row || intval($row['cliente_id'] ?? 0) !== $cliId) {
@@ -53,15 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
                      SET titulo = ?, texto = ?, status = 'corrigido', lido = 0, lido_cliente = 1, updated_at = NOW()
                      WHERE id = ? AND cliente_id = ?"
                 )->execute([$titulo, $texto, $idPost, $cliId]);
-                $ok = 'Texto corrigido e reenviado! A equipe já pode revisar.';
-                $verId = $idPost;
-                $editando = app_texto_by_id($idPost);
+                header('Location: ' . app_url('cliente/texto.php?id=' . $idPost . '&ok=1'));
+                exit;
             } catch (Throwable $e) {
                 $err = 'Não foi possível salvar a correção.';
             }
         }
-    } else {
-        // novo envio
+    } elseif ($acao === 'novo') {
         try {
             $st = app_pdo()->prepare(
                 "INSERT INTO textos_gravacao
@@ -79,14 +79,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
                 $texto,
             ]);
             $newId = intval($st->fetchColumn());
-            $ok = 'Texto enviado com sucesso! Acompanhe o status abaixo.';
-            $_POST = [];
             if ($newId > 0) {
                 header('Location: ' . app_url('cliente/texto.php?id=' . $newId . '&ok=1'));
                 exit;
             }
+            header('Location: ' . app_url('cliente/texto.php?ok=1'));
+            exit;
         } catch (Throwable $e) {
-            // fallback sem RETURNING
             try {
                 app_pdo()->prepare(
                     "INSERT INTO textos_gravacao
@@ -101,42 +100,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
                     $titulo,
                     $texto,
                 ]);
-                $ok = 'Texto enviado com sucesso! Acompanhe o status abaixo.';
-                $_POST = [];
+                header('Location: ' . app_url('cliente/texto.php?ok=1'));
+                exit;
             } catch (Throwable $e2) {
                 $err = 'Não foi possível enviar agora. Tente novamente em instantes.';
+                $modoNovo = true;
             }
         }
     }
 }
 
-if (isset($_GET['ok'])) $ok = $ok ?: 'Salvo com sucesso.';
+if (isset($_GET['ok'])) $ok = 'Salvo com sucesso.';
 
 $meusTextos = app_textos_do_cliente($cliId);
-$tituloPag = app_setting('form_texto_titulo', 'Meus textos para gravação');
-$intro = app_setting('form_texto_intro', 'Envie o texto que deseja gravar e acompanhe o status e o áudio entregue.');
+$tituloPag = 'Meus textos';
+$intro = app_setting('form_texto_intro', 'Acompanhe os textos enviados para gravação e os áudios entregues.');
 $instrucoes = app_setting('form_texto_instrucoes', '');
 $btn = app_setting('form_texto_btn', 'Enviar texto');
-$mostrarFormNovo = empty($editando) || (($editando['status'] ?? '') === 'entregue' || ($editando['status'] ?? '') === 'pendente' || ($editando['status'] ?? '') === 'corrigido');
-// se está em precisa_correcao, mostra form de correção em vez de novo
 $precisaCorrecao = $editando && ($editando['status'] ?? '') === 'precisa_correcao';
+
+// Títulos de página por modo
+if ($modoNovo) {
+    $tituloPag = 'Enviar novo texto';
+} elseif ($editando) {
+    $tituloPag = $editando['titulo'] ?: ('Texto #' . intval($editando['id']));
+}
 
 cliente_header($tituloPag, 'texto');
 cliente_flash($ok, $err);
+
+// ========== FORMULÁRIO NOVO TEXTO (tela separada) ==========
+if ($modoNovo):
 ?>
 <p class="cliente-intro"><?= e($intro) ?></p>
+<div class="actions" style="margin-bottom:16px;">
+    <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/texto.php')) ?>">← Voltar para Meus textos</a>
+</div>
 
-<?php if ($editando):
+<?php if (!$formAtivo): ?>
+    <div class="alert alert-err">O envio de textos está temporariamente desativado.</div>
+<?php else: ?>
+<div class="forms-grid">
+    <div class="form-card" style="max-width:720px;">
+        <div class="cliente-dados-box" style="margin-bottom:14px;">
+            <strong>Seus dados</strong>
+            <div class="muted" style="margin-top:8px;line-height:1.7;font-size:.92rem;">
+                <?= e($cli['nome']) ?> · <?= e($cli['email']) ?>
+                <?php if (!empty($cli['whatsapp'])): ?> · WhatsApp <?= e($cli['whatsapp']) ?><?php endif; ?>
+            </div>
+        </div>
+        <form method="post">
+            <input type="hidden" name="acao" value="novo">
+            <div class="field">
+                <label>Título / referência</label>
+                <input name="titulo" value="<?= e($_POST['titulo'] ?? '') ?>" placeholder="Ex.: Programa X, campanha...">
+            </div>
+            <?php if ($instrucoes !== ''): ?>
+                <p class="muted" style="margin-bottom:8px;font-size:.9rem;"><?= e($instrucoes) ?></p>
+            <?php endif; ?>
+            <div class="field">
+                <label>Texto para gravação *</label>
+                <textarea name="texto" rows="14" required placeholder="Cole ou escreva o texto completo..."><?= e($_POST['texto'] ?? '') ?></textarea>
+            </div>
+            <div class="actions">
+                <button class="btn btn-primary" type="submit"><?= e($btn) ?></button>
+                <a class="btn btn-ghost" href="<?= e(app_url('cliente/texto.php')) ?>">Cancelar</a>
+            </div>
+        </form>
+    </div>
+    <div class="hero-card">
+        <h3>Como funciona</h3>
+        <ul style="color:var(--muted);font-size:.95rem;margin:12px 0 0 18px;line-height:1.8;">
+            <li>Você envia o texto</li>
+            <li>Se precisar, a equipe pede correção</li>
+            <li>Você ajusta e reenvia</li>
+            <li>Recebe o áudio MP3 em Meus textos</li>
+        </ul>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php
+// ========== DETALHE / CORREÇÃO ==========
+elseif ($editando):
     $st = (string)($editando['status'] ?? 'pendente');
     $meta = app_texto_status_meta($st);
 ?>
-<div class="form-card" style="max-width:800px;margin-bottom:22px;">
-    <div class="actions" style="margin-bottom:12px;">
-        <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/texto.php')) ?>">← Todos os textos</a>
-        <span style="font-size:.78rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($meta['color']) ?>;background:<?= e($meta['bg']) ?>;">
-            <?= e($meta['label']) ?>
-        </span>
-    </div>
+<div class="actions" style="margin-bottom:16px;">
+    <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/texto.php')) ?>">← Voltar para Meus textos</a>
+    <span style="font-size:.78rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($meta['color']) ?>;background:<?= e($meta['bg']) ?>;">
+        <?= e($meta['label']) ?>
+    </span>
+</div>
+
+<div class="form-card" style="max-width:800px;margin-bottom:28px;">
     <h3 style="margin:0 0 8px;"><?= e($editando['titulo'] ?: ('Texto #' . intval($editando['id']))) ?></h3>
     <p class="muted" style="margin-bottom:12px;font-size:.88rem;">
         Enviado em <?= e(substr((string)$editando['created_at'], 0, 16)) ?>
@@ -187,87 +244,54 @@ cliente_flash($ok, $err);
         <p class="muted" style="margin-top:12px;"><?= e($meta['desc']) ?>.</p>
     <?php endif; ?>
 </div>
-<?php endif; ?>
 
-<?php if (!$precisaCorrecao): ?>
-<div class="forms-grid" style="margin-bottom:28px;">
-    <div class="form-card" style="max-width:720px;">
-        <h3 style="margin:0 0 12px;">Novo texto para gravação</h3>
-        <?php if (!$formAtivo): ?>
-            <div class="alert alert-err">O envio de textos está temporariamente desativado.</div>
-        <?php else: ?>
-            <div class="cliente-dados-box" style="margin-bottom:14px;">
-                <strong>Seus dados</strong>
-                <div class="muted" style="margin-top:8px;line-height:1.7;font-size:.92rem;">
-                    <?= e($cli['nome']) ?> · <?= e($cli['email']) ?>
-                    <?php if (!empty($cli['whatsapp'])): ?> · WhatsApp <?= e($cli['whatsapp']) ?><?php endif; ?>
-                </div>
-            </div>
-            <form method="post">
-                <input type="hidden" name="acao" value="novo">
-                <div class="field">
-                    <label>Título / referência</label>
-                    <input name="titulo" value="<?= e($_POST['titulo'] ?? '') ?>" placeholder="Ex.: Programa X, campanha...">
-                </div>
-                <?php if ($instrucoes !== ''): ?>
-                    <p class="muted" style="margin-bottom:8px;font-size:.9rem;"><?= e($instrucoes) ?></p>
-                <?php endif; ?>
-                <div class="field">
-                    <label>Texto para gravação *</label>
-                    <textarea name="texto" rows="12" required placeholder="Cole ou escreva o texto completo..."><?= e(($_POST['acao'] ?? '') === 'novo' ? ($_POST['texto'] ?? '') : '') ?></textarea>
-                </div>
-                <button class="btn btn-primary" type="submit"><?= e($btn) ?></button>
-            </form>
-        <?php endif; ?>
-    </div>
-    <div class="hero-card">
-        <h3>Fluxo</h3>
-        <ul style="color:#94a3b8;font-size:.95rem;margin:12px 0 0 18px;line-height:1.8;">
-            <li>Você envia o texto</li>
-            <li>Se precisar, a equipe pede correção</li>
-            <li>Você ajusta e reenvia</li>
-            <li>Recebe o áudio MP3 aqui</li>
-        </ul>
-    </div>
-</div>
-<?php endif; ?>
+<?php
+// ========== LISTA (padrão ao abrir Meus textos) ==========
+else:
+?>
+<p class="cliente-intro"><?= e($intro) ?></p>
 
-<section class="section">
-    <div class="section-head">
-        <h2>Meus envios</h2>
-        <p>Histórico de textos, status e áudios entregues.</p>
-    </div>
-    <?php if (!$meusTextos): ?>
-        <div class="empty">Você ainda não enviou nenhum texto.</div>
+<div class="actions" style="margin-bottom:20px;">
+    <?php if ($formAtivo): ?>
+        <a class="btn btn-primary" href="<?= e(app_url('cliente/texto.php?novo=1')) ?>">Enviar novo texto</a>
     <?php else: ?>
-        <div class="cliente-list">
-            <?php foreach ($meusTextos as $t):
-                $st = (string)($t['status'] ?? 'pendente');
-                $m = app_texto_status_meta($st);
-                $url = app_url('cliente/texto.php?id=' . intval($t['id']));
-            ?>
-                <a class="cliente-list-item" href="<?= e($url) ?>">
-                    <div>
-                        <strong><?= e($t['titulo'] ?: ('Texto #' . intval($t['id']))) ?></strong>
-                        <div class="muted" style="font-size:.85rem;margin-top:4px;">
-                            <?= e(substr((string)$t['created_at'], 0, 16)) ?>
-                            · <?= e(mb_strimwidth($t['texto'] ?? '', 0, 60, '…')) ?>
-                        </div>
-                    </div>
-                    <div class="cliente-list-meta">
-                        <span style="font-size:.72rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;white-space:nowrap;">
-                            <?= e($m['label']) ?>
-                        </span>
-                        <?php if (!empty($t['audio_arquivo'])): ?>
-                            <span class="chip">🎧 Áudio</span>
-                        <?php endif; ?>
-                        <?php if (empty($t['lido_cliente']) && in_array($st, ['precisa_correcao', 'entregue'], true)): ?>
-                            <span class="chip" style="background:rgba(239,68,68,.15);color:#fecaca;border-color:rgba(239,68,68,.3);">Novo</span>
-                        <?php endif; ?>
-                    </div>
-                </a>
-            <?php endforeach; ?>
-        </div>
+        <span class="muted">Envio de textos temporariamente desativado.</span>
     <?php endif; ?>
-</section>
-<?php cliente_footer(); ?>
+</div>
+
+<?php if (!$meusTextos): ?>
+    <div class="empty">Nenhum texto solicitado</div>
+<?php else: ?>
+    <div class="cliente-list">
+        <?php foreach ($meusTextos as $t):
+            $st = (string)($t['status'] ?? 'pendente');
+            $m = app_texto_status_meta($st);
+            $url = app_url('cliente/texto.php?id=' . intval($t['id']));
+        ?>
+            <a class="cliente-list-item" href="<?= e($url) ?>">
+                <div>
+                    <strong><?= e($t['titulo'] ?: ('Texto #' . intval($t['id']))) ?></strong>
+                    <div class="muted" style="font-size:.85rem;margin-top:4px;">
+                        <?= e(substr((string)$t['created_at'], 0, 16)) ?>
+                        · <?= e(mb_strimwidth($t['texto'] ?? '', 0, 60, '…')) ?>
+                    </div>
+                </div>
+                <div class="cliente-list-meta">
+                    <span style="font-size:.72rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;white-space:nowrap;">
+                        <?= e($m['label']) ?>
+                    </span>
+                    <?php if (!empty($t['audio_arquivo'])): ?>
+                        <span class="chip">🎧 Áudio</span>
+                    <?php endif; ?>
+                    <?php if (empty($t['lido_cliente']) && in_array($st, ['precisa_correcao', 'entregue'], true)): ?>
+                        <span class="chip" style="background:rgba(239,68,68,.15);color:#fecaca;border-color:rgba(239,68,68,.3);">Novo</span>
+                    <?php endif; ?>
+                </div>
+            </a>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
+<?php
+endif;
+cliente_footer();
