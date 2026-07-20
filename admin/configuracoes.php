@@ -210,8 +210,9 @@ elseif ($sec === 'formulario_texto'):
 </div>
 <div class="card">
     <p class="muted" style="margin-bottom:16px;">
-        Formulário para a pessoa enviar um <strong>texto que será gravado</strong>.
-        Os envios ficam gravados em <a href="contatos.php?tipo=texto">Contatos → Textos</a>.
+        Formulário exclusivo da <strong>área do cliente</strong> (requer login).
+        Cada envio grava o texto <strong>junto com os dados cadastrados do cliente</strong> (nome, e-mail, WhatsApp).
+        Veja em <a href="contatos.php?tipo=texto">Textos a gravar</a>.
     </p>
     <form method="post">
         <input type="hidden" name="sec" value="formulario_texto">

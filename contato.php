@@ -64,10 +64,8 @@ $base = app_base_path();
             <h3>Atendimento rápido</h3>
             <p style="color:var(--muted);margin:10px 0 16px;">Prefere falar agora? Chame no WhatsApp.</p>
             <a class="btn btn-wa" href="<?= e(wa_link('Olá! Vim pelo site e quero mais informações.')) ?>" target="_blank">Abrir WhatsApp</a>
-            <?php if (($s['form_texto_ativo'] ?? '1') === '1'): ?>
-                <p style="color:var(--muted);margin:18px 0 10px;font-size:.9rem;">Quer enviar um texto para gravação?</p>
-                <a class="btn btn-ghost" href="<?= e(($base === '' ? '' : $base) . '/texto.php') ?>">Envio de texto</a>
-            <?php endif; ?>
+            <p style="color:var(--muted);margin:18px 0 10px;font-size:.9rem;">Cliente? Envie textos para gravação na área restrita.</p>
+            <a class="btn btn-ghost" href="<?= e(($base === '' ? '' : $base) . '/cliente/login.php?redirect=texto') ?>">Área do cliente</a>
         </div>
     </div>
 </main>

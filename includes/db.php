@@ -164,9 +164,28 @@ function app_bootstrap_database(PDO $pdo): void {
     // colunas extras se a tabela já existia
     try { $pdo->exec("ALTER TABLE contatos ADD COLUMN IF NOT EXISTS whatsapp VARCHAR(40) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
 
-    // Textos enviados para gravação
+    // Clientes (área restrita)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS clientes (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(160) NOT NULL,
+        email VARCHAR(200) NOT NULL UNIQUE,
+        senha_hash TEXT NOT NULL,
+        whatsapp VARCHAR(40) DEFAULT '',
+        telefone VARCHAR(40) DEFAULT '',
+        radio VARCHAR(160) DEFAULT '',
+        cidade VARCHAR(120) DEFAULT '',
+        observacoes TEXT DEFAULT '',
+        ativo SMALLINT DEFAULT 1,
+        last_login TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP NULL
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_clientes_ativo ON clientes (ativo, nome)');
+
+    // Textos enviados para gravação (sempre vinculados ao cliente logado)
     $pdo->exec("CREATE TABLE IF NOT EXISTS textos_gravacao (
         id SERIAL PRIMARY KEY,
+        cliente_id INT NULL REFERENCES clientes(id) ON DELETE SET NULL,
         nome VARCHAR(160) DEFAULT '',
         email VARCHAR(200) DEFAULT '',
         telefone VARCHAR(40) DEFAULT '',
@@ -176,6 +195,8 @@ function app_bootstrap_database(PDO $pdo): void {
         lido SMALLINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
     )");
+    try { $pdo->exec('ALTER TABLE textos_gravacao ADD COLUMN IF NOT EXISTS cliente_id INT NULL REFERENCES clientes(id) ON DELETE SET NULL'); } catch (Throwable $e) { /* ok */ }
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_textos_cliente ON textos_gravacao (cliente_id, id DESC)');
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS site_settings (
         chave VARCHAR(120) PRIMARY KEY,
@@ -217,6 +238,19 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_conteudos_tipo ON conteudos (tipo, ativo, ordem, id)');
 
+    // Arquivos de entrega (somente área do cliente — atualizados diariamente)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS conteudo_entregas (
+        id SERIAL PRIMARY KEY,
+        conteudo_id INT NOT NULL REFERENCES conteudos(id) ON DELETE CASCADE,
+        titulo VARCHAR(200) DEFAULT '',
+        arquivo VARCHAR(500) NOT NULL,
+        data_ref DATE NULL,
+        ordem INT DEFAULT 0,
+        ativo SMALLINT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW()
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_entregas_conteudo ON conteudo_entregas (conteudo_id, ativo, data_ref DESC, ordem, id)');
+
     // seed settings
     $defaults = [
         'site_nome' => app_env('APP_NAME', 'Sucesso no Rádio'),
@@ -238,7 +272,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
         'form_texto_btn' => 'Enviar texto',
         'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
-        'db_version' => '4',
+        'db_version' => '5',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -249,7 +283,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['4']);
+            )->execute(['5']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -485,6 +519,134 @@ function app_conteudo_by_slug(string $slug): ?array {
         return $row ?: null;
     } catch (Throwable $e) {
         return null;
+    }
+}
+
+function app_conteudo_by_id(int $id, bool $somenteAtivos = true): ?array {
+    if ($id <= 0) return null;
+    try {
+        $sql = 'SELECT * FROM conteudos WHERE id = ?';
+        if ($somenteAtivos) $sql .= ' AND ativo = 1';
+        $sql .= ' LIMIT 1';
+        $st = app_pdo()->prepare($sql);
+        $st->execute([$id]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** Arquivos de entrega (área do cliente). */
+function app_entregas(int $conteudoId, bool $somenteAtivos = true): array {
+    if ($conteudoId <= 0) return [];
+    try {
+        $sql = 'SELECT * FROM conteudo_entregas WHERE conteudo_id = ?';
+        if ($somenteAtivos) $sql .= ' AND ativo = 1';
+        $sql .= ' ORDER BY data_ref DESC NULLS LAST, ordem ASC, id DESC';
+        $st = app_pdo()->prepare($sql);
+        $st->execute([$conteudoId]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_entrega_by_id(int $id): ?array {
+    if ($id <= 0) return null;
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM conteudo_entregas WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function app_delete_entrega(int $id): bool {
+    if ($id <= 0) return false;
+    try {
+        $pdo = app_pdo();
+        $st = $pdo->prepare('SELECT arquivo FROM conteudo_entregas WHERE id = ?');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        if (!$row) return false;
+        $pdo->prepare('DELETE FROM conteudo_entregas WHERE id = ?')->execute([$id]);
+        $path = dirname(__DIR__) . '/' . ltrim((string)$row['arquivo'], '/');
+        if (is_file($path)) @unlink($path);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+// ---------- Auth cliente ----------
+
+function cliente_session_start(): void {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+}
+
+function cliente_logado(): bool {
+    cliente_session_start();
+    return !empty($_SESSION['cliente_logado']) && !empty($_SESSION['cliente_id']);
+}
+
+function cliente_id(): int {
+    return cliente_logado() ? intval($_SESSION['cliente_id']) : 0;
+}
+
+function cliente_atual(): ?array {
+    $id = cliente_id();
+    if ($id <= 0) return null;
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM clientes WHERE id = ? AND ativo = 1 LIMIT 1');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        if (!$row) {
+            cliente_logout(false);
+            return null;
+        }
+        return $row;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function cliente_require_auth(string $redirectAfter = ''): void {
+    if (cliente_logado() && cliente_atual()) {
+        return;
+    }
+    $base = app_base_path();
+    $login = ($base === '' ? '' : $base) . '/cliente/login.php';
+    if ($redirectAfter !== '') {
+        $login .= '?redirect=' . rawurlencode($redirectAfter);
+    }
+    header('Location: ' . $login);
+    exit;
+}
+
+function cliente_login_ok(array $cli): void {
+    cliente_session_start();
+    session_regenerate_id(true);
+    $_SESSION['cliente_logado'] = true;
+    $_SESSION['cliente_id'] = intval($cli['id']);
+    $_SESSION['cliente_nome'] = (string)($cli['nome'] ?? '');
+    $_SESSION['cliente_email'] = (string)($cli['email'] ?? '');
+    try {
+        app_pdo()->prepare('UPDATE clientes SET last_login = NOW() WHERE id = ?')->execute([intval($cli['id'])]);
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function cliente_logout(bool $redirect = true): void {
+    cliente_session_start();
+    unset($_SESSION['cliente_logado'], $_SESSION['cliente_id'], $_SESSION['cliente_nome'], $_SESSION['cliente_email']);
+    if ($redirect) {
+        $base = app_base_path();
+        header('Location: ' . ($base === '' ? '' : $base) . '/cliente/login.php');
+        exit;
     }
 }
 

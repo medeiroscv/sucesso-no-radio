@@ -29,8 +29,10 @@ function layout_header(string $title = '', string $active = ''): void {
     $home = ($base === '' ? '/' : $base . '/');
     $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
     $favicon = !empty($s['site_favicon']) ? layout_media_url((string)$s['site_favicon'], $base) : '';
-    $formTextoAtivo = ($s['form_texto_ativo'] ?? '1') === '1';
     $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
+    $clienteLogado = function_exists('cliente_logado') && cliente_logado();
+    $areaCliente = ($base === '' ? '' : $base) . '/cliente/';
+    $loginCliente = ($base === '' ? '' : $base) . '/cliente/login.php';
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -64,11 +66,14 @@ function layout_header(string $title = '', string $active = ''): void {
             <?php if ($formContatoAtivo): ?>
                 <a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
             <?php endif; ?>
-            <?php if ($formTextoAtivo): ?>
-                <a href="<?= e(($base === '' ? '' : $base) . '/texto.php') ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">Enviar texto</a>
-            <?php endif; ?>
+            <a href="<?= e($clienteLogado ? $areaCliente : $loginCliente) ?>">Área do cliente</a>
         </nav>
-        <a class="btn btn-wa btn-small" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <a class="btn btn-primary btn-small" href="<?= e($clienteLogado ? $areaCliente : $loginCliente) ?>">
+                <?= $clienteLogado ? 'Minha área' : 'Entrar' ?>
+            </a>
+            <a class="btn btn-wa btn-small" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
+        </div>
     </div>
 </header>
 <?php
@@ -81,7 +86,6 @@ function layout_footer(): void {
     $base = app_base_path();
     $home = ($base === '' ? '/' : $base . '/');
     $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
-    $formTextoAtivo = ($s['form_texto_ativo'] ?? '1') === '1';
     $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
     ?>
 <footer class="site-footer">
@@ -98,7 +102,7 @@ function layout_footer(): void {
             <strong>Navegação</strong>
             <p><a href="<?= e($home) ?>">Início</a></p>
             <?php if ($formContatoAtivo): ?><p><a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>">Contato</a></p><?php endif; ?>
-            <?php if ($formTextoAtivo): ?><p><a href="<?= e(($base === '' ? '' : $base) . '/texto.php') ?>">Enviar texto</a></p><?php endif; ?>
+            <p><a href="<?= e(($base === '' ? '' : $base) . '/cliente/login.php') ?>">Área do cliente</a></p>
             <p><a href="<?= e(($base === '' ? '' : $base) . '/admin/') ?>">Área admin</a></p>
         </div>
         <div>

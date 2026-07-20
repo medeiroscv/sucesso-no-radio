@@ -25,6 +25,9 @@ if (isset($_GET['del'])) {
         foreach (app_demonstrativos('conteudo', $id) as $d) {
             app_delete_demonstrativo(intval($d['id']));
         }
+        foreach (app_entregas($id, false) as $ent) {
+            app_delete_entrega(intval($ent['id']));
+        }
         if (!empty($row['capa'])) {
             admin_delete_local_upload((string)$row['capa']);
         }
@@ -115,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $id = intval($pdo->lastInsertId());
             }
             admin_salvar_demonstrativos('conteudo', $id);
+            admin_salvar_entregas($id);
             header('Location: conteudos.php?tipo=' . rawurlencode($tipoPost) . '&id=' . $id . '&ok=1');
             exit;
         } catch (Throwable $e) {
@@ -321,6 +325,13 @@ elseif ($edit !== null):
         </div>
 
         <?php admin_bloco_demonstrativos('conteudo', intval($edit['id'] ?? 0)); ?>
+        <?php if (!empty($edit['id'])): ?>
+            <?php admin_bloco_entregas(intval($edit['id'])); ?>
+        <?php else: ?>
+            <div class="field" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+                <p class="muted">Salve o conteúdo primeiro para poder enviar <strong>arquivos de entrega</strong> (área do cliente).</p>
+            </div>
+        <?php endif; ?>
 
         <div class="actions" style="margin-top:16px;">
             <button class="btn btn-primary" type="submit">Salvar</button>

@@ -72,18 +72,19 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
 
 ## O que o admin controla
 
-- **Conteúdos** — hub com 4 tipos lado a lado:  
-  - **Diários**  
-  - **Semanais**  
-  - **Informativos**  
-  - **Programetes**  
-  (capa, duração, blocos, dias, inserções, demos MP3, WhatsApp)  
+- **Conteúdos** — hub com 4 tipos: Diários, Semanais, Informativos, Programetes  
+  - **Demonstrativos** (públicos na home)  
+  - **Arquivos de entrega** (só área do cliente, atualização diária)  
+- **Clientes** — cadastro com e-mail/senha, WhatsApp, rádio  
+- **Textos a gravar** — envios dos clientes logados (com dados do cadastro)  
 - **Banners** da home  
-- **Contatos** — envios do formulário de contato e textos para gravação  
-- **Configurações** — hub com:  
-  - **Site** (nome, slogan, logo, favicon, WhatsApp, e-mail, sobre)  
-  - **Formulário de contato**  
-  - **Envio de texto** (texto que será gravado)  
+- **Configurações** — site (logo/favicon), formulário de contato, textos do form de gravação  
+
+### Área do cliente (`/cliente/`)
+- Login obrigatório  
+- Acesso a diários, semanais, informativos e programetes + downloads de entrega  
+- Envio de texto para gravação vinculado ao cliente  
+
 
 
 Tudo que aparece no front vem do banco via admin — sem editar HTML à mão.

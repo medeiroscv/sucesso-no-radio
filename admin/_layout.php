@@ -22,8 +22,9 @@ function admin_header(string $title, string $active = ''): void {
         <nav>
             <a href="index.php" class="<?= $active === 'dash' ? 'active' : '' ?>">Dashboard</a>
             <a href="conteudos.php" class="<?= $active === 'conteudos' ? 'active' : '' ?>">Conteúdos</a>
+            <a href="clientes.php" class="<?= $active === 'clientes' ? 'active' : '' ?>">Clientes</a>
             <a href="banners.php" class="<?= $active === 'banners' ? 'active' : '' ?>">Banners</a>
-            <a href="contatos.php" class="<?= $active === 'contatos' ? 'active' : '' ?>">Contatos</a>
+            <a href="contatos.php?tipo=texto" class="<?= $active === 'contatos' ? 'active' : '' ?>">Textos / Contatos</a>
             <a href="configuracoes.php" class="<?= $active === 'config' ? 'active' : '' ?>">Configurações</a>
             <a href="../" target="_blank">Ver site</a>
             <a href="logout.php">Sair</a>
@@ -332,20 +333,24 @@ function admin_upload_asset(string $field, string $subdir, string $mode = 'logo'
     return 'uploads/' . trim($subdir, '/') . '/' . $name;
 }
 
-/** Upload de vários áudios do campo demos[] (ou demos com índices). */
-function admin_upload_demos_multi(string $subdir = 'demos'): array {
+/**
+ * Upload de vários áudios (campo file[] + títulos em POST).
+ * $fileField: nome do input file (ex: demos, entregas)
+ * $tituloField: nome do array de títulos (ex: demo_titulos, entrega_titulos)
+ */
+function admin_upload_audios_multi(string $fileField, string $tituloField, string $subdir, string $tituloPadrao = 'Áudio'): array {
     $extOk = ['mp3', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'aac'];
     $out = [];
-    if (empty($_FILES['demos']) || !is_array($_FILES['demos']['name'] ?? null)) {
+    if (empty($_FILES[$fileField]) || !is_array($_FILES[$fileField]['name'] ?? null)) {
         return $out;
     }
-    $names = $_FILES['demos']['name'];
-    $tmps = $_FILES['demos']['tmp_name'];
-    $errs = $_FILES['demos']['error'];
+    $names = $_FILES[$fileField]['name'];
+    $tmps = $_FILES[$fileField]['tmp_name'];
+    $errs = $_FILES[$fileField]['error'];
     $dir = dirname(__DIR__) . '/uploads/' . trim($subdir, '/');
     if (!is_dir($dir)) @mkdir($dir, 0775, true);
 
-    $titulos = $_POST['demo_titulos'] ?? [];
+    $titulos = $_POST[$tituloField] ?? [];
     if (!is_array($titulos)) $titulos = [];
 
     foreach ($names as $i => $origName) {
@@ -358,7 +363,7 @@ function admin_upload_demos_multi(string $subdir = 'demos'): array {
         if (!@move_uploaded_file($tmps[$i], $dest)) continue;
         $titulo = trim((string)($titulos[$i] ?? ''));
         if ($titulo === '') {
-            $titulo = pathinfo((string)$origName, PATHINFO_FILENAME) ?: ('Demonstrativo ' . ($i + 1));
+            $titulo = pathinfo((string)$origName, PATHINFO_FILENAME) ?: ($tituloPadrao . ' ' . ($i + 1));
         }
         $out[] = [
             'titulo' => $titulo,
@@ -366,6 +371,11 @@ function admin_upload_demos_multi(string $subdir = 'demos'): array {
         ];
     }
     return $out;
+}
+
+/** Upload de vários áudios do campo demos[] (ou demos com índices). */
+function admin_upload_demos_multi(string $subdir = 'demos'): array {
+    return admin_upload_audios_multi('demos', 'demo_titulos', $subdir, 'Demonstrativo');
 }
 
 /** Grava novos demos e remove os marcados para exclusão. */
@@ -458,6 +468,117 @@ function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
         // Um campo já aberto ao carregar o formulário
         if (document.getElementById('demoSlots') && !document.getElementById('demoSlots').children.length) {
             addDemoSlot();
+        }
+    })();
+    </script>
+    <?php
+}
+
+/** Grava entregas (área do cliente) e remove marcadas. */
+function admin_salvar_entregas(int $conteudoId): void {
+    if ($conteudoId <= 0) return;
+    $pdo = app_pdo();
+
+    $del = $_POST['entrega_del'] ?? [];
+    if (is_array($del)) {
+        foreach ($del as $eid) {
+            app_delete_entrega(intval($eid));
+        }
+    }
+
+    $titExist = $_POST['entrega_titulo_existente'] ?? [];
+    $dataExist = $_POST['entrega_data_existente'] ?? [];
+    if (is_array($titExist)) {
+        $st = $pdo->prepare('UPDATE conteudo_entregas SET titulo = ?, data_ref = ? WHERE id = ? AND conteudo_id = ?');
+        foreach ($titExist as $eid => $tit) {
+            $data = trim((string)($dataExist[$eid] ?? ''));
+            $dataRef = $data !== '' ? $data : null;
+            $st->execute([trim((string)$tit), $dataRef, intval($eid), $conteudoId]);
+        }
+    }
+
+    $novos = admin_upload_audios_multi('entregas', 'entrega_titulos', 'entregas', 'Entrega');
+    if (!$novos) return;
+
+    $datas = $_POST['entrega_datas'] ?? [];
+    if (!is_array($datas)) $datas = [];
+
+    $ordSt = $pdo->prepare('SELECT COALESCE(MAX(ordem), 0) FROM conteudo_entregas WHERE conteudo_id = ?');
+    $ordSt->execute([$conteudoId]);
+    $ordem = intval($ordSt->fetchColumn());
+    $ins = $pdo->prepare(
+        'INSERT INTO conteudo_entregas (conteudo_id, titulo, arquivo, data_ref, ordem, ativo, created_at)
+         VALUES (?,?,?,?,?,1,NOW())'
+    );
+    foreach ($novos as $i => $n) {
+        $ordem++;
+        $data = trim((string)($datas[$i] ?? ''));
+        if ($data === '') $data = date('Y-m-d');
+        $ins->execute([$conteudoId, $n['titulo'], $n['arquivo'], $data, $ordem]);
+    }
+}
+
+/** Bloco HTML + JS das entregas (somente clientes). */
+function admin_bloco_entregas(int $conteudoId): void {
+    $itens = app_entregas($conteudoId, false);
+    ?>
+    <div class="field" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+        <label style="font-size:1rem;color:var(--text);">Arquivos para clientes (entrega diária)</label>
+        <p class="muted" style="margin:6px 0 12px;">
+            Estes áudios <strong>não aparecem no site público</strong> — só na área logada do cliente.
+            Atualize diariamente conforme a programação. Use o botão <strong>+</strong> para mais arquivos.
+        </p>
+
+        <?php if ($itens): ?>
+            <div style="display:grid;gap:10px;margin-bottom:14px;">
+                <?php foreach ($itens as $d): ?>
+                    <div style="display:grid;grid-template-columns:1fr 140px auto;gap:10px;align-items:center;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+                        <div>
+                            <input name="entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;">
+                            <audio controls preload="none" style="width:100%;max-width:420px;">
+                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                            </audio>
+                        </div>
+                        <div>
+                            <label class="muted" style="font-size:.75rem;">Data ref.</label>
+                            <input type="date" name="entrega_data_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['data_ref'] ?? '') ?>" style="width:100%;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;">
+                        </div>
+                        <label class="muted" style="font-size:.82rem;white-space:nowrap;">
+                            <input type="checkbox" name="entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+
+        <div id="entregaSlots" style="display:grid;gap:10px;"></div>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" class="btn btn-secondary btn-small" onclick="addEntregaSlot()">+ Adicionar entrega</button>
+        </div>
+    </div>
+    <script>
+    (function () {
+        var idx = 0;
+        window.addEntregaSlot = function () {
+            var box = document.getElementById('entregaSlots');
+            if (!box) return;
+            var i = idx++;
+            var row = document.createElement('div');
+            row.className = 'entrega-slot';
+            row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 140px auto;gap:8px;align-items:end;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;';
+            var today = new Date().toISOString().slice(0, 10);
+            row.innerHTML =
+                '<div class="field" style="margin:0"><label>Título</label>' +
+                '<input name="entrega_titulos[' + i + ']" placeholder="Ex.: Programa 20/07 — Bloco 1"></div>' +
+                '<div class="field" style="margin:0"><label>Arquivo MP3</label>' +
+                '<input type="file" name="entregas[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg"></div>' +
+                '<div class="field" style="margin:0"><label>Data</label>' +
+                '<input type="date" name="entrega_datas[' + i + ']" value="' + today + '"></div>' +
+                '<button type="button" class="btn btn-danger btn-small" onclick="this.closest(\'.entrega-slot\').remove()">Remover</button>';
+            box.appendChild(row);
+        };
+        if (document.getElementById('entregaSlots') && !document.getElementById('entregaSlots').children.length) {
+            addEntregaSlot();
         }
     })();
     </script>

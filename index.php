@@ -85,7 +85,8 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                 <h1><?= e($s['site_slogan'] ?? 'Tudo que sua rádio precisa em um só lugar') ?></h1>
                 <p><?= e($s['sobre'] ?? 'Diários, semanais, informativos e programetes profissionais para a sua grade.') ?></p>
                 <div class="hero-actions">
-                    <a class="btn btn-primary" href="#diarios">Ver conteúdos</a>
+                    <a class="btn btn-primary" href="#diarios">Ver demonstrativos</a>
+                    <a class="btn btn-ghost" href="<?= e($prefix . '/cliente/login.php') ?>">Área do cliente</a>
                     <a class="btn btn-wa" href="<?= e(wa_link('Olá! Quero conhecer os planos da ' . ($s['site_nome'] ?? 'Sucesso no Rádio'))) ?>" target="_blank" rel="noopener">Falar no WhatsApp</a>
                 </div>
             </div>
