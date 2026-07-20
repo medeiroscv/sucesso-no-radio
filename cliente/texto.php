@@ -48,7 +48,7 @@ $btn = app_setting('form_texto_btn', 'Enviar texto');
 cliente_header($tituloPag, 'texto');
 cliente_flash($ok, $err);
 ?>
-<p class="muted" style="margin-top:-4px;margin-bottom:18px;"><?= e($intro) ?></p>
+<p class="cliente-intro"><?= e($intro) ?></p>
 
 <div class="forms-grid">
     <div class="form-card" style="max-width:720px;">

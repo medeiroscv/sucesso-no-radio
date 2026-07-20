@@ -19,12 +19,13 @@ if (!$ent || empty($ent['ativo'])) {
     exit;
 }
 
-// Conteúdo precisa estar ativo
+// Conteúdo ativo e liberado para este cliente
 $conteudo = app_conteudo_by_id(intval($ent['conteudo_id']), true);
-if (!$conteudo) {
-    http_response_code(404);
+$cli = cliente_atual();
+if (!$conteudo || !cliente_pode_acessar_conteudo(intval($ent['conteudo_id']), $cli)) {
+    http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
-    echo 'Conteúdo indisponível.';
+    echo 'Conteúdo não liberado para o seu cadastro.';
     exit;
 }
 

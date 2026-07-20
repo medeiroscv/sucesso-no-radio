@@ -2,15 +2,16 @@
 require_once __DIR__ . '/_layout.php';
 cliente_require_auth();
 
+$cli = cliente_atual();
 $id = intval($_GET['id'] ?? 0);
 $item = app_conteudo_by_id($id, true);
 $base = app_base_path();
 $prefix = $base === '' ? '' : $base;
 
-if (!$item) {
+if (!$item || !cliente_pode_acessar_conteudo($id, $cli)) {
     http_response_code(404);
-    cliente_header('Conteúdo não encontrado', 'home');
-    echo '<div class="empty">Conteúdo indisponível. <a href="' . e($prefix . '/cliente/') . '">Voltar</a></div>';
+    cliente_header('Conteúdo não disponível', 'home');
+    echo '<div class="empty">Este conteúdo não está liberado para o seu cadastro. <a href="' . e($prefix . '/cliente/') . '">Voltar</a></div>';
     cliente_footer();
     exit;
 }
@@ -23,11 +24,11 @@ $capa = !empty($item['capa']) ? ($prefix . '/' . ltrim($item['capa'], '/')) : ''
 
 cliente_header($item['titulo'], $tipo);
 ?>
-<p class="muted" style="margin-top:-8px;margin-bottom:16px;">
+<p class="cliente-intro" style="margin-bottom:12px;">
     <a href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($tipo)) ?>">← <?= e($tipoLabel) ?></a>
 </p>
 
-<div class="destaque cliente-detail">
+<div class="cliente-detail">
     <div>
         <div class="card-meta" style="margin-bottom:12px;">
             <span class="chip"><?= e($tipoLabel) ?></span>

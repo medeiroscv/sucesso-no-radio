@@ -175,11 +175,13 @@ function app_bootstrap_database(PDO $pdo): void {
         radio VARCHAR(160) DEFAULT '',
         cidade VARCHAR(120) DEFAULT '',
         observacoes TEXT DEFAULT '',
+        acesso_total SMALLINT DEFAULT 0,
         ativo SMALLINT DEFAULT 1,
         last_login TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP NULL
     )");
+    try { $pdo->exec("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS acesso_total SMALLINT DEFAULT 0"); } catch (Throwable $e) { /* ok */ }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_clientes_ativo ON clientes (ativo, nome)');
 
     // Textos enviados para gravação (sempre vinculados ao cliente logado)
@@ -251,6 +253,15 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_entregas_conteudo ON conteudo_entregas (conteudo_id, ativo, data_ref DESC, ordem, id)');
 
+    // Conteúdos liberados por cliente
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_conteudos (
+        cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+        conteudo_id INT NOT NULL REFERENCES conteudos(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (cliente_id, conteudo_id)
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_cliente_conteudos_conteudo ON cliente_conteudos (conteudo_id)');
+
     // seed settings
     $defaults = [
         'site_nome' => app_env('APP_NAME', 'Sucesso no Rádio'),
@@ -272,7 +283,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
         'form_texto_btn' => 'Enviar texto',
         'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
-        'db_version' => '5',
+        'db_version' => '6',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -283,7 +294,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['5']);
+            )->execute(['6']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -507,6 +518,76 @@ function app_conteudos_por_tipo(string $tipo, bool $somenteAtivos = true): array
         return $st->fetchAll() ?: [];
     } catch (Throwable $e) {
         return [];
+    }
+}
+
+/** IDs de conteúdos liberados para o cliente (vazio se acesso_total). */
+function cliente_conteudo_ids(int $clienteId): array {
+    if ($clienteId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare('SELECT conteudo_id FROM cliente_conteudos WHERE cliente_id = ?');
+        $st->execute([$clienteId]);
+        return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function cliente_tem_acesso_total(?array $cli = null): bool {
+    if ($cli === null) $cli = cliente_atual();
+    if (!$cli) return false;
+    return !empty($cli['acesso_total']);
+}
+
+function cliente_pode_acessar_conteudo(int $conteudoId, ?array $cli = null): bool {
+    if ($conteudoId <= 0) return false;
+    if ($cli === null) $cli = cliente_atual();
+    if (!$cli) return false;
+    if (!empty($cli['acesso_total'])) return true;
+    $ids = cliente_conteudo_ids(intval($cli['id']));
+    return in_array($conteudoId, $ids, true);
+}
+
+/** Conteúdos liberados para o cliente, por tipo. */
+function cliente_conteudos_por_tipo(int $clienteId, string $tipo, ?array $cli = null): array {
+    if (!app_conteudo_tipo_valido($tipo) || $clienteId <= 0) return [];
+    if ($cli === null) {
+        try {
+            $st = app_pdo()->prepare('SELECT * FROM clientes WHERE id = ? LIMIT 1');
+            $st->execute([$clienteId]);
+            $cli = $st->fetch() ?: null;
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+    if (!$cli) return [];
+    if (!empty($cli['acesso_total'])) {
+        return app_conteudos_por_tipo($tipo, true);
+    }
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT c.* FROM conteudos c
+             INNER JOIN cliente_conteudos cc ON cc.conteudo_id = c.id AND cc.cliente_id = ?
+             WHERE c.tipo = ? AND c.ativo = 1
+             ORDER BY c.destaque DESC, c.ordem ASC, c.titulo ASC'
+        );
+        $st->execute([$clienteId, $tipo]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function cliente_salvar_liberacoes(int $clienteId, array $conteudoIds, bool $acessoTotal): void {
+    $pdo = app_pdo();
+    $pdo->prepare('UPDATE clientes SET acesso_total = ?, updated_at = NOW() WHERE id = ?')
+        ->execute([$acessoTotal ? 1 : 0, $clienteId]);
+    $pdo->prepare('DELETE FROM cliente_conteudos WHERE cliente_id = ?')->execute([$clienteId]);
+    if ($acessoTotal) return;
+    $ins = $pdo->prepare('INSERT INTO cliente_conteudos (cliente_id, conteudo_id, created_at) VALUES (?,?,NOW()) ON CONFLICT DO NOTHING');
+    foreach ($conteudoIds as $cid) {
+        $cid = intval($cid);
+        if ($cid > 0) $ins->execute([$clienteId, $cid]);
     }
 }
 

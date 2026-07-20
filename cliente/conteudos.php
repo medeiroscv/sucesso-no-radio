@@ -2,21 +2,23 @@
 require_once __DIR__ . '/_layout.php';
 cliente_require_auth();
 
+$cli = cliente_atual();
+$cliId = intval($cli['id'] ?? 0);
 $tipos = app_conteudo_tipos();
 $tipo = trim((string)($_GET['tipo'] ?? 'diario'));
 if (!app_conteudo_tipo_valido($tipo)) {
     $tipo = 'diario';
 }
 $meta = $tipos[$tipo];
-$lista = app_conteudos_por_tipo($tipo, true);
+$lista = cliente_conteudos_por_tipo($cliId, $tipo, $cli);
 $base = app_base_path();
 $prefix = $base === '' ? '' : $base;
 
 cliente_header($meta['label'], $tipo);
 ?>
-<p class="muted" style="margin-top:-8px;margin-bottom:16px;"><?= e($meta['desc']) ?></p>
+<p class="cliente-intro"><?= e($meta['desc']) ?></p>
 
-<div class="actions" style="margin-bottom:16px;flex-wrap:wrap;">
+<div class="actions">
     <?php foreach ($tipos as $key => $m): ?>
         <a class="btn btn-small <?= $key === $tipo ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($key)) ?>">
             <?= $m['icon'] ?> <?= e($m['label']) ?>
@@ -25,7 +27,12 @@ cliente_header($meta['label'], $tipo);
 </div>
 
 <?php if (!$lista): ?>
-    <div class="empty">Nenhum conteúdo neste tipo no momento.</div>
+    <div class="empty">
+        Nenhum conteúdo deste tipo liberado para o seu cadastro.
+        <?php if (!cliente_tem_acesso_total($cli)): ?>
+            <br><span style="font-size:.9rem;">Peça à equipe para liberar os conteúdos em Admin → Clientes.</span>
+        <?php endif; ?>
+    </div>
 <?php else: ?>
     <div class="grid-cards">
         <?php foreach ($lista as $p):
@@ -36,7 +43,7 @@ cliente_header($meta['label'], $tipo);
                 <?php if ($capa): ?>
                     <img class="card-cover" src="<?= e($capa) ?>" alt="<?= e($p['titulo']) ?>" loading="lazy">
                 <?php else: ?>
-                    <div class="card-cover" style="display:grid;place-items:center;color:var(--muted);font-weight:700;"><?= $meta['icon'] ?></div>
+                    <div class="card-cover" style="display:grid;place-items:center;color:var(--muted);font-weight:700;font-size:2rem;"><?= $meta['icon'] ?></div>
                 <?php endif; ?>
                 <div class="card-body">
                     <h3><?= e($p['titulo']) ?></h3>

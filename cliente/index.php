@@ -3,59 +3,86 @@ require_once __DIR__ . '/_layout.php';
 cliente_require_auth();
 
 $cli = cliente_atual();
+$cliId = intval($cli['id'] ?? 0);
 $tipos = app_conteudo_tipos();
 $counts = [];
 $recentes = [];
+$totalLiberados = 0;
+
 try {
     foreach (array_keys($tipos) as $t) {
-        $counts[$t] = count(app_conteudos_por_tipo($t, true));
+        $n = count(cliente_conteudos_por_tipo($cliId, $t, $cli));
+        $counts[$t] = $n;
+        $totalLiberados += $n;
     }
-    // últimas entregas (atualizações recentes)
-    $recentes = app_pdo()->query(
-        "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
-                c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
-         FROM conteudo_entregas e
-         INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1
-         WHERE e.ativo = 1
-         ORDER BY e.created_at DESC, e.id DESC
-         LIMIT 12"
-    )->fetchAll() ?: [];
+
+    if (cliente_tem_acesso_total($cli)) {
+        $recentes = app_pdo()->query(
+            "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
+                    c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
+             FROM conteudo_entregas e
+             INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1
+             WHERE e.ativo = 1
+             ORDER BY e.created_at DESC, e.id DESC
+             LIMIT 12"
+        )->fetchAll() ?: [];
+    } else {
+        $st = app_pdo()->prepare(
+            "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
+                    c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
+             FROM conteudo_entregas e
+             INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1
+             INNER JOIN cliente_conteudos cc ON cc.conteudo_id = c.id AND cc.cliente_id = ?
+             WHERE e.ativo = 1
+             ORDER BY e.created_at DESC, e.id DESC
+             LIMIT 12"
+        );
+        $st->execute([$cliId]);
+        $recentes = $st->fetchAll() ?: [];
+    }
 } catch (Throwable $e) {
     $recentes = [];
 }
 
-cliente_header('Bem-vindo, ' . ($cli['nome'] ?? 'cliente'), 'home');
+cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
 $base = app_base_path();
 $prefix = $base === '' ? '' : $base;
 ?>
-<p class="muted" style="margin-top:-8px;margin-bottom:20px;">
-    Aqui estão os conteúdos liberados para a sua rádio. Os demonstrativos do site público são só amostras —
-    os arquivos de entrega (atualizados diariamente) ficam nesta área.
+<p class="cliente-intro">
+    Aqui ficam os conteúdos <strong>liberados para o seu cadastro</strong>.
+    Os demonstrativos da página inicial são só amostras — os arquivos de entrega ficam nesta área.
+    <?php if (cliente_tem_acesso_total($cli)): ?>
+        <br><span class="chip" style="margin-top:8px;display:inline-block;">Acesso total liberado</span>
+    <?php else: ?>
+        <br><span class="muted" style="font-size:.9rem;"><?= (int)$totalLiberados ?> conteúdo(s) liberado(s)</span>
+    <?php endif; ?>
 </p>
 
-<div class="conteudo-hub cliente-hub">
+<div class="cliente-hub">
     <?php foreach ($tipos as $key => $meta): ?>
-        <a class="conteudo-hub-card cliente-hub-card" href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($key)) ?>">
+        <a class="cliente-hub-card" href="<?= e($prefix . '/cliente/conteudos.php?tipo=' . rawurlencode($key)) ?>">
             <div class="conteudo-hub-icon"><?= $meta['icon'] ?></div>
             <h3><?= e($meta['label']) ?></h3>
             <p><?= e($meta['desc']) ?></p>
-            <div class="conteudo-hub-count"><?= (int)($counts[$key] ?? 0) ?> conteúdo(s)</div>
+            <div class="conteudo-hub-count"><?= (int)($counts[$key] ?? 0) ?> liberado(s)</div>
         </a>
     <?php endforeach; ?>
-    <a class="conteudo-hub-card cliente-hub-card cliente-hub-accent" href="<?= e($prefix . '/cliente/texto.php') ?>">
+    <a class="cliente-hub-card cliente-hub-accent" href="<?= e($prefix . '/cliente/texto.php') ?>">
         <div class="conteudo-hub-icon">🎙️</div>
         <h3>Enviar texto</h3>
-        <p>Envie o texto para gravação — ele já vai vinculado aos seus dados cadastrados.</p>
+        <p>Envie o texto para gravação — já vinculado aos seus dados.</p>
         <div class="conteudo-hub-count">Formulário restrito</div>
     </a>
 </div>
 
-<section class="section" style="padding-top:8px;">
+<section class="section">
     <div class="section-head">
         <h2>Atualizações recentes</h2>
-        <p>Últimos arquivos de entrega enviados pela equipe.</p>
+        <p>Últimos arquivos de entrega dos conteúdos liberados para você.</p>
     </div>
-    <?php if (!$recentes): ?>
+    <?php if ($totalLiberados === 0 && !cliente_tem_acesso_total($cli)): ?>
+        <div class="empty">Nenhum conteúdo foi liberado ainda para o seu cadastro. Fale com a equipe para liberar o acesso.</div>
+    <?php elseif (!$recentes): ?>
         <div class="empty">Ainda não há arquivos de entrega. Assim que a equipe publicar, eles aparecem aqui.</div>
     <?php else: ?>
         <div class="cliente-list">
