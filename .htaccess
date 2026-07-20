@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Bloqueia pastas sensíveis
+RewriteRule ^(includes|config|data|sql)/ - [F,L]
+
+# Front controller simples (páginas públicas)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^programa/([a-z0-9\-]+)/?$ programa.php?slug=$1 [L,QSA]

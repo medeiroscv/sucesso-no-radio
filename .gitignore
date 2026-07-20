@@ -1,0 +1,10 @@
+/config/database.php
+/data/sessions/*
+!/data/sessions/.gitkeep
+/uploads/**
+!/uploads/.gitkeep
+!/uploads/programas/.gitkeep
+!/uploads/banners/.gitkeep
+.env
+*.log
+.DS_Store
