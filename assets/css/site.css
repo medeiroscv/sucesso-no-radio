@@ -123,8 +123,6 @@ img { max-width: 100%; display: block; }
   padding: 0;
 }
 .header-link:hover { color: var(--text); }
-.header-link-wa { color: #86efac; }
-.header-link-wa:hover { color: #bbf7d0; }
 .header-sep {
   color: #475569;
   user-select: none;

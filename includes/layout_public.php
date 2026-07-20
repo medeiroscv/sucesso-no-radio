@@ -81,8 +81,6 @@ function layout_header(string $title = '', string $active = ''): void {
                 <?php else: ?>
                     <div class="header-account-links">
                         <a class="header-link" href="<?= e($loginCliente) ?>">Entrar</a>
-                        <span class="header-sep" aria-hidden="true">·</span>
-                        <a class="header-link header-link-wa" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
                     </div>
                 <?php endif; ?>
             </div>
