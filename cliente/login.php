@@ -6,17 +6,19 @@ cliente_session_start();
 $base = app_base_path();
 $prefix = $base === '' ? '' : $base;
 $redirect = trim((string)($_GET['redirect'] ?? $_POST['redirect'] ?? ''));
-// só paths relativos seguros
 if ($redirect !== '' && (str_contains($redirect, '://') || str_starts_with($redirect, '//') || str_contains($redirect, '..'))) {
     $redirect = '';
 }
 
 if (cliente_logado() && cliente_atual()) {
-    $dest = $redirect !== '' ? $redirect : ($prefix . '/cliente/');
-    if (!str_starts_with($dest, 'http') && !str_starts_with($dest, '/')) {
-        $dest = $prefix . '/cliente/' . ltrim($dest, '/');
+    if ($redirect === 'texto') {
+        header('Location: ' . $prefix . '/cliente/texto.php');
+    } elseif ($redirect !== '' && !str_contains($redirect, '://')) {
+        $dest = str_starts_with($redirect, '/') ? $redirect : ($prefix . '/cliente/' . ltrim($redirect, '/'));
+        header('Location: ' . $dest);
+    } else {
+        header('Location: ' . $prefix . '/cliente/');
     }
-    header('Location: ' . $dest);
     exit;
 }
 
@@ -55,6 +57,7 @@ try {
 $nomeSite = $s['site_nome'] ?? APP_NAME;
 $logo = !empty($s['site_logo']) ? ($prefix . '/' . ltrim((string)$s['site_logo'], '/')) : '';
 $favicon = !empty($s['site_favicon']) ? ($prefix . '/' . ltrim((string)$s['site_favicon'], '/')) : '';
+$emailVal = e($_POST['email'] ?? '');
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -62,33 +65,188 @@ $favicon = !empty($s['site_favicon']) ? ($prefix . '/' . ltrim((string)$s['site_
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
-    <title>Login · Área do Cliente</title>
+    <title>Login · Área do Cliente · <?= e($nomeSite) ?></title>
     <?php if ($favicon): ?><link rel="icon" href="<?= e($favicon) ?>" type="image/png"><?php endif; ?>
-    <link rel="stylesheet" href="<?= e($prefix . '/assets/css/site.css') ?>">
-    <link rel="stylesheet" href="<?= e($prefix . '/assets/css/cliente.css') ?>">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            min-height: 100%;
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            background: #0b1220;
+            color: #e8eef9;
+            line-height: 1.5;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 10%, rgba(34, 197, 94, 0.12), transparent 55%),
+                radial-gradient(ellipse 60% 40% at 80% 90%, rgba(14, 165, 233, 0.1), transparent 50%),
+                #0b1220;
+        }
+        a { color: #86efac; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .wrap {
+            width: 100%;
+            max-width: 420px;
+        }
+        .card {
+            background: #151e30;
+            border: 1px solid #243047;
+            border-radius: 18px;
+            padding: 32px 28px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+        }
+        .logo-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+        .logo-wrap img {
+            max-height: 56px;
+            max-width: 220px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+        .brand-fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #e8eef9;
+        }
+        .brand-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #22c55e, #0ea5e9);
+            display: grid;
+            place-items: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            text-align: center;
+            color: #f1f5f9;
+            margin: 0 0 8px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.92rem;
+            margin-bottom: 22px;
+        }
+        .alert {
+            padding: 11px 13px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            background: rgba(239, 68, 68, 0.14);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+        .field { margin-bottom: 14px; }
+        .field label {
+            display: block;
+            font-weight: 700;
+            font-size: 0.82rem;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+        .field input {
+            width: 100%;
+            border: 1px solid #334155;
+            background: #0b1220;
+            color: #f1f5f9;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .field input::placeholder { color: #64748b; }
+        .field input:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            border: 0;
+            border-radius: 999px;
+            padding: 13px 18px;
+            font-weight: 800;
+            font-size: 0.98rem;
+            font-family: inherit;
+            cursor: pointer;
+            background: #22c55e;
+            color: #052e16;
+            margin-top: 4px;
+            transition: background 0.15s ease;
+        }
+        .btn:hover { background: #16a34a; }
+        .foot {
+            margin-top: 18px;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.86rem;
+        }
+        .foot a { color: #86efac; font-weight: 600; }
+    </style>
 </head>
-<body class="cliente-body">
-<div class="cliente-login-wrap">
-    <div class="cliente-login-card">
+<body>
+<div class="wrap">
+    <div class="card">
         <?php if ($logo): ?>
-            <img class="cliente-login-logo" src="<?= e($logo) ?>" alt="<?= e($nomeSite) ?>">
+            <div class="logo-wrap">
+                <img src="<?= e($logo) ?>" alt="<?= e($nomeSite) ?>">
+            </div>
         <?php else: ?>
-            <div class="brand" style="justify-content:center;margin-bottom:10px;">
+            <div class="brand-fallback">
                 <span class="brand-badge">🎙</span>
                 <span><?= e($nomeSite) ?></span>
             </div>
         <?php endif; ?>
+
         <h1>Área do cliente</h1>
-        <p>Acesse conteúdos atualizados e envie textos para gravação.</p>
-        <?php if ($erro): ?><div class="alert alert-err"><?= e($erro) ?></div><?php endif; ?>
-        <form method="post">
+        <p class="subtitle">Entre com seu e-mail e senha para acessar os conteúdos liberados.</p>
+
+        <?php if ($erro): ?>
+            <div class="alert"><?= e($erro) ?></div>
+        <?php endif; ?>
+
+        <form method="post" action="">
             <input type="hidden" name="redirect" value="<?= e($redirect) ?>">
-            <div class="field"><label>E-mail</label><input type="email" name="email" required autocomplete="username" value="<?= e($_POST['email'] ?? '') ?>"></div>
-            <div class="field"><label>Senha</label><input type="password" name="senha" required autocomplete="current-password"></div>
-            <button class="btn btn-primary" type="submit" style="width:100%;">Entrar</button>
+            <div class="field">
+                <label for="email">E-mail</label>
+                <input id="email" type="email" name="email" required autocomplete="username"
+                       placeholder="seu@email.com" value="<?= $emailVal ?>">
+            </div>
+            <div class="field">
+                <label for="senha">Senha</label>
+                <input id="senha" type="password" name="senha" required autocomplete="current-password"
+                       placeholder="••••••••">
+            </div>
+            <button class="btn" type="submit">Entrar</button>
         </form>
-        <p class="muted" style="margin-top:16px;text-align:center;font-size:.88rem;">
-            Acesso liberado pela equipe · <a href="<?= e($prefix . '/') ?>">Voltar ao site</a>
+
+        <p class="foot">
+            Acesso liberado pela equipe<br>
+            <a href="<?= e($prefix === '' ? '/' : $prefix . '/') ?>">← Voltar ao site</a>
         </p>
     </div>
 </div>
