@@ -194,11 +194,23 @@ function app_bootstrap_database(PDO $pdo): void {
         whatsapp VARCHAR(40) DEFAULT '',
         titulo VARCHAR(200) DEFAULT '',
         texto TEXT DEFAULT '',
+        status VARCHAR(40) DEFAULT 'pendente',
+        observacao_admin TEXT DEFAULT '',
+        audio_arquivo VARCHAR(500) DEFAULT '',
         lido SMALLINT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW()
+        lido_cliente SMALLINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP NULL
     )");
     try { $pdo->exec('ALTER TABLE textos_gravacao ADD COLUMN IF NOT EXISTS cliente_id INT NULL REFERENCES clientes(id) ON DELETE SET NULL'); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE textos_gravacao ADD COLUMN IF NOT EXISTS status VARCHAR(40) DEFAULT 'pendente'"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE textos_gravacao ADD COLUMN IF NOT EXISTS observacao_admin TEXT DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE textos_gravacao ADD COLUMN IF NOT EXISTS audio_arquivo VARCHAR(500) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE textos_gravacao ADD COLUMN IF NOT EXISTS lido_cliente SMALLINT DEFAULT 0"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE textos_gravacao ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL"); } catch (Throwable $e) { /* ok */ }
+    $pdo->exec("UPDATE textos_gravacao SET status = 'pendente' WHERE status IS NULL OR status = ''");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_textos_cliente ON textos_gravacao (cliente_id, id DESC)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_textos_status ON textos_gravacao (status, id DESC)');
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS site_settings (
         chave VARCHAR(120) PRIMARY KEY,
@@ -283,7 +295,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
         'form_texto_btn' => 'Enviar texto',
         'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
-        'db_version' => '6',
+        'db_version' => '7',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -294,7 +306,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['6']);
+            )->execute(['7']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -826,6 +838,67 @@ function app_url(string $path = ''): string {
 /** URL da home da área do cliente (index.php explícito). */
 function cliente_home_url(): string {
     return app_url('cliente/index.php');
+}
+
+/**
+ * Status do fluxo de texto → gravação.
+ * pendente → (admin) precisa_correcao → (cliente) corrigido → (admin) entregue
+ */
+function app_texto_status_meta(?string $status = null): array {
+    $all = [
+        'pendente' => [
+            'label' => 'Aguardando análise',
+            'desc' => 'Texto enviado, aguardando a equipe',
+            'color' => '#94a3b8',
+            'bg' => 'rgba(148,163,184,.15)',
+        ],
+        'precisa_correcao' => [
+            'label' => 'Precisa correção',
+            'desc' => 'A equipe pediu ajustes no texto',
+            'color' => '#fbbf24',
+            'bg' => 'rgba(251,191,36,.15)',
+        ],
+        'corrigido' => [
+            'label' => 'Corrigido pelo cliente',
+            'desc' => 'Cliente reenviou o texto corrigido',
+            'color' => '#38bdf8',
+            'bg' => 'rgba(56,189,248,.15)',
+        ],
+        'entregue' => [
+            'label' => 'Áudio entregue',
+            'desc' => 'Gravação disponível para o cliente',
+            'color' => '#86efac',
+            'bg' => 'rgba(34,197,94,.15)',
+        ],
+    ];
+    if ($status === null) return $all;
+    $status = $status !== '' ? $status : 'pendente';
+    return $all[$status] ?? $all['pendente'];
+}
+
+function app_texto_by_id(int $id): ?array {
+    if ($id <= 0) return null;
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM textos_gravacao WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function app_textos_do_cliente(int $clienteId): array {
+    if ($clienteId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT * FROM textos_gravacao WHERE cliente_id = ? ORDER BY id DESC LIMIT 100'
+        );
+        $st->execute([$clienteId]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 function e(?string $s): string {

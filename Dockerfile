@@ -60,6 +60,7 @@ RUN mkdir -p \
       /var/www/html/uploads/demos \
       /var/www/html/uploads/site \
       /var/www/html/uploads/entregas \
+      /var/www/html/uploads/textos_audio \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 \
       /var/www/html/config \

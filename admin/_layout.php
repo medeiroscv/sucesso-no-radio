@@ -379,6 +379,32 @@ function admin_upload_demos_multi(string $subdir = 'demos'): array {
     return admin_upload_audios_multi('demos', 'demo_titulos', $subdir, 'Demonstrativo');
 }
 
+/** Upload de um único áudio (MP3 etc.). Retorna caminho relativo ou ''. */
+function admin_upload_audio_single(string $field, string $subdir = 'textos_audio'): string {
+    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
+        return '';
+    }
+    if (($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        return '';
+    }
+    $extOk = ['mp3', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'aac'];
+    $orig = (string)($_FILES[$field]['name'] ?? '');
+    $ext = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
+    if (!in_array($ext, $extOk, true)) {
+        return '';
+    }
+    $dir = dirname(__DIR__) . '/uploads/' . trim($subdir, '/');
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    $fname = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+    $dest = $dir . '/' . $fname;
+    if (!@move_uploaded_file($_FILES[$field]['tmp_name'], $dest)) {
+        return '';
+    }
+    return 'uploads/' . trim($subdir, '/') . '/' . $fname;
+}
+
 /** Grava novos demos e remove os marcados para exclusão. */
 function admin_salvar_demonstrativos(string $tipo, int $conteudoId): void {
     if ($conteudoId <= 0) return;

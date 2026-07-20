@@ -67,9 +67,9 @@ cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
     <?php endforeach; ?>
     <a class="cliente-hub-card cliente-hub-accent" href="<?= e(app_url('cliente/texto.php')) ?>">
         <div class="conteudo-hub-icon">🎙️</div>
-        <h3>Enviar texto</h3>
-        <p>Envie o texto para gravação — já vinculado aos seus dados.</p>
-        <div class="conteudo-hub-count">Formulário restrito</div>
+        <h3>Meus textos</h3>
+        <p>Envie textos, acompanhe correções e baixe o áudio gravado.</p>
+        <div class="conteudo-hub-count">Gravação &amp; status</div>
     </a>
 </div>
 

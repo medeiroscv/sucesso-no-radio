@@ -202,7 +202,7 @@ function cliente_header(string $title, string $active = ''): void {
                 </a>
             <?php endforeach; ?>
             <div class="cliente-nav-group">Serviços</div>
-            <a href="<?= e($uTexto) ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">🎙️ Enviar texto</a>
+            <a href="<?= e($uTexto) ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">🎙️ Meus textos</a>
             <a href="<?= e($uPerfil) ?>" class="<?= $active === 'perfil' ? 'active' : '' ?>">👤 Meus dados</a>
         </nav>
         <div class="cliente-sidebar-foot">
