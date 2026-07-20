@@ -6,6 +6,9 @@ $edit = null;
 
 if (isset($_GET['del'])) {
     $id = intval($_GET['del']);
+    foreach (app_demonstrativos('programa', $id) as $d) {
+        app_delete_demonstrativo(intval($d['id']));
+    }
     $pdo->prepare('DELETE FROM programas WHERE id = ?')->execute([$id]);
     header('Location: programas.php?ok=1');
     exit;
@@ -43,8 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'INSERT INTO programas (categoria_id,titulo,slug,resumo,descricao,capa,duracao,blocos,dias,periodo,destaque,ativo,ordem,whatsapp_msg,created_at)
                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
                 )->execute([$categoria_id, $titulo, $slug, $resumo, $descricao, $capa, $duracao, $blocos, $dias, $periodo, $destaque, $ativo, $ordem, $whatsapp_msg]);
+                $id = intval($pdo->lastInsertId());
             }
-            header('Location: programas.php?ok=1');
+            admin_salvar_demonstrativos('programa', $id);
+            header('Location: programas.php?id=' . $id . '&ok=1');
             exit;
         } catch (Throwable $e) {
             $err = 'Erro ao salvar: ' . $e->getMessage();
@@ -127,7 +132,8 @@ if ($edit !== null):
             <div class="field"><label><input type="checkbox" name="ativo" value="1" <?= !empty($edit['ativo']) ? 'checked' : '' ?>> Ativo no site</label></div>
             <div class="field"><label><input type="checkbox" name="destaque" value="1" <?= !empty($edit['destaque']) ? 'checked' : '' ?>> Destaque</label></div>
         </div>
-        <div class="actions">
+        <?php admin_bloco_demonstrativos('programa', intval($edit['id'] ?? 0)); ?>
+        <div class="actions" style="margin-top:16px;">
             <button class="btn btn-primary" type="submit">Salvar</button>
             <a class="btn btn-secondary" href="programas.php">Cancelar</a>
         </div>

@@ -216,11 +216,24 @@ $base = app_base_path();
         <?php else: ?>
             <div class="grid-cards">
                 <?php foreach ($programetes as $pr): ?>
+                    <?php $demosPr = app_demonstrativos('programete', intval($pr['id'])); ?>
                     <article class="card">
                         <div class="card-body">
                             <h3><?= e($pr['titulo']) ?></h3>
                             <?php if ($pr['insercoes']): ?><div class="card-meta"><span class="chip"><?= e($pr['insercoes']) ?></span></div><?php endif; ?>
                             <p class="card-desc"><?= e($pr['descricao'] ?: '') ?></p>
+                            <?php if ($demosPr): ?>
+                                <div style="display:grid;gap:8px;margin:4px 0 8px;">
+                                    <?php foreach ($demosPr as $d): ?>
+                                        <div>
+                                            <div style="font-size:.8rem;font-weight:700;margin-bottom:4px;color:var(--muted);"><?= e($d['titulo'] ?: 'Demo') ?></div>
+                                            <audio controls preload="none" style="width:100%;height:36px;">
+                                                <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
+                                            </audio>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                             <div class="card-actions">
                                 <a class="btn btn-wa btn-small" href="<?= e(wa_link('Olá! Quero o programete: ' . $pr['titulo'])) ?>" target="_blank">Contratar</a>
                             </div>

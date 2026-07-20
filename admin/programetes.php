@@ -5,7 +5,11 @@ $ok = $err = '';
 $edit = null;
 
 if (isset($_GET['del'])) {
-    $pdo->prepare('DELETE FROM programetes WHERE id = ?')->execute([intval($_GET['del'])]);
+    $id = intval($_GET['del']);
+    foreach (app_demonstrativos('programete', $id) as $d) {
+        app_delete_demonstrativo(intval($d['id']));
+    }
+    $pdo->prepare('DELETE FROM programetes WHERE id = ?')->execute([$id]);
     header('Location: programetes.php?ok=1');
     exit;
 }
@@ -25,8 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $pdo->prepare('INSERT INTO programetes (titulo,descricao,insercoes,ordem,ativo,created_at) VALUES (?,?,?,?,?,NOW())')
                 ->execute([$titulo, $descricao, $insercoes, $ordem, $ativo]);
+            $id = intval($pdo->lastInsertId());
         }
-        header('Location: programetes.php?ok=1');
+        admin_salvar_demonstrativos('programete', $id);
+        header('Location: programetes.php?id=' . $id . '&ok=1');
         exit;
     }
 }
@@ -55,7 +61,8 @@ if ($edit):
         <div class="field"><label>Ordem</label><input type="number" name="ordem" value="<?= intval($edit['ordem']) ?>"></div>
     </div>
     <div class="field"><label><input type="checkbox" name="ativo" value="1" <?= $edit['ativo'] ? 'checked' : '' ?>> Ativo</label></div>
-    <div class="actions"><button class="btn btn-primary">Salvar</button><a class="btn btn-secondary" href="programetes.php">Voltar</a></div>
+    <?php admin_bloco_demonstrativos('programete', intval($edit['id'] ?? 0)); ?>
+    <div class="actions" style="margin-top:16px;"><button class="btn btn-primary">Salvar</button><a class="btn btn-secondary" href="programetes.php">Voltar</a></div>
 </form>
 </div>
 <?php else: ?>

@@ -48,12 +48,12 @@ function admin_flash(?string $ok = null, ?string $err = null): void {
     if ($err) echo '<div class="alert alert-err">' . htmlspecialchars($err) . '</div>';
 }
 
-function admin_upload(string $field, string $subdir): string {
+function admin_upload(string $field, string $subdir, array $extensoes = ['jpg', 'jpeg', 'png', 'webp', 'gif']): string {
     if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
         return '';
     }
     $ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
-    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+    if (!in_array($ext, $extensoes, true)) {
         return '';
     }
     $dir = dirname(__DIR__) . '/uploads/' . trim($subdir, '/');
@@ -62,4 +62,136 @@ function admin_upload(string $field, string $subdir): string {
     $dest = $dir . '/' . $name;
     if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dest)) return '';
     return 'uploads/' . trim($subdir, '/') . '/' . $name;
+}
+
+/** Upload de vários áudios do campo demos[] (ou demos com índices). */
+function admin_upload_demos_multi(string $subdir = 'demos'): array {
+    $extOk = ['mp3', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'aac'];
+    $out = [];
+    if (empty($_FILES['demos']) || !is_array($_FILES['demos']['name'] ?? null)) {
+        return $out;
+    }
+    $names = $_FILES['demos']['name'];
+    $tmps = $_FILES['demos']['tmp_name'];
+    $errs = $_FILES['demos']['error'];
+    $dir = dirname(__DIR__) . '/uploads/' . trim($subdir, '/');
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+
+    $titulos = $_POST['demo_titulos'] ?? [];
+    if (!is_array($titulos)) $titulos = [];
+
+    foreach ($names as $i => $origName) {
+        if (empty($tmps[$i]) || !is_uploaded_file($tmps[$i])) continue;
+        if (($errs[$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
+        $ext = strtolower(pathinfo((string)$origName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $extOk, true)) continue;
+        $fname = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $dest = $dir . '/' . $fname;
+        if (!@move_uploaded_file($tmps[$i], $dest)) continue;
+        $titulo = trim((string)($titulos[$i] ?? ''));
+        if ($titulo === '') {
+            $titulo = pathinfo((string)$origName, PATHINFO_FILENAME) ?: ('Demonstrativo ' . ($i + 1));
+        }
+        $out[] = [
+            'titulo' => $titulo,
+            'arquivo' => 'uploads/' . trim($subdir, '/') . '/' . $fname,
+        ];
+    }
+    return $out;
+}
+
+/** Grava novos demos e remove os marcados para exclusão. */
+function admin_salvar_demonstrativos(string $tipo, int $conteudoId): void {
+    if ($conteudoId <= 0) return;
+    $pdo = app_pdo();
+
+    // Remover demos marcados
+    $del = $_POST['demo_del'] ?? [];
+    if (is_array($del)) {
+        foreach ($del as $did) {
+            app_delete_demonstrativo(intval($did));
+        }
+    }
+
+    // Atualizar títulos dos existentes
+    $titExist = $_POST['demo_titulo_existente'] ?? [];
+    if (is_array($titExist)) {
+        $st = $pdo->prepare('UPDATE demonstrativos SET titulo = ? WHERE id = ? AND tipo_conteudo = ? AND conteudo_id = ?');
+        foreach ($titExist as $did => $tit) {
+            $st->execute([trim((string)$tit), intval($did), $tipo, $conteudoId]);
+        }
+    }
+
+    // Novos uploads
+    $novos = admin_upload_demos_multi('demos');
+    if (!$novos) return;
+    $ordSt = $pdo->prepare('SELECT COALESCE(MAX(ordem), 0) FROM demonstrativos WHERE tipo_conteudo = ? AND conteudo_id = ?');
+    $ordSt->execute([$tipo, $conteudoId]);
+    $ordem = intval($ordSt->fetchColumn());
+    $ins = $pdo->prepare(
+        'INSERT INTO demonstrativos (tipo_conteudo, conteudo_id, titulo, arquivo, ordem, created_at)
+         VALUES (?,?,?,?,?,NOW())'
+    );
+    foreach ($novos as $n) {
+        $ordem++;
+        $ins->execute([$tipo, $conteudoId, $n['titulo'], $n['arquivo'], $ordem]);
+    }
+}
+
+/** Bloco HTML + JS dos demonstrativos no formulário. */
+function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
+    $demos = app_demonstrativos($tipo, $conteudoId);
+    ?>
+    <div class="field" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+        <label style="font-size:1rem;color:var(--text);">Demonstrativos (áudio MP3)</label>
+        <p class="muted" style="margin:6px 0 12px;">Envie um ou mais áudios de demonstração. Use o botão <strong>+</strong> para adicionar outro arquivo.</p>
+
+        <?php if ($demos): ?>
+            <div style="display:grid;gap:10px;margin-bottom:14px;">
+                <?php foreach ($demos as $d): ?>
+                    <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+                        <div>
+                            <input name="demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título do áudio" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;">
+                            <audio controls preload="none" style="width:100%;max-width:420px;">
+                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                            </audio>
+                        </div>
+                        <label class="muted" style="font-size:.82rem;white-space:nowrap;">
+                            <input type="checkbox" name="demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+
+        <div id="demoSlots" style="display:grid;gap:10px;"></div>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" class="btn btn-secondary btn-small" id="btnAddDemo" onclick="addDemoSlot()">+ Adicionar áudio</button>
+        </div>
+    </div>
+    <script>
+    (function () {
+        var idx = 0;
+        window.addDemoSlot = function () {
+            var box = document.getElementById('demoSlots');
+            if (!box) return;
+            var i = idx++;
+            var row = document.createElement('div');
+            row.className = 'demo-slot';
+            row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;';
+            row.innerHTML =
+                '<div class="field" style="margin:0"><label>Título do áudio</label>' +
+                '<input name="demo_titulos[' + i + ']" placeholder="Ex.: Bloco 1, Vinheta, Amostra"></div>' +
+                '<div class="field" style="margin:0"><label>Arquivo MP3</label>' +
+                '<input type="file" name="demos[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg"></div>' +
+                '<button type="button" class="btn btn-danger btn-small" onclick="this.closest(\'.demo-slot\').remove()">Remover</button>';
+            box.appendChild(row);
+        };
+        // Um campo já aberto ao carregar o formulário
+        if (document.getElementById('demoSlots') && !document.getElementById('demoSlots').children.length) {
+            addDemoSlot();
+        }
+    })();
+    </script>
+    <?php
 }

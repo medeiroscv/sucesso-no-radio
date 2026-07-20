@@ -167,6 +167,18 @@ function app_bootstrap_database(PDO $pdo): void {
         updated_at TIMESTAMP NULL
     )");
 
+    // Demonstrativos em áudio (MP3 etc.) — vários por programa/programete
+    $pdo->exec("CREATE TABLE IF NOT EXISTS demonstrativos (
+        id SERIAL PRIMARY KEY,
+        tipo_conteudo VARCHAR(40) NOT NULL,
+        conteudo_id INT NOT NULL,
+        titulo VARCHAR(200) DEFAULT '',
+        arquivo VARCHAR(500) NOT NULL,
+        ordem INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_demonstrativos_conteudo ON demonstrativos (tipo_conteudo, conteudo_id, ordem, id)');
+
     // seed settings
     $defaults = [
         'site_nome' => app_env('APP_NAME', 'Sucesso no Rádio'),
@@ -175,7 +187,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'telefone' => '',
         'email' => '',
         'sobre' => 'Conteúdo profissional para rádios e web rádios: programas, programetes e jornalismo.',
-        'db_version' => '1',
+        'db_version' => '2',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -185,8 +197,8 @@ function app_bootstrap_database(PDO $pdo): void {
         if ($k === 'db_version') {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
-                 ON CONFLICT (chave) DO NOTHING"
-            )->execute(['1']);
+                 ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
+            )->execute(['2']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -259,4 +271,37 @@ function app_url(string $path = ''): string {
 
 function e(?string $s): string {
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+}
+
+/** Lista demonstrativos de um conteúdo (programa | programete). */
+function app_demonstrativos(string $tipo, int $conteudoId): array {
+    if ($conteudoId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT * FROM demonstrativos
+             WHERE tipo_conteudo = ? AND conteudo_id = ?
+             ORDER BY ordem ASC, id ASC'
+        );
+        $st->execute([$tipo, $conteudoId]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_delete_demonstrativo(int $id): bool {
+    if ($id <= 0) return false;
+    try {
+        $pdo = app_pdo();
+        $st = $pdo->prepare('SELECT arquivo FROM demonstrativos WHERE id = ?');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        if (!$row) return false;
+        $pdo->prepare('DELETE FROM demonstrativos WHERE id = ?')->execute([$id]);
+        $path = dirname(__DIR__) . '/' . ltrim((string)$row['arquivo'], '/');
+        if (is_file($path)) @unlink($path);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
 }

@@ -34,8 +34,8 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
 RUN { \
-    echo 'upload_max_filesize=32M'; \
-    echo 'post_max_size=32M'; \
+    echo 'upload_max_filesize=64M'; \
+    echo 'post_max_size=80M'; \
     echo 'memory_limit=256M'; \
     echo 'max_execution_time=120'; \
     echo 'date.timezone=America/Sao_Paulo'; \
@@ -54,6 +54,7 @@ RUN mkdir -p \
       /var/www/html/data/sessions \
       /var/www/html/uploads/programas \
       /var/www/html/uploads/banners \
+      /var/www/html/uploads/demos \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 \
       /var/www/html/config \

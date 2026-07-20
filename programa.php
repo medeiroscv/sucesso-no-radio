@@ -42,6 +42,24 @@ $msg = $programa['whatsapp_msg'] ?: ('Olá! Quero contratar o programa: ' . $pro
                 <p style="font-size:1.05rem;margin-bottom:12px;"><?= e($programa['resumo']) ?></p>
             <?php endif; ?>
             <div style="color:var(--muted);white-space:pre-wrap;"><?= e($programa['descricao'] ?: '') ?></div>
+            <?php
+            $demos = app_demonstrativos('programa', intval($programa['id']));
+            if ($demos):
+            ?>
+            <div style="margin-top:22px;">
+                <h3 style="margin-bottom:12px;font-size:1.1rem;">Demonstrativos</h3>
+                <div style="display:grid;gap:12px;">
+                    <?php foreach ($demos as $d): ?>
+                        <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;">
+                            <div style="font-weight:700;margin-bottom:8px;font-size:.95rem;"><?= e($d['titulo'] ?: 'Áudio') ?></div>
+                            <audio controls preload="none" style="width:100%;">
+                                <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
+                            </audio>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
             <div class="hero-actions">
                 <a class="btn btn-wa" href="<?= e(wa_link($msg)) ?>" target="_blank" rel="noopener">Contratar no WhatsApp</a>
                 <a class="btn btn-ghost" href="<?= e($base === '' ? '/' : $base . '/') ?>">Ver catálogo</a>
