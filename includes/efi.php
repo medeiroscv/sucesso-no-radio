@@ -1,29 +1,80 @@
 <?php
 /**
  * Integração Efí Bank (ex-Gerencianet) — Pix + Boleto via HTTP.
- * Documentação: https://dev.efipay.com.br/  |  SDK: efipay/sdk-php-apis-efi
+ * Documentação: https://dev.efipay.com.br/
  *
- * Env:
- *  EFI_CLIENT_ID, EFI_CLIENT_SECRET, EFI_SANDBOX=true|false
- *  EFI_PIX_KEY (chave Pix da conta)
- *  EFI_CERT_PATH (caminho absoluto .p12 ou .pem — obrigatório para Pix)
- *  EFI_CERT_PASSWORD (opcional)
+ * Credenciais: ENV (prioridade) ou Configurações → Financeiro no admin.
+ * Certificado: upload em Configurações → Financeiro (config/efi-cert.*)
  */
 
 require_once __DIR__ . '/env.php';
 
+/** Lê setting do banco, com override por ENV se existir. */
+function efi_cfg(string $settingKey, string $envKey, string $default = ''): string {
+    $env = app_env($envKey, '');
+    if (is_string($env) && $env !== '') {
+        return $env;
+    }
+    if (function_exists('app_setting')) {
+        return app_setting($settingKey, $default);
+    }
+    return $default;
+}
+
+function efi_client_id(): string {
+    return efi_cfg('efi_client_id', 'EFI_CLIENT_ID');
+}
+
+function efi_client_secret(): string {
+    return efi_cfg('efi_client_secret', 'EFI_CLIENT_SECRET');
+}
+
+function efi_pix_key(): string {
+    return efi_cfg('efi_pix_key', 'EFI_PIX_KEY');
+}
+
+function efi_cert_password(): string {
+    return efi_cfg('efi_cert_password', 'EFI_CERT_PASSWORD');
+}
+
+/** Caminho absoluto do certificado (.p12/.pem). */
+function efi_cert_path(): string {
+    $env = app_env('EFI_CERT_PATH', '');
+    if (is_string($env) && $env !== '' && is_file($env)) {
+        return $env;
+    }
+    $rel = function_exists('app_setting') ? app_setting('efi_cert_rel', '') : '';
+    if ($rel !== '') {
+        $full = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $rel), '/');
+        if (is_file($full)) return $full;
+    }
+    // padrões comuns no volume config/
+    foreach (['config/efi-cert.p12', 'config/efi-cert.pem', 'config/certificado.p12'] as $p) {
+        $full = dirname(__DIR__) . '/' . $p;
+        if (is_file($full)) return $full;
+    }
+    return '';
+}
+
 function efi_configured(): bool {
-    return app_env('EFI_CLIENT_ID', '') !== '' && app_env('EFI_CLIENT_SECRET', '') !== '';
+    return efi_client_id() !== '' && efi_client_secret() !== '';
 }
 
 function efi_pix_configured(): bool {
-    if (!efi_configured() || app_env('EFI_PIX_KEY', '') === '') return false;
-    $cert = app_env('EFI_CERT_PATH', '');
+    if (!efi_configured() || efi_pix_key() === '') return false;
+    $cert = efi_cert_path();
     return $cert !== '' && is_file($cert);
 }
 
 function efi_sandbox(): bool {
-    return app_env_bool('EFI_SANDBOX', true);
+    $env = app_env('EFI_SANDBOX', null);
+    if ($env !== null && $env !== false && $env !== '') {
+        return app_env_bool('EFI_SANDBOX', true);
+    }
+    if (function_exists('app_setting')) {
+        return app_setting('efi_sandbox', '1') === '1';
+    }
+    return true;
 }
 
 function efi_base_url(string $api = 'cobrancas'): string {
@@ -46,8 +97,8 @@ function efi_oauth_token(string $api = 'cobrancas'): string {
     }
 
     $url = efi_base_url($api) . '/oauth/token';
-    $id = app_env('EFI_CLIENT_ID', '');
-    $secret = app_env('EFI_CLIENT_SECRET', '');
+    $id = efi_client_id();
+    $secret = efi_client_secret();
     $ch = curl_init($url);
     $opts = [
         CURLOPT_POST => true,
@@ -60,8 +111,8 @@ function efi_oauth_token(string $api = 'cobrancas'): string {
         CURLOPT_TIMEOUT => 30,
     ];
     if ($api === 'pix') {
-        $cert = app_env('EFI_CERT_PATH', '');
-        $pwd = app_env('EFI_CERT_PASSWORD', '');
+        $cert = efi_cert_path();
+        $pwd = efi_cert_password();
         if (str_ends_with(strtolower($cert), '.p12') || str_ends_with(strtolower($cert), '.pfx')) {
             $opts[CURLOPT_SSLCERTTYPE] = 'P12';
             $opts[CURLOPT_SSLCERT] = $cert;
@@ -109,8 +160,8 @@ function efi_request(string $api, string $method, string $path, ?array $body = n
         $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_UNICODE);
     }
     if ($api === 'pix') {
-        $cert = app_env('EFI_CERT_PATH', '');
-        $pwd = app_env('EFI_CERT_PASSWORD', '');
+        $cert = efi_cert_path();
+        $pwd = efi_cert_password();
         if (str_ends_with(strtolower($cert), '.p12') || str_ends_with(strtolower($cert), '.pfx')) {
             $opts[CURLOPT_SSLCERTTYPE] = 'P12';
             $opts[CURLOPT_SSLCERT] = $cert;
@@ -142,9 +193,9 @@ function efi_request(string $api, string $method, string $path, ?array $body = n
  */
 function efi_criar_pix(array $cliente, int $valorCentavos, string $descricao, int $expiracaoSeg = 86400): array {
     if (!efi_pix_configured()) {
-        throw new RuntimeException('Pix EFI não configurado (EFI_PIX_KEY + certificado).');
+        throw new RuntimeException('Pix EFI não configurado (chave Pix + certificado).');
     }
-    $chave = app_env('EFI_PIX_KEY', '');
+    $chave = efi_pix_key();
     $txid = substr(bin2hex(random_bytes(16)), 0, 26);
     $cpf = app_only_digits((string)($cliente['cpf'] ?? ''));
     $nome = trim((string)($cliente['nome'] ?? 'Cliente'));

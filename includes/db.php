@@ -975,6 +975,11 @@ function app_config_secoes(): array {
             'icon' => '🎙️',
             'desc' => 'Formulário para envio de texto que será gravado',
         ],
+        'financeiro' => [
+            'label' => 'Financeiro',
+            'icon' => '💳',
+            'desc' => 'Efí Bank: Pix, boleto, certificado e bloqueio por atraso',
+        ],
     ];
 }
 
