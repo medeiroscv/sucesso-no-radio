@@ -167,7 +167,7 @@ function app_bootstrap_database(PDO $pdo): void {
         updated_at TIMESTAMP NULL
     )");
 
-    // Demonstrativos em áudio (MP3 etc.) — vários por programa/programete
+    // Demonstrativos em áudio (MP3 etc.) — vários por conteúdo
     $pdo->exec("CREATE TABLE IF NOT EXISTS demonstrativos (
         id SERIAL PRIMARY KEY,
         tipo_conteudo VARCHAR(40) NOT NULL,
@@ -179,6 +179,28 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_demonstrativos_conteudo ON demonstrativos (tipo_conteudo, conteudo_id, ordem, id)');
 
+    // Conteúdos unificados (diários, semanais, informativos, programetes)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS conteudos (
+        id SERIAL PRIMARY KEY,
+        tipo VARCHAR(40) NOT NULL DEFAULT 'diario',
+        titulo VARCHAR(200) NOT NULL,
+        slug VARCHAR(220) NOT NULL UNIQUE,
+        resumo TEXT DEFAULT '',
+        descricao TEXT DEFAULT '',
+        capa VARCHAR(500) DEFAULT '',
+        duracao VARCHAR(80) DEFAULT '',
+        blocos VARCHAR(80) DEFAULT '',
+        dias VARCHAR(80) DEFAULT '',
+        insercoes VARCHAR(80) DEFAULT '',
+        destaque SMALLINT DEFAULT 0,
+        ativo SMALLINT DEFAULT 1,
+        ordem INT DEFAULT 0,
+        whatsapp_msg TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP NULL
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_conteudos_tipo ON conteudos (tipo, ativo, ordem, id)');
+
     // seed settings
     $defaults = [
         'site_nome' => app_env('APP_NAME', 'Sucesso no Rádio'),
@@ -186,8 +208,8 @@ function app_bootstrap_database(PDO $pdo): void {
         'whatsapp' => '5561974002349',
         'telefone' => '',
         'email' => '',
-        'sobre' => 'Conteúdo profissional para rádios e web rádios: programas, programetes e jornalismo.',
-        'db_version' => '2',
+        'sobre' => 'Conteúdo profissional para rádios e web rádios: diários, semanais, informativos e programetes.',
+        'db_version' => '3',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -198,19 +220,18 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['2']);
+            )->execute(['3']);
             continue;
         }
         $st->execute([$k, $v]);
     }
 
-    // categorias padrão
+    // categorias padrão (legado / opcional)
     $cats = [
-        ['Programas Diários', 'programas-diarios', 'programa', 1],
-        ['Fim de Semana', 'fim-de-semana', 'programa', 2],
-        ['Jornalismo', 'jornalismo', 'jornalismo', 3],
+        ['Diários', 'diarios', 'diario', 1],
+        ['Semanais', 'semanais', 'semanal', 2],
+        ['Informativos', 'informativos', 'informativo', 3],
         ['Programetes', 'programetes', 'programete', 4],
-        ['Campanhas', 'campanhas', 'campanha', 5],
     ];
     $stc = $pdo->prepare(
         "INSERT INTO categorias (nome, slug, tipo, ordem, ativo, created_at)
@@ -219,6 +240,222 @@ function app_bootstrap_database(PDO $pdo): void {
     );
     foreach ($cats as $c) {
         $stc->execute($c);
+    }
+
+    app_migrate_to_conteudos($pdo);
+}
+
+/** Tipos de conteúdo do sistema (chave => meta). */
+function app_conteudo_tipos(): array {
+    return [
+        'diario' => [
+            'label' => 'Diários',
+            'icon' => '📅',
+            'desc' => 'Programas e conteúdos da grade diária',
+            'dias_default' => 'SEG A SAB',
+        ],
+        'semanal' => [
+            'label' => 'Semanais',
+            'icon' => '🗓',
+            'desc' => 'Conteúdos semanais e de fim de semana',
+            'dias_default' => 'SÁB E DOM',
+        ],
+        'informativo' => [
+            'label' => 'Informativos',
+            'icon' => '📰',
+            'desc' => 'Jornalismo, boletins e notícias',
+            'dias_default' => 'SEG A SEX',
+        ],
+        'programete' => [
+            'label' => 'Programetes',
+            'icon' => '⚡',
+            'desc' => 'Inserções rápidas, dicas e vinhetas',
+            'dias_default' => '',
+        ],
+    ];
+}
+
+function app_conteudo_tipo_valido(string $tipo): bool {
+    return array_key_exists($tipo, app_conteudo_tipos());
+}
+
+/** Migra programas + programetes → conteudos (uma vez). */
+function app_migrate_to_conteudos(PDO $pdo): void {
+    try {
+        $done = $pdo->query("SELECT valor FROM configuracoes WHERE chave = 'conteudos_migrated'")->fetchColumn();
+        if ($done === '1') {
+            return;
+        }
+    } catch (Throwable $e) {
+        // segue
+    }
+
+    if (!app_table_exists($pdo, 'conteudos')) {
+        return;
+    }
+
+    $count = (int)$pdo->query('SELECT COUNT(*) FROM conteudos')->fetchColumn();
+    if ($count > 0) {
+        $pdo->prepare(
+            "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('conteudos_migrated', '1', NOW())
+             ON CONFLICT (chave) DO UPDATE SET valor = '1', updated_at = NOW()"
+        )->execute();
+        return;
+    }
+
+    // --- Programas → conteudos (preserva IDs) ---
+    if (app_table_exists($pdo, 'programas')) {
+        $rows = $pdo->query('SELECT * FROM programas ORDER BY id')->fetchAll();
+        $ins = $pdo->prepare(
+            'INSERT INTO conteudos
+             (id, tipo, titulo, slug, resumo, descricao, capa, duracao, blocos, dias, insercoes, destaque, ativo, ordem, whatsapp_msg, created_at, updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             ON CONFLICT (id) DO NOTHING'
+        );
+        foreach ($rows as $r) {
+            $tipo = app_map_periodo_to_tipo((string)($r['periodo'] ?? 'diario'), intval($r['categoria_id'] ?? 0), $pdo);
+            $ins->execute([
+                intval($r['id']),
+                $tipo,
+                $r['titulo'],
+                $r['slug'] ?: app_slug((string)$r['titulo']),
+                $r['resumo'] ?? '',
+                $r['descricao'] ?? '',
+                $r['capa'] ?? '',
+                $r['duracao'] ?? '',
+                $r['blocos'] ?? '',
+                $r['dias'] ?? '',
+                '',
+                intval($r['destaque'] ?? 0),
+                intval($r['ativo'] ?? 1),
+                intval($r['ordem'] ?? 0),
+                $r['whatsapp_msg'] ?? '',
+                $r['created_at'] ?? date('Y-m-d H:i:s'),
+                $r['updated_at'] ?? null,
+            ]);
+        }
+        // demos de programa → conteudo
+        try {
+            $pdo->exec("UPDATE demonstrativos SET tipo_conteudo = 'conteudo' WHERE tipo_conteudo = 'programa'");
+        } catch (Throwable $e) { /* ok */ }
+    }
+
+    // Ajusta sequence
+    try {
+        $pdo->exec("SELECT setval(pg_get_serial_sequence('conteudos','id'), COALESCE((SELECT MAX(id) FROM conteudos), 1))");
+    } catch (Throwable $e) { /* ok */ }
+
+    // --- Programetes → conteudos (novos IDs) ---
+    if (app_table_exists($pdo, 'programetes')) {
+        $rows = $pdo->query('SELECT * FROM programetes ORDER BY id')->fetchAll();
+        $ins = $pdo->prepare(
+            'INSERT INTO conteudos
+             (tipo, titulo, slug, resumo, descricao, capa, duracao, blocos, dias, insercoes, destaque, ativo, ordem, whatsapp_msg, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             RETURNING id'
+        );
+        $upDemo = $pdo->prepare(
+            "UPDATE demonstrativos SET tipo_conteudo = 'conteudo', conteudo_id = ? WHERE tipo_conteudo = 'programete' AND conteudo_id = ?"
+        );
+        $usedSlugs = [];
+        foreach ($pdo->query('SELECT slug FROM conteudos')->fetchAll() as $s) {
+            $usedSlugs[$s['slug']] = true;
+        }
+        foreach ($rows as $r) {
+            $baseSlug = app_slug((string)$r['titulo']);
+            $slug = $baseSlug;
+            $n = 2;
+            while (isset($usedSlugs[$slug])) {
+                $slug = $baseSlug . '-' . $n;
+                $n++;
+            }
+            $usedSlugs[$slug] = true;
+            $ins->execute([
+                'programete',
+                $r['titulo'],
+                $slug,
+                '',
+                $r['descricao'] ?? '',
+                '',
+                '',
+                '',
+                '',
+                $r['insercoes'] ?? '1x/dia',
+                0,
+                intval($r['ativo'] ?? 1),
+                intval($r['ordem'] ?? 0),
+                '',
+                $r['created_at'] ?? date('Y-m-d H:i:s'),
+            ]);
+            $newId = intval($ins->fetchColumn());
+            if ($newId > 0) {
+                $upDemo->execute([$newId, intval($r['id'])]);
+            }
+        }
+    }
+
+    $pdo->prepare(
+        "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('conteudos_migrated', '1', NOW())
+         ON CONFLICT (chave) DO UPDATE SET valor = '1', updated_at = NOW()"
+    )->execute();
+}
+
+function app_map_periodo_to_tipo(string $periodo, int $categoriaId, PDO $pdo): string {
+    $periodo = strtolower(trim($periodo));
+    $map = [
+        'diario' => 'diario',
+        'fim_semana' => 'semanal',
+        'semanal' => 'semanal',
+        'jornalismo' => 'informativo',
+        'informativo' => 'informativo',
+        'programete' => 'programete',
+        'campanha' => 'diario',
+    ];
+    if (isset($map[$periodo])) {
+        return $map[$periodo];
+    }
+    if ($categoriaId > 0) {
+        try {
+            $st = $pdo->prepare('SELECT slug, tipo FROM categorias WHERE id = ?');
+            $st->execute([$categoriaId]);
+            $cat = $st->fetch();
+            if ($cat) {
+                $slug = (string)($cat['slug'] ?? '');
+                if (in_array($slug, ['programas-diarios', 'diarios'], true)) return 'diario';
+                if (in_array($slug, ['fim-de-semana', 'semanais'], true)) return 'semanal';
+                if (in_array($slug, ['jornalismo', 'informativos'], true)) return 'informativo';
+                if ($slug === 'programetes') return 'programete';
+                $t = (string)($cat['tipo'] ?? '');
+                if (app_conteudo_tipo_valido($t)) return $t;
+            }
+        } catch (Throwable $e) { /* ok */ }
+    }
+    return 'diario';
+}
+
+function app_conteudos_por_tipo(string $tipo, bool $somenteAtivos = true): array {
+    if (!app_conteudo_tipo_valido($tipo)) return [];
+    try {
+        $sql = 'SELECT * FROM conteudos WHERE tipo = ?';
+        if ($somenteAtivos) $sql .= ' AND ativo = 1';
+        $sql .= ' ORDER BY destaque DESC, ordem ASC, titulo ASC';
+        $st = app_pdo()->prepare($sql);
+        $st->execute([$tipo]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_conteudo_by_slug(string $slug): ?array {
+    if ($slug === '') return null;
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM conteudos WHERE slug = ? AND ativo = 1 LIMIT 1');
+        $st->execute([$slug]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
     }
 }
 

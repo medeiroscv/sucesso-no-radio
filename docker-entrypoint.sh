@@ -5,7 +5,7 @@ log() { echo "[sucesso-radio $(date -u +%H:%M:%S)] $*"; }
 
 cd /var/www/html
 
-mkdir -p config data/sessions uploads/programas uploads/banners uploads/demos
+mkdir -p config data/sessions uploads/programas uploads/conteudos uploads/banners uploads/demos
 chown -R www-data:www-data config data uploads 2>/dev/null || true
 chmod -R 775 config data uploads 2>/dev/null || true
 

@@ -39,9 +39,9 @@ function layout_header(string $title = '', string $active = ''): void {
             <span><?= e($nome) ?></span>
         </a>
         <nav class="nav-links">
-            <a href="<?= e($home) ?>#programas">Programas</a>
-            <a href="<?= e($home) ?>#fim-de-semana">Fim de semana</a>
-            <a href="<?= e($home) ?>#jornalismo">Jornalismo</a>
+            <a href="<?= e($home) ?>#diarios">Diários</a>
+            <a href="<?= e($home) ?>#semanais">Semanais</a>
+            <a href="<?= e($home) ?>#informativos">Informativos</a>
             <a href="<?= e($home) ?>#programetes">Programetes</a>
             <a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>">Contato</a>
         </nav>

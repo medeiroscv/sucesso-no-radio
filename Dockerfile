@@ -55,6 +55,7 @@ RUN mkdir -p \
       /var/www/html/config \
       /var/www/html/data/sessions \
       /var/www/html/uploads/programas \
+      /var/www/html/uploads/conteudos \
       /var/www/html/uploads/banners \
       /var/www/html/uploads/demos \
     && chown -R www-data:www-data /var/www/html \

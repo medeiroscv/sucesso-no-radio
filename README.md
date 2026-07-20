@@ -1,6 +1,6 @@
 # Sucesso no Rádio
 
-Site institucional + catálogo de programas para rádios, com **área administrativa** e deploy no **EasyPanel**.
+Site institucional + catálogo de conteúdos para rádios (diários, semanais, informativos e programetes), com **área administrativa** e deploy no **EasyPanel**.
 
 ## Stack
 

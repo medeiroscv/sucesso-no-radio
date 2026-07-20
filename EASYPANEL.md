@@ -44,7 +44,7 @@ Hostname interno do Postgres no EasyPanel: `{nome_do_projeto}_{servico}`
 
 | Mount path no container | Uso |
 |-------------------------|-----|
-| `/var/www/html/uploads` | Capas de programas e banners |
+| `/var/www/html/uploads` | Capas de conteúdos e banners |
 | `/var/www/html/data` | Sessões de login admin |
 | `/var/www/html/config` | Config runtime (se usar) |
 
@@ -55,7 +55,8 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
 1. Deploy com Postgres + volumes  
 2. Abra `https://seu-dominio/admin/`  
 3. Login com `BOOTSTRAP_ADMIN_USER` / `BOOTSTRAP_ADMIN_PASSWORD`  
-4. Cadastre programas, banners, programetes  
+4. Cadastre conteúdos (diários, semanais, informativos, programetes) e banners  
+
 5. Site público: `https://seu-dominio/`  
 
 ## URLs
@@ -64,17 +65,22 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
 |-----|--------|
 | `/` | Site (front) |
 | `/contato.php` | Formulário de contato |
-| `/programa.php?slug=...` | Detalhe do programa |
+| `/programa.php?slug=...` | Detalhe do conteúdo |
 | `/admin/` | Painel administrativo |
+| `/admin/conteudos.php` | Conteúdos (diários, semanais, informativos, programetes) |
 | `/admin/login.php` | Login |
 
 ## O que o admin controla
 
-- **Programas** (capa, duração, blocos, dias, texto, WhatsApp)  
-- **Programetes**  
+- **Conteúdos** — hub com 4 tipos lado a lado:  
+  - **Diários**  
+  - **Semanais**  
+  - **Informativos**  
+  - **Programetes**  
+  (capa, duração, blocos, dias, inserções, demos MP3, WhatsApp)  
 - **Banners** da home  
-- **Categorias**  
 - **Contatos** recebidos no site  
 - **Configurações** (nome, slogan, WhatsApp, e-mail, sobre)  
+
 
 Tudo que aparece no front vem do banco via admin — sem editar HTML à mão.
