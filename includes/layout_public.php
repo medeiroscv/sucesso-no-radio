@@ -59,16 +59,31 @@ function layout_header(string $title = '', string $active = ''): void {
 </head>
 <body>
 <header class="site-header">
-    <div class="container nav">
-        <a class="brand" href="<?= e($home) ?>">
-            <?php if ($logo): ?>
-                <img class="brand-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>">
-            <?php else: ?>
-                <span class="brand-badge">🎙</span>
-                <span><?= e($nome) ?></span>
-            <?php endif; ?>
-        </a>
-        <nav class="nav-links">
+    <div class="container header-inner">
+        <div class="header-top">
+            <div class="header-top-spacer" aria-hidden="true"></div>
+            <a class="brand" href="<?= e($home) ?>">
+                <?php if ($logo): ?>
+                    <img class="brand-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>">
+                <?php else: ?>
+                    <span class="brand-badge">🎙</span>
+                    <span class="brand-text"><?= e($nome) ?></span>
+                <?php endif; ?>
+            </a>
+            <div class="header-account">
+                <?php if ($clienteLogado): ?>
+                    <span class="nav-user">Olá, <?= e($nomeCli ?: 'cliente') ?></span>
+                    <a class="header-link" href="<?= e($areaCliente) ?>">Minha área</a>
+                    <span class="header-sep" aria-hidden="true">·</span>
+                    <a class="header-link" href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
+                <?php else: ?>
+                    <a class="header-link" href="<?= e($loginCliente) ?>">Entrar</a>
+                    <span class="header-sep" aria-hidden="true">·</span>
+                    <a class="header-link header-link-wa" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                <?php endif; ?>
+            </div>
+        </div>
+        <nav class="nav-links" aria-label="Menu principal">
             <a href="<?= e($home) ?>#diarios" class="<?= $active === 'diario' ? 'active' : '' ?>">Diários</a>
             <a href="<?= e($home) ?>#semanais" class="<?= $active === 'semanal' ? 'active' : '' ?>">Semanais</a>
             <a href="<?= e($home) ?>#informativos" class="<?= $active === 'informativo' ? 'active' : '' ?>">Informativos</a>
@@ -77,16 +92,6 @@ function layout_header(string $title = '', string $active = ''): void {
                 <a href="<?= e(app_url('contato.php')) ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
             <?php endif; ?>
         </nav>
-        <div class="nav-actions">
-            <?php if ($clienteLogado): ?>
-                <span class="nav-user muted">Olá, <?= e($nomeCli ?: 'cliente') ?></span>
-                <a class="btn btn-primary btn-small" href="<?= e($areaCliente) ?>">Minha área</a>
-                <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
-            <?php else: ?>
-                <a class="btn btn-primary btn-small" href="<?= e($loginCliente) ?>">Entrar</a>
-                <a class="btn btn-wa btn-small" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
-            <?php endif; ?>
-        </div>
     </div>
 </header>
 <?php
