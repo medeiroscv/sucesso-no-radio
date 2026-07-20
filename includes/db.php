@@ -366,12 +366,8 @@ function app_conteudo_tipos(): array {
 
 /** Tipos na área do cliente (produtos comprados). */
 function app_conteudo_tipos_cliente(): array {
-    $all = app_conteudo_tipos();
-    return [
-        'diario' => $all['diario'],
-        'semanal' => $all['semanal'],
-        'informativo' => $all['informativo'],
-    ];
+    // Mesmos tipos do catálogo: diários, semanais, informativos e programetes
+    return app_conteudo_tipos();
 }
 
 function app_conteudo_tipo_valido(string $tipo): bool {
