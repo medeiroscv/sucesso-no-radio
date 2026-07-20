@@ -16,23 +16,33 @@ function site_settings_all(): array {
 function layout_media_url(string $rel, string $base = ''): string {
     $rel = ltrim(str_replace('\\', '/', $rel), '/');
     if ($rel === '') return '';
+    if (function_exists('app_url')) {
+        return app_url($rel);
+    }
     return ($base === '' ? '' : $base) . '/' . $rel;
 }
 
 function layout_header(string $title = '', string $active = ''): void {
+    if (function_exists('cliente_session_start')) {
+        cliente_session_start();
+    } elseif (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+
     $s = site_settings_all();
     $nome = $s['site_nome'] ?? APP_NAME;
     $wa = preg_replace('/\D+/', '', $s['whatsapp'] ?? '5561974002349');
     $pageTitle = $title !== '' ? ($title . ' · ' . $nome) : $nome;
     $base = app_base_path();
-    $css = ($base === '' ? '' : $base) . '/assets/css/site.css';
+    $css = function_exists('app_url') ? app_url('assets/css/site.css') : (($base === '' ? '' : $base) . '/assets/css/site.css');
     $home = ($base === '' ? '/' : $base . '/');
     $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
     $favicon = !empty($s['site_favicon']) ? layout_media_url((string)$s['site_favicon'], $base) : '';
     $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
     $clienteLogado = function_exists('cliente_logado') && cliente_logado();
-    $areaCliente = function_exists('cliente_home_url') ? cliente_home_url() : (($base === '' ? '' : $base) . '/cliente/index.php');
-    $loginCliente = function_exists('app_url') ? app_url('cliente/login.php') : (($base === '' ? '' : $base) . '/cliente/login.php');
+    $areaCliente = function_exists('cliente_home_url') ? cliente_home_url() : app_url('cliente/index.php');
+    $loginCliente = app_url('cliente/login.php');
+    $nomeCli = $_SESSION['cliente_nome'] ?? '';
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -59,19 +69,27 @@ function layout_header(string $title = '', string $active = ''): void {
             <?php endif; ?>
         </a>
         <nav class="nav-links">
-            <a href="<?= e($home) ?>#diarios">Diários</a>
-            <a href="<?= e($home) ?>#semanais">Semanais</a>
-            <a href="<?= e($home) ?>#informativos">Informativos</a>
-            <a href="<?= e($home) ?>#programetes">Programetes</a>
+            <a href="<?= e($home) ?>#diarios" class="<?= $active === 'diario' ? 'active' : '' ?>">Diários</a>
+            <a href="<?= e($home) ?>#semanais" class="<?= $active === 'semanal' ? 'active' : '' ?>">Semanais</a>
+            <a href="<?= e($home) ?>#informativos" class="<?= $active === 'informativo' ? 'active' : '' ?>">Informativos</a>
+            <a href="<?= e($home) ?>#programetes" class="<?= $active === 'programete' ? 'active' : '' ?>">Programetes</a>
             <?php if ($formContatoAtivo): ?>
-                <a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
+                <a href="<?= e(app_url('contato.php')) ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
             <?php endif; ?>
-            <a href="<?= e($clienteLogado ? $areaCliente : $loginCliente) ?>">Área do cliente</a>
+            <?php if ($clienteLogado): ?>
+                <a href="<?= e($areaCliente) ?>" class="<?= in_array($active, ['cliente', 'home', 'texto', 'perfil', 'diario', 'semanal', 'informativo', 'programete'], true) && str_contains($_SERVER['SCRIPT_NAME'] ?? '', '/cliente/') ? 'active' : '' ?>">Minha área</a>
+            <?php else: ?>
+                <a href="<?= e($loginCliente) ?>">Área do cliente</a>
+            <?php endif; ?>
         </nav>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <a class="btn btn-primary btn-small" href="<?= e($clienteLogado ? $areaCliente : $loginCliente) ?>">
-                <?= $clienteLogado ? 'Minha área' : 'Entrar' ?>
-            </a>
+        <div class="nav-actions">
+            <?php if ($clienteLogado): ?>
+                <span class="nav-user muted">Olá, <?= e($nomeCli ?: 'cliente') ?></span>
+                <a class="btn btn-primary btn-small" href="<?= e($areaCliente) ?>">Minha área</a>
+                <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
+            <?php else: ?>
+                <a class="btn btn-primary btn-small" href="<?= e($loginCliente) ?>">Entrar</a>
+            <?php endif; ?>
             <a class="btn btn-wa btn-small" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
         </div>
     </div>
@@ -87,6 +105,7 @@ function layout_footer(): void {
     $home = ($base === '' ? '/' : $base . '/');
     $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
     $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
+    $clienteLogado = function_exists('cliente_logado') && cliente_logado();
     ?>
 <footer class="site-footer">
     <div class="container footer-grid">
@@ -101,9 +120,13 @@ function layout_footer(): void {
         <div>
             <strong>Navegação</strong>
             <p><a href="<?= e($home) ?>">Início</a></p>
-            <?php if ($formContatoAtivo): ?><p><a href="<?= e(($base === '' ? '' : $base) . '/contato.php') ?>">Contato</a></p><?php endif; ?>
-            <p><a href="<?= e(($base === '' ? '' : $base) . '/cliente/login.php') ?>">Área do cliente</a></p>
-            <p><a href="<?= e(($base === '' ? '' : $base) . '/admin/') ?>">Área admin</a></p>
+            <?php if ($formContatoAtivo): ?><p><a href="<?= e(app_url('contato.php')) ?>">Contato</a></p><?php endif; ?>
+            <?php if ($clienteLogado): ?>
+                <p><a href="<?= e(cliente_home_url()) ?>">Minha área</a></p>
+            <?php else: ?>
+                <p><a href="<?= e(app_url('cliente/login.php')) ?>">Área do cliente</a></p>
+            <?php endif; ?>
+            <p><a href="<?= e(app_url('admin/')) ?>">Área admin</a></p>
         </div>
         <div>
             <strong>Contato</strong>
