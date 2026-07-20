@@ -86,20 +86,31 @@ img { max-width: 100%; display: block; }
   grid-column: 3;
   justify-self: end;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: min(280px, 38vw);
+  font-size: .82rem;
+  text-align: right;
+}
+.header-account-links {
+  display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 6px 8px;
-  flex-wrap: wrap;
-  min-width: 0;
-  max-width: 100%;
-  font-size: .82rem;
+  flex-wrap: nowrap;
 }
 .header-account .nav-user {
   color: var(--muted);
-  white-space: nowrap;
-  max-width: 12ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: .78rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 100%;
+  text-align: right;
 }
 .header-link {
   color: var(--muted);
@@ -316,14 +327,18 @@ a.cliente-list-item:hover { border-color: var(--accent); }
   .header-account {
     grid-column: 1;
     justify-self: center;
+    align-items: center;
     order: 2;
+    max-width: 90vw;
+    text-align: center;
   }
+  .header-account-links { justify-content: center; }
+  .header-account .nav-user { text-align: center; }
   .nav-links {
     order: 3;
     gap: 4px 14px;
     font-size: .9rem;
   }
-  .header-account .nav-user { max-width: none; }
 }
 .hero h1 {
   font-size: clamp(1.9rem, 4vw, 3rem);

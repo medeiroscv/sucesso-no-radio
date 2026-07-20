@@ -72,14 +72,18 @@ function layout_header(string $title = '', string $active = ''): void {
             </a>
             <div class="header-account">
                 <?php if ($clienteLogado): ?>
+                    <div class="header-account-links">
+                        <a class="header-link" href="<?= e($areaCliente) ?>">Minha área</a>
+                        <span class="header-sep" aria-hidden="true">·</span>
+                        <a class="header-link" href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
+                    </div>
                     <span class="nav-user">Olá, <?= e($nomeCli ?: 'cliente') ?></span>
-                    <a class="header-link" href="<?= e($areaCliente) ?>">Minha área</a>
-                    <span class="header-sep" aria-hidden="true">·</span>
-                    <a class="header-link" href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
                 <?php else: ?>
-                    <a class="header-link" href="<?= e($loginCliente) ?>">Entrar</a>
-                    <span class="header-sep" aria-hidden="true">·</span>
-                    <a class="header-link header-link-wa" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                    <div class="header-account-links">
+                        <a class="header-link" href="<?= e($loginCliente) ?>">Entrar</a>
+                        <span class="header-sep" aria-hidden="true">·</span>
+                        <a class="header-link header-link-wa" href="https://wa.me/<?= e($wa) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
