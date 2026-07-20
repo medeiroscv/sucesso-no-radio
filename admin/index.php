@@ -43,7 +43,8 @@ admin_header('Dashboard', 'dash');
     <h3 style="margin-bottom:10px;">Atalhos</h3>
     <div class="actions" style="margin-bottom:8px;">
         <a class="btn btn-primary" href="clientes.php?novo=1">+ Novo cliente</a>
-        <a class="btn btn-secondary" href="contatos.php?tipo=texto">Textos a gravar</a>
+        <a class="btn btn-secondary" href="textos.php">Textos a gravar</a>
+        <a class="btn btn-secondary" href="contatos.php">Contatos</a>
         <a class="btn btn-secondary" href="conteudos.php">Conteúdos / entregas</a>
         <a class="btn btn-secondary" href="../cliente/login.php" target="_blank">Área do cliente</a>
     </div>

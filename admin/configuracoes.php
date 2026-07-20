@@ -170,13 +170,13 @@ elseif ($sec === 'formulario_contato'):
 ?>
 <div class="actions" style="margin-bottom:12px;">
     <a class="btn btn-secondary btn-small" href="configuracoes.php">← Configurações</a>
-    <a class="btn btn-secondary btn-small" href="contatos.php?tipo=contato">Ver envios (<?= $qContatos ?>)</a>
+    <a class="btn btn-secondary btn-small" href="contatos.php">Ver envios (<?= $qContatos ?>)</a>
     <a class="btn btn-secondary btn-small" href="../contato.php" target="_blank">Abrir formulário no site</a>
 </div>
 <div class="card">
     <p class="muted" style="margin-bottom:16px;">
         Formulário padrão do site com: <strong>Nome</strong>, <strong>E-mail</strong>, <strong>Telefone</strong>, <strong>WhatsApp</strong> e <strong>Mensagem / conteúdo</strong>.
-        Os envios ficam gravados em <a href="contatos.php?tipo=contato">Contatos</a>.
+        Os envios ficam gravados em <a href="contatos.php">Contatos</a>.
     </p>
     <form method="post">
         <input type="hidden" name="sec" value="formulario_contato">
@@ -205,14 +205,14 @@ elseif ($sec === 'formulario_texto'):
 ?>
 <div class="actions" style="margin-bottom:12px;">
     <a class="btn btn-secondary btn-small" href="configuracoes.php">← Configurações</a>
-    <a class="btn btn-secondary btn-small" href="contatos.php?tipo=texto">Ver textos (<?= $qTextos ?>)</a>
+    <a class="btn btn-secondary btn-small" href="textos.php">Ver textos (<?= $qTextos ?>)</a>
     <a class="btn btn-secondary btn-small" href="../texto.php" target="_blank">Abrir formulário no site</a>
 </div>
 <div class="card">
     <p class="muted" style="margin-bottom:16px;">
         Formulário exclusivo da <strong>área do cliente</strong> (requer login).
         Cada envio grava o texto <strong>junto com os dados cadastrados do cliente</strong> (nome, e-mail, WhatsApp).
-        Veja em <a href="contatos.php?tipo=texto">Textos a gravar</a>.
+        Veja em <a href="textos.php">Textos a gravar</a>.
     </p>
     <form method="post">
         <input type="hidden" name="sec" value="formulario_texto">
