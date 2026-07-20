@@ -19,10 +19,14 @@ if (!$ent || empty($ent['ativo'])) {
     exit;
 }
 
-// Conteúdo ativo e liberado para este cliente
+// Conteúdo de produto (area=conteudo) e liberado para este cliente
 $conteudo = app_conteudo_by_id(intval($ent['conteudo_id']), true);
 $cli = cliente_atual();
-if (!$conteudo || !cliente_pode_acessar_conteudo(intval($ent['conteudo_id']), $cli)) {
+if (
+    !$conteudo
+    || ($conteudo['area'] ?? '') !== 'conteudo'
+    || !cliente_pode_acessar_conteudo(intval($ent['conteudo_id']), $cli)
+) {
     http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
     echo 'Conteúdo não liberado para o seu cadastro.';

@@ -1,12 +1,12 @@
 <?php
 require_once __DIR__ . '/_layout.php';
-cliente_require_auth();
+cliente_require_liberacao();
 
 $cli = cliente_atual();
 $cliId = intval($cli['id'] ?? 0);
-$tipos = app_conteudo_tipos();
+$tipos = app_conteudo_tipos_cliente();
 $tipo = trim((string)($_GET['tipo'] ?? 'diario'));
-if (!app_conteudo_tipo_valido($tipo)) {
+if (!isset($tipos[$tipo])) {
     $tipo = 'diario';
 }
 $meta = $tipos[$tipo];

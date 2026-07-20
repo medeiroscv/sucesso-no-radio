@@ -21,10 +21,11 @@ function admin_header(string $title, string $active = ''): void {
         <div class="logo">🎙 Sucesso no Rádio</div>
         <nav>
             <a href="index.php" class="<?= $active === 'dash' ? 'active' : '' ?>">Dashboard</a>
+            <a href="demonstrativos.php" class="<?= $active === 'demonstrativos' ? 'active' : '' ?>">Demonstrativos</a>
             <a href="conteudos.php" class="<?= $active === 'conteudos' ? 'active' : '' ?>">Conteúdos</a>
+            <a href="clientes.php" class="<?= $active === 'clientes' ? 'active' : '' ?>">Clientes</a>
             <a href="textos.php" class="<?= $active === 'textos' ? 'active' : '' ?>">Textos a gravar</a>
             <a href="contatos.php" class="<?= $active === 'contatos' ? 'active' : '' ?>">Contatos</a>
-            <a href="clientes.php" class="<?= $active === 'clientes' ? 'active' : '' ?>">Clientes</a>
             <a href="banners.php" class="<?= $active === 'banners' ? 'active' : '' ?>">Banners</a>
             <a href="configuracoes.php" class="<?= $active === 'config' ? 'active' : '' ?>">Configurações</a>
             <a href="../" target="_blank">Ver site</a>

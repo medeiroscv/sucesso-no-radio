@@ -8,7 +8,7 @@ $tipos = app_conteudo_tipos();
 
 try {
     if ($slug !== '') {
-        $programa = app_conteudo_by_slug($slug);
+        $programa = app_conteudo_by_slug($slug, 'demonstrativo');
         // fallback legado
         if (!$programa) {
             $st = app_pdo()->prepare('SELECT * FROM programas WHERE slug = ? AND ativo = 1 LIMIT 1');

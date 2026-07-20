@@ -230,9 +230,10 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_demonstrativos_conteudo ON demonstrativos (tipo_conteudo, conteudo_id, ordem, id)');
 
-    // Conteúdos unificados (diários, semanais, informativos, programetes)
+    // Catálogo: demonstrativos (site público) e conteúdos (área do cliente)
     $pdo->exec("CREATE TABLE IF NOT EXISTS conteudos (
         id SERIAL PRIMARY KEY,
+        area VARCHAR(40) NOT NULL DEFAULT 'demonstrativo',
         tipo VARCHAR(40) NOT NULL DEFAULT 'diario',
         titulo VARCHAR(200) NOT NULL,
         slug VARCHAR(220) NOT NULL UNIQUE,
@@ -250,7 +251,9 @@ function app_bootstrap_database(PDO $pdo): void {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP NULL
     )");
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_conteudos_tipo ON conteudos (tipo, ativo, ordem, id)');
+    try { $pdo->exec("ALTER TABLE conteudos ADD COLUMN IF NOT EXISTS area VARCHAR(40) NOT NULL DEFAULT 'demonstrativo'"); } catch (Throwable $e) { /* ok */ }
+    $pdo->exec("UPDATE conteudos SET area = 'demonstrativo' WHERE area IS NULL OR area = ''");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_conteudos_tipo ON conteudos (area, tipo, ativo, ordem, id)');
 
     // Arquivos de entrega (somente área do cliente — atualizados diariamente)
     $pdo->exec("CREATE TABLE IF NOT EXISTS conteudo_entregas (
@@ -295,7 +298,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
         'form_texto_btn' => 'Enviar texto',
         'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
-        'db_version' => '7',
+        'db_version' => '8',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -306,7 +309,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['7']);
+            )->execute(['8']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -361,8 +364,42 @@ function app_conteudo_tipos(): array {
     ];
 }
 
+/** Tipos na área do cliente (produtos comprados). */
+function app_conteudo_tipos_cliente(): array {
+    $all = app_conteudo_tipos();
+    return [
+        'diario' => $all['diario'],
+        'semanal' => $all['semanal'],
+        'informativo' => $all['informativo'],
+    ];
+}
+
 function app_conteudo_tipo_valido(string $tipo): bool {
     return array_key_exists($tipo, app_conteudo_tipos());
+}
+
+/** Área do catálogo: demonstrativo (site público) | conteudo (cliente logado). */
+function app_catalogo_area_valida(string $area): bool {
+    return in_array($area, ['demonstrativo', 'conteudo'], true);
+}
+
+function app_catalogo_area_meta(string $area): array {
+    return match ($area) {
+        'demonstrativo' => [
+            'label' => 'Demonstrativos',
+            'singular' => 'Demonstrativo',
+            'desc' => 'Amostras exibidas na página inicial do site (público).',
+            'file' => 'demonstrativos.php',
+            'active' => 'demonstrativos',
+        ],
+        default => [
+            'label' => 'Conteúdos',
+            'singular' => 'Conteúdo',
+            'desc' => 'Programas liberados para clientes que compraram o produto (login + liberação manual).',
+            'file' => 'conteudos.php',
+            'active' => 'conteudos',
+        ],
+    };
 }
 
 /** Migra programas + programetes → conteudos (uma vez). */
@@ -519,25 +556,30 @@ function app_map_periodo_to_tipo(string $periodo, int $categoriaId, PDO $pdo): s
     return 'diario';
 }
 
-function app_conteudos_por_tipo(string $tipo, bool $somenteAtivos = true): array {
+function app_conteudos_por_tipo(string $tipo, bool $somenteAtivos = true, string $area = 'demonstrativo'): array {
     if (!app_conteudo_tipo_valido($tipo)) return [];
+    if (!app_catalogo_area_valida($area)) $area = 'demonstrativo';
     try {
-        $sql = 'SELECT * FROM conteudos WHERE tipo = ?';
+        $sql = 'SELECT * FROM conteudos WHERE tipo = ? AND area = ?';
         if ($somenteAtivos) $sql .= ' AND ativo = 1';
         $sql .= ' ORDER BY destaque DESC, ordem ASC, titulo ASC';
         $st = app_pdo()->prepare($sql);
-        $st->execute([$tipo]);
+        $st->execute([$tipo, $area]);
         return $st->fetchAll() ?: [];
     } catch (Throwable $e) {
         return [];
     }
 }
 
-/** IDs de conteúdos liberados para o cliente (vazio se acesso_total). */
+/** IDs de conteúdos (área cliente) liberados manualmente. */
 function cliente_conteudo_ids(int $clienteId): array {
     if ($clienteId <= 0) return [];
     try {
-        $st = app_pdo()->prepare('SELECT conteudo_id FROM cliente_conteudos WHERE cliente_id = ?');
+        $st = app_pdo()->prepare(
+            'SELECT cc.conteudo_id FROM cliente_conteudos cc
+             INNER JOIN conteudos c ON c.id = cc.conteudo_id AND c.area = \'conteudo\'
+             WHERE cc.cliente_id = ?'
+        );
         $st->execute([$clienteId]);
         return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN) ?: []);
     } catch (Throwable $e) {
@@ -551,16 +593,35 @@ function cliente_tem_acesso_total(?array $cli = null): bool {
     return !empty($cli['acesso_total']);
 }
 
+/**
+ * Cliente ativo + liberação (acesso total OU ao menos um conteúdo liberado).
+ * Só "ativo" no cadastro NÃO libera nada.
+ */
+function cliente_tem_liberacao(?array $cli = null): bool {
+    if ($cli === null) $cli = cliente_atual();
+    if (!$cli || empty($cli['ativo'])) return false;
+    if (cliente_tem_acesso_total($cli)) return true;
+    return count(cliente_conteudo_ids(intval($cli['id']))) > 0;
+}
+
 function cliente_pode_acessar_conteudo(int $conteudoId, ?array $cli = null): bool {
     if ($conteudoId <= 0) return false;
     if ($cli === null) $cli = cliente_atual();
-    if (!$cli) return false;
+    if (!$cli || !cliente_tem_liberacao($cli)) return false;
+    try {
+        $st = app_pdo()->prepare('SELECT id, area FROM conteudos WHERE id = ? AND ativo = 1 LIMIT 1');
+        $st->execute([$conteudoId]);
+        $c = $st->fetch();
+        if (!$c || ($c['area'] ?? '') !== 'conteudo') return false;
+    } catch (Throwable $e) {
+        return false;
+    }
     if (!empty($cli['acesso_total'])) return true;
     $ids = cliente_conteudo_ids(intval($cli['id']));
     return in_array($conteudoId, $ids, true);
 }
 
-/** Conteúdos liberados para o cliente, por tipo. */
+/** Conteúdos liberados para o cliente, por tipo (só área conteudo). */
 function cliente_conteudos_por_tipo(int $clienteId, string $tipo, ?array $cli = null): array {
     if (!app_conteudo_tipo_valido($tipo) || $clienteId <= 0) return [];
     if ($cli === null) {
@@ -572,15 +633,15 @@ function cliente_conteudos_por_tipo(int $clienteId, string $tipo, ?array $cli = 
             return [];
         }
     }
-    if (!$cli) return [];
+    if (!$cli || !cliente_tem_liberacao($cli)) return [];
     if (!empty($cli['acesso_total'])) {
-        return app_conteudos_por_tipo($tipo, true);
+        return app_conteudos_por_tipo($tipo, true, 'conteudo');
     }
     try {
         $st = app_pdo()->prepare(
             'SELECT c.* FROM conteudos c
              INNER JOIN cliente_conteudos cc ON cc.conteudo_id = c.id AND cc.cliente_id = ?
-             WHERE c.tipo = ? AND c.ativo = 1
+             WHERE c.tipo = ? AND c.area = \'conteudo\' AND c.ativo = 1
              ORDER BY c.destaque DESC, c.ordem ASC, c.titulo ASC'
         );
         $st->execute([$clienteId, $tipo]);
@@ -596,18 +657,34 @@ function cliente_salvar_liberacoes(int $clienteId, array $conteudoIds, bool $ace
         ->execute([$acessoTotal ? 1 : 0, $clienteId]);
     $pdo->prepare('DELETE FROM cliente_conteudos WHERE cliente_id = ?')->execute([$clienteId]);
     if ($acessoTotal) return;
-    $ins = $pdo->prepare('INSERT INTO cliente_conteudos (cliente_id, conteudo_id, created_at) VALUES (?,?,NOW()) ON CONFLICT DO NOTHING');
+    $ins = $pdo->prepare(
+        'INSERT INTO cliente_conteudos (cliente_id, conteudo_id, created_at)
+         SELECT ?, c.id, NOW() FROM conteudos c
+         WHERE c.id = ? AND c.area = \'conteudo\'
+         ON CONFLICT DO NOTHING'
+    );
     foreach ($conteudoIds as $cid) {
         $cid = intval($cid);
         if ($cid > 0) $ins->execute([$clienteId, $cid]);
     }
 }
 
-function app_conteudo_by_slug(string $slug): ?array {
+/** Exige cliente logado E com liberação de conteúdos. */
+function cliente_require_liberacao(string $redirectLogin = ''): void {
+    cliente_require_auth($redirectLogin);
+    $cli = cliente_atual();
+    if (cliente_tem_liberacao($cli)) return;
+    // logado mas sem liberação → dashboard bloqueado
+    header('Location: ' . cliente_home_url() . '?bloqueado=1');
+    exit;
+}
+
+function app_conteudo_by_slug(string $slug, string $area = 'demonstrativo'): ?array {
     if ($slug === '') return null;
+    if (!app_catalogo_area_valida($area)) $area = 'demonstrativo';
     try {
-        $st = app_pdo()->prepare('SELECT * FROM conteudos WHERE slug = ? AND ativo = 1 LIMIT 1');
-        $st->execute([$slug]);
+        $st = app_pdo()->prepare('SELECT * FROM conteudos WHERE slug = ? AND area = ? AND ativo = 1 LIMIT 1');
+        $st->execute([$slug, $area]);
         $row = $st->fetch();
         return $row ?: null;
     } catch (Throwable $e) {

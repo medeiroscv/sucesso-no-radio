@@ -1,10 +1,14 @@
 <?php
 require_once __DIR__ . '/_layout.php';
-cliente_require_auth();
+cliente_require_liberacao();
 
 $cli = cliente_atual();
 $id = intval($_GET['id'] ?? 0);
 $item = app_conteudo_by_id($id, true);
+// só área de produto (conteudo)
+if ($item && ($item['area'] ?? '') !== 'conteudo') {
+    $item = null;
+}
 
 if (!$item || !cliente_pode_acessar_conteudo($id, $cli)) {
     http_response_code(404);

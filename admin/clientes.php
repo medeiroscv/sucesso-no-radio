@@ -3,7 +3,7 @@ require_once __DIR__ . '/_layout.php';
 $pdo = app_pdo();
 $ok = $err = '';
 $edit = null;
-$tipos = app_conteudo_tipos();
+$tipos = app_conteudo_tipos_cliente();
 
 if (isset($_GET['del'])) {
     $id = intval($_GET['del']);
@@ -106,11 +106,11 @@ if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
     }
 }
 
-// Lista de todos os conteúdos para checkboxes
+// Só conteúdos da área do cliente (não demonstrativos públicos)
 $todosConteudos = [];
 try {
     $todosConteudos = $pdo->query(
-        'SELECT id, titulo, tipo, ativo FROM conteudos ORDER BY tipo, ordem, titulo'
+        "SELECT id, titulo, tipo, ativo FROM conteudos WHERE area = 'conteudo' ORDER BY tipo, ordem, titulo"
     )->fetchAll() ?: [];
 } catch (Throwable $e) {
     $todosConteudos = [];
@@ -166,14 +166,20 @@ if ($edit !== null):
             <input type="password" name="senha" autocomplete="new-password" <?= empty($edit['id']) ? 'required' : '' ?> minlength="6">
         </div>
         <div class="field"><label>Observações internas</label><textarea name="observacoes" rows="2"><?= e($edit['observacoes'] ?? '') ?></textarea></div>
-        <div class="field"><label><input type="checkbox" name="ativo" value="1" <?= !empty($edit['ativo']) ? 'checked' : '' ?>> Cliente ativo (pode logar)</label></div>
+        <div class="field">
+            <label><input type="checkbox" name="ativo" value="1" <?= !empty($edit['ativo']) ? 'checked' : '' ?>> Cliente ativo (pode logar)</label>
+            <p class="muted" style="margin-top:6px;font-size:.82rem;">Ativo sozinho não libera conteúdos nem textos — use a liberação abaixo.</p>
+        </div>
 
-        <h3 style="margin:22px 0 10px;">Liberar conteúdos</h3>
-        <p class="muted" style="margin-bottom:12px;">Marque o que este cliente pode ver na área logada (arquivos de entrega).</p>
+        <h3 style="margin:22px 0 10px;">Liberar conteúdos (produto)</h3>
+        <p class="muted" style="margin-bottom:12px;">
+            Cliente <strong>ativo</strong> só pode logar. Para ver conteúdos e enviar textos, é preciso liberar manualmente abaixo
+            (ou marcar acesso total). Demonstrativos do site público não entram aqui.
+        </p>
         <div class="field" style="margin-bottom:14px;">
             <label>
                 <input type="checkbox" name="acesso_total" value="1" id="acessoTotal" <?= $acessoTotalChecked ? 'checked' : '' ?>>
-                <strong>Acesso total</strong> — liberar todos os conteúdos automaticamente
+                <strong>Acesso total</strong> — liberar todos os conteúdos do produto
             </label>
         </div>
         <div id="listaLiberacoes" style="<?= $acessoTotalChecked ? 'opacity:.45;pointer-events:none;' : '' ?>">

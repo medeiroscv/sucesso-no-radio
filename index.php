@@ -15,7 +15,8 @@ $tiposMeta = app_conteudo_tipos();
 try {
     $pdo = app_pdo();
     foreach (array_keys($porTipo) as $t) {
-        $porTipo[$t] = app_conteudos_por_tipo($t, true);
+        // Só demonstrativos (catálogo público)
+        $porTipo[$t] = app_conteudos_por_tipo($t, true, 'demonstrativo');
     }
     $banners = $pdo->query(
         "SELECT * FROM banners WHERE ativo = 1 ORDER BY ordem ASC, id DESC LIMIT 5"

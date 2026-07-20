@@ -4,51 +4,68 @@ cliente_require_auth();
 
 $cli = cliente_atual();
 $cliId = intval($cli['id'] ?? 0);
-$tipos = app_conteudo_tipos();
+$liberado = cliente_tem_liberacao($cli);
+$tipos = app_conteudo_tipos_cliente();
 $counts = [];
 $recentes = [];
 $totalLiberados = 0;
+$bloqueado = isset($_GET['bloqueado']) || !$liberado;
 
-try {
-    foreach (array_keys($tipos) as $t) {
-        $n = count(cliente_conteudos_por_tipo($cliId, $t, $cli));
-        $counts[$t] = $n;
-        $totalLiberados += $n;
-    }
+if ($liberado) {
+    try {
+        foreach (array_keys($tipos) as $t) {
+            $n = count(cliente_conteudos_por_tipo($cliId, $t, $cli));
+            $counts[$t] = $n;
+            $totalLiberados += $n;
+        }
 
-    if (cliente_tem_acesso_total($cli)) {
-        $recentes = app_pdo()->query(
-            "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
-                    c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
-             FROM conteudo_entregas e
-             INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1
-             WHERE e.ativo = 1
-             ORDER BY e.created_at DESC, e.id DESC
-             LIMIT 12"
-        )->fetchAll() ?: [];
-    } else {
-        $st = app_pdo()->prepare(
-            "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
-                    c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
-             FROM conteudo_entregas e
-             INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1
-             INNER JOIN cliente_conteudos cc ON cc.conteudo_id = c.id AND cc.cliente_id = ?
-             WHERE e.ativo = 1
-             ORDER BY e.created_at DESC, e.id DESC
-             LIMIT 12"
-        );
-        $st->execute([$cliId]);
-        $recentes = $st->fetchAll() ?: [];
+        if (cliente_tem_acesso_total($cli)) {
+            $recentes = app_pdo()->query(
+                "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
+                        c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
+                 FROM conteudo_entregas e
+                 INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1 AND c.area = 'conteudo'
+                 WHERE e.ativo = 1
+                 ORDER BY e.created_at DESC, e.id DESC
+                 LIMIT 12"
+            )->fetchAll() ?: [];
+        } else {
+            $st = app_pdo()->prepare(
+                "SELECT e.id AS entrega_id, e.titulo AS entrega_titulo, e.data_ref, e.created_at,
+                        c.id AS conteudo_id, c.titulo AS conteudo_titulo, c.tipo, c.slug
+                 FROM conteudo_entregas e
+                 INNER JOIN conteudos c ON c.id = e.conteudo_id AND c.ativo = 1 AND c.area = 'conteudo'
+                 INNER JOIN cliente_conteudos cc ON cc.conteudo_id = c.id AND cc.cliente_id = ?
+                 WHERE e.ativo = 1
+                 ORDER BY e.created_at DESC, e.id DESC
+                 LIMIT 12"
+            );
+            $st->execute([$cliId]);
+            $recentes = $st->fetchAll() ?: [];
+        }
+    } catch (Throwable $e) {
+        $recentes = [];
     }
-} catch (Throwable $e) {
-    $recentes = [];
 }
 
 cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
+
+if ($bloqueado):
+?>
+<div class="empty" style="margin-bottom:28px;">
+    <strong style="display:block;font-size:1.1rem;margin-bottom:10px;color:var(--text);">Acesso aos conteúdos bloqueado</strong>
+    Sua conta está ativa, mas ainda <strong>não há conteúdos liberados</strong> para o seu cadastro.<br>
+    Você não consegue visualizar programas nem enviar textos até a equipe liberar o produto.<br>
+    <span class="muted" style="display:block;margin-top:12px;">Fale com a Sucesso no Rádio para ativar sua liberação.</span>
+</div>
+<?php
+cliente_footer();
+exit;
+endif;
 ?>
 <p class="cliente-intro">
-    Aqui ficam os conteúdos <strong>liberados para o seu cadastro</strong>.
-    Os demonstrativos da página inicial são só amostras — os arquivos de entrega ficam nesta área.
+    Aqui ficam os <strong>conteúdos do seu produto</strong> (liberados pela equipe).
+    Os demonstrativos da página inicial são apenas amostras públicas.
     <?php if (cliente_tem_acesso_total($cli)): ?>
         <br><span class="chip" style="margin-top:8px;display:inline-block;">Acesso total liberado</span>
     <?php else: ?>
@@ -78,9 +95,7 @@ cliente_header('Olá, ' . ($cli['nome'] ?? 'cliente'), 'home');
         <h2>Atualizações recentes</h2>
         <p>Últimos arquivos de entrega dos conteúdos liberados para você.</p>
     </div>
-    <?php if ($totalLiberados === 0 && !cliente_tem_acesso_total($cli)): ?>
-        <div class="empty">Nenhum conteúdo foi liberado ainda para o seu cadastro. Fale com a equipe para liberar o acesso.</div>
-    <?php elseif (!$recentes): ?>
+    <?php if (!$recentes): ?>
         <div class="empty">Ainda não há arquivos de entrega. Assim que a equipe publicar, eles aparecem aqui.</div>
     <?php else: ?>
         <div class="cliente-list">
