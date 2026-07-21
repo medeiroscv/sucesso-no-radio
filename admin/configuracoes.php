@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/asaas.php';
+require_once __DIR__ . '/../includes/update.php';
 
 $pdo = app_pdo();
 $secoes = app_config_secoes();
@@ -9,6 +10,8 @@ $sec = trim((string)($_GET['sec'] ?? $_POST['sec'] ?? ''));
 if ($sec !== '' && !isset($secoes[$sec])) {
     $sec = '';
 }
+$updateResult = null;
+$updateApplyLog = '';
 
 // ---- POST ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -89,6 +92,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $ok = 'Configurações financeiras (Asaas) salvas.';
         $sec = 'financeiro';
+    } elseif ($secPost === 'atualizacao') {
+        $sec = 'atualizacao';
+        $action = trim((string)($_POST['action'] ?? 'check'));
+        if ($action === 'apply') {
+            $apply = app_update_apply();
+            $updateApplyLog = (string)($apply['log'] ?? '');
+            if (!empty($apply['ok'])) {
+                $ok = (string)$apply['message'];
+            } else {
+                $err = (string)($apply['message'] ?? 'Falha ao aplicar atualização.');
+            }
+            $updateResult = app_update_check(true);
+        } else {
+            $updateResult = app_update_check(true);
+            if (!empty($updateResult['ok'])) {
+                $behind = (int)($updateResult['behind'] ?? 0);
+                if ($behind === 0) {
+                    $ok = 'Sistema em dia com o GitHub.';
+                } elseif ($behind > 0) {
+                    $ok = $behind . ' atualização(ões) disponível(is) no GitHub.';
+                } else {
+                    $ok = 'Consulta ao GitHub concluída.';
+                }
+            } else {
+                $err = (string)($updateResult['error'] ?? 'Não foi possível consultar o GitHub.');
+            }
+        }
     }
 }
 
@@ -125,6 +155,8 @@ if ($sec === ''):
                     <div class="conteudo-hub-count"><?= $qTextos ?> texto(s)<?= $qTextosNovos ? " · {$qTextosNovos} novo(s)" : '' ?></div>
                 <?php elseif ($key === 'financeiro'): ?>
                     <div class="conteudo-hub-count"><?= app_finance_ativo() ? 'Módulo ativo' : 'Módulo inativo' ?> · <?= asaas_configured() ? 'Asaas ok' : 'Asaas pendente' ?></div>
+                <?php elseif ($key === 'atualizacao'): ?>
+                    <div class="conteudo-hub-count"><?= e(app_update_hub_status()) ?></div>
                 <?php else: ?>
                     <div class="conteudo-hub-count">Identidade e contato do site</div>
                 <?php endif; ?>
@@ -343,6 +375,154 @@ elseif ($sec === 'financeiro'):
 
         <button class="btn btn-primary" type="submit">Salvar financeiro</button>
     </form>
+</div>
+<?php
+// ========== ATUALIZAÇÃO ==========
+elseif ($sec === 'atualizacao'):
+    if ($updateResult === null) {
+        // carrega cache ou consulta leve (sem forçar se cache válido)
+        $updateResult = app_update_check(false);
+    }
+    $local = $updateResult['local'] ?? app_update_local_version();
+    $behind = (int)($updateResult['behind'] ?? 0);
+    $commits = $updateResult['commits'] ?? [];
+    $canApply = !empty($updateResult['can_apply']);
+    $repo = app_update_repo();
+    $branch = app_update_branch();
+?>
+<div class="actions" style="margin-bottom:12px;">
+    <a class="btn btn-secondary btn-small" href="configuracoes.php">← Configurações</a>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom:10px;">Atualização do sistema</h3>
+    <p class="muted" style="margin-bottom:14px;">
+        Consulta o repositório no GitHub e mostra se há commits novos em relação à versão instalada.
+        Repositório: <code><?= e($repo) ?></code> · branch <code><?= e($branch) ?></code>
+    </p>
+
+    <div style="background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+        <strong>Versão instalada</strong>
+        <div class="muted" style="margin-top:8px;line-height:1.7;">
+            Commit: <code><?= e($local['short'] !== '' ? $local['short'] : 'desconhecido') ?></code>
+            <?php if (!empty($local['commit'])): ?>
+                <span style="opacity:.7;font-size:.8rem;">(<?= e($local['commit']) ?>)</span>
+            <?php endif; ?><br>
+            <?php if (!empty($local['message'])): ?>
+                Mensagem: <?= e($local['message']) ?><br>
+            <?php endif; ?>
+            <?php if (!empty($local['updated_at'])): ?>
+                Registrada em: <?= e(date('d/m/Y H:i', strtotime($local['updated_at']))) ?><br>
+            <?php endif; ?>
+            Ambiente: <?= app_update_git_available() ? 'com Git local' : 'sem .git (típico Docker/EasyPanel)' ?>
+        </div>
+    </div>
+
+    <?php if (!empty($updateResult['ok'])): ?>
+        <?php if ($behind === 0): ?>
+            <div class="alert alert-ok" style="margin-bottom:14px;">✅ Sistema em dia com o GitHub<?= !empty($updateResult['remote_short']) ? ' (' . e($updateResult['remote_short']) . ')' : '' ?>.</div>
+        <?php elseif ($behind > 0): ?>
+            <div class="alert alert-err" style="margin-bottom:14px;">
+                🔄 Há <strong><?= $behind ?></strong> commit(s) novo(s) no GitHub.
+                Remoto: <code><?= e($updateResult['remote_short'] ?? '') ?></code>
+                — <?= e(mb_substr((string)($updateResult['remote_message'] ?? ''), 0, 120)) ?>
+            </div>
+        <?php else: ?>
+            <div class="alert" style="margin-bottom:14px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.35);color:#7dd3fc;padding:12px 14px;border-radius:10px;">
+                Versão local não identificada com precisão. Confira os commits recentes abaixo.
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($updateResult['error']) && $behind !== 0): ?>
+            <p class="muted" style="margin-bottom:12px;font-size:.85rem;"><?= e((string)$updateResult['error']) ?></p>
+        <?php endif; ?>
+        <?php if (!empty($updateResult['from_cache'])): ?>
+            <p class="muted" style="margin-bottom:12px;font-size:.8rem;">Resultado em cache (até 15 min). Use “Buscar atualizações” para forçar nova consulta.</p>
+        <?php endif; ?>
+    <?php elseif (!empty($updateResult['error'])): ?>
+        <div class="alert alert-err" style="margin-bottom:14px;"><?= e((string)$updateResult['error']) ?></div>
+    <?php endif; ?>
+
+    <div class="actions" style="gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+        <form method="post" style="display:inline;">
+            <input type="hidden" name="sec" value="atualizacao">
+            <input type="hidden" name="action" value="check">
+            <button class="btn btn-primary" type="submit">🔍 Buscar atualizações no GitHub</button>
+        </form>
+        <?php if ($canApply && $behind > 0): ?>
+            <form method="post" style="display:inline;" onsubmit="return confirm('Aplicar git pull neste servidor? Recomendado apenas em ambientes com .git e backup.');">
+                <input type="hidden" name="sec" value="atualizacao">
+                <input type="hidden" name="action" value="apply">
+                <button class="btn btn-secondary" type="submit">⬇ Aplicar atualização (git pull)</button>
+            </form>
+        <?php endif; ?>
+        <?php if (!empty($updateResult['html_url'])): ?>
+            <a class="btn btn-secondary btn-small" href="<?= e((string)$updateResult['html_url']) ?>" target="_blank" rel="noopener">Abrir no GitHub</a>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($commits): ?>
+        <h3 style="margin:0 0 10px;font-size:1.05rem;">Commits no GitHub</h3>
+        <table>
+            <thead>
+                <tr><th>SHA</th><th>Data</th><th>Autor</th><th>Mensagem</th></tr>
+            </thead>
+            <tbody>
+            <?php foreach ($commits as $c): ?>
+                <tr>
+                    <td>
+                        <?php if (!empty($c['url'])): ?>
+                            <a href="<?= e($c['url']) ?>" target="_blank" rel="noopener"><code><?= e($c['short']) ?></code></a>
+                        <?php else: ?>
+                            <code><?= e($c['short']) ?></code>
+                        <?php endif; ?>
+                    </td>
+                    <td class="muted"><?= !empty($c['date']) ? e(date('d/m/Y H:i', strtotime($c['date']))) : '—' ?></td>
+                    <td class="muted"><?= e($c['author'] ?? '') ?></td>
+                    <td><?= e($c['message'] ?? '') ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+
+    <?php if ($updateApplyLog !== ''): ?>
+        <h3 style="margin:18px 0 10px;font-size:1.05rem;">Log da aplicação</h3>
+        <pre style="background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;font-size:.78rem;white-space:pre-wrap;"><?= e($updateApplyLog) ?></pre>
+    <?php endif; ?>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom:10px;">Como atualizar por linha de comando</h3>
+    <p class="muted" style="margin-bottom:12px;">
+        No <strong>EasyPanel</strong> (imagem Docker sem <code>.git</code>), o caminho recomendado é
+        <strong>Redeploy</strong> do app a partir do GitHub. Se o código rodar em pasta com Git (VPS, clone local), use o script:
+    </p>
+    <pre style="background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;font-size:.82rem;line-height:1.55;margin:0 0 14px;"># Entrar na pasta do projeto
+cd /caminho/do/Sucesso-no-Radio
+
+# Só verificar
+bash scripts/update.sh --check
+# ou: php scripts/check-update.php
+
+# Aplicar atualização (git pull --ff-only)
+bash scripts/update.sh
+
+# Se houver alterações locais e quiser forçar (faz stash)
+bash scripts/update.sh --force</pre>
+
+    <p class="muted" style="margin-bottom:8px;font-size:.85rem;"><strong>EasyPanel — console do container</strong> (quando não há .git):</p>
+    <pre style="background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;font-size:.82rem;line-height:1.55;margin:0 0 14px;"># No painel: App → Deploy / Redeploy (puxa o último commit do GitHub)
+# Depois: Restart do serviço se necessário
+
+# Variáveis opcionais no EasyPanel:
+# GITHUB_REPO=medeiroscv/sucesso-no-radio
+# GITHUB_BRANCH=master
+# GITHUB_TOKEN=...          # se o repo for privado ou para evitar rate limit
+# APP_UPDATE_ALLOW=true       # só se o container tiver .git e git instalado</pre>
+
+    <p class="muted" style="font-size:.85rem;margin:0;">
+        <?= e((string)($updateResult['apply_reason'] ?? '')) ?>
+    </p>
 </div>
 <?php
 endif;

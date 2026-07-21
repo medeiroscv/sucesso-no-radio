@@ -984,6 +984,11 @@ function app_config_secoes(): array {
             'icon' => '💳',
             'desc' => 'Asaas: Pix, boleto, API Key e bloqueio por atraso',
         ],
+        'atualizacao' => [
+            'label' => 'Atualização',
+            'icon' => '🔄',
+            'desc' => 'Verificar novas versões no GitHub e instruções de update',
+        ],
     ];
 }
 

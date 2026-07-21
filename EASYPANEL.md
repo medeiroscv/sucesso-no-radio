@@ -107,3 +107,24 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
 - Financeiro (Pix QR + boleto) quando o módulo estiver ativo  
 
 Tudo que aparece no front vem do banco via admin — sem editar HTML à mão.
+
+## Atualizações
+
+No admin: **Configurações → Atualização** consulta o GitHub e lista commits novos.
+
+### Forma recomendada no EasyPanel
+
+1. Faça push no repositório GitHub  
+2. No EasyPanel → App → **Deploy / Redeploy** (rebuild da imagem)  
+3. Aguarde o container subir (o bootstrap atualiza o schema automaticamente)
+
+### Linha de comando (pasta com Git)
+
+```bash
+cd /caminho/do/Sucesso-no-Radio
+bash scripts/update.sh --check    # só verificar
+bash scripts/update.sh            # git pull --ff-only
+php scripts/check-update.php      # verificação via API
+```
+
+Variáveis opcionais: `GITHUB_REPO`, `GITHUB_BRANCH`, `GITHUB_TOKEN`, `APP_UPDATE_ALLOW`.

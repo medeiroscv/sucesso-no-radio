@@ -45,6 +45,11 @@ Veja **[EASYPANEL.md](EASYPANEL.md)** — Postgres + volumes + `BOOTSTRAP_ADMIN_
 Pix + boleto via [Asaas](https://docs.asaas.com/). Configure a API Key em Admin → Configurações → Financeiro (ou `ASAAS_*` no ambiente).  
 Webhook: `/api/asaas-webhook.php`. Detalhes em **EASYPANEL.md**.
 
+## Atualizações
+
+Admin → **Configurações → Atualização** consulta o GitHub.  
+CLI: `bash scripts/update.sh` ou `php scripts/check-update.php`. No EasyPanel, prefira **Redeploy**.
+
 ## Próximos passos possíveis
 
 - Editor de páginas estáticas  
