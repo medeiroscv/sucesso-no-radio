@@ -15,8 +15,86 @@ if (isset($_GET['pagar'])) {
 
 if (isset($_GET['cancelar'])) {
     $pdo->prepare("UPDATE faturas SET status='cancelada', updated_at=NOW() WHERE id=?")->execute([intval($_GET['cancelar'])]);
-    header('Location: financeiro.php?ok=1');
+    header('Location: financeiro.php?ok=1&msg=' . rawurlencode('Fatura cancelada.'));
     exit;
+}
+
+// Exclusão permanente da fatura (não remove cobranças já criadas no Asaas)
+if (isset($_GET['excluir'])) {
+    $id = intval($_GET['excluir']);
+    try {
+        $pdo->prepare('DELETE FROM faturas WHERE id = ?')->execute([$id]);
+        header('Location: financeiro.php?ok=1&msg=' . rawurlencode('Fatura #' . $id . ' excluída.'));
+        exit;
+    } catch (Throwable $e) {
+        $err = 'Não foi possível excluir: ' . $e->getMessage();
+    }
+}
+
+// Edição de valor / descrição / vencimento
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['editar_fatura'])) {
+    $id = intval($_POST['fatura_id'] ?? 0);
+    $desc = trim((string)($_POST['descricao'] ?? 'Mensalidade'));
+    $valor = (float)str_replace(',', '.', preg_replace('/[^\d,.]/', '', (string)($_POST['valor'] ?? '0')));
+    $venc = trim((string)($_POST['vencimento'] ?? ''));
+    $cent = (int)round($valor * 100);
+    $reemitir = !empty($_POST['reemitir_meios']);
+
+    $st = $pdo->prepare('SELECT * FROM faturas WHERE id = ? LIMIT 1');
+    $st->execute([$id]);
+    $fatOld = $st->fetch() ?: null;
+
+    if (!$fatOld) {
+        $err = 'Fatura não encontrada.';
+    } elseif ($cent <= 0 || $venc === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $venc)) {
+        $err = 'Valor e vencimento válidos são obrigatórios.';
+        $_GET['id'] = $id;
+    } else {
+        $valorMudou = intval($fatOld['valor_centavos']) !== $cent;
+        $vencMudou = (string)$fatOld['vencimento'] !== $venc;
+
+        $pdo->prepare(
+            'UPDATE faturas SET descricao=?, valor_centavos=?, vencimento=?, updated_at=NOW() WHERE id=?'
+        )->execute([$desc !== '' ? $desc : 'Mensalidade', $cent, $venc, $id]);
+
+        // Se valor ou vencimento mudaram em fatura aberta/vencida, meios antigos no Asaas ficam inválidos
+        $precisaNovoMeio = ($valorMudou || $vencMudou)
+            && in_array($fatOld['status'], ['aberta', 'vencida'], true);
+
+        if ($precisaNovoMeio) {
+            // limpa meios locais para forçar nova emissão
+            $pdo->prepare(
+                "UPDATE faturas SET
+                    pix_txid='', pix_loc_id='', pix_qrcode='', pix_copia_cola='', pix_expira_em=NULL,
+                    boleto_charge_id='', boleto_url='', boleto_barcode='', boleto_pdf='',
+                    updated_at=NOW()
+                 WHERE id=?"
+            )->execute([$id]);
+        }
+
+        $msg = 'Fatura atualizada.';
+        if ($precisaNovoMeio || $reemitir) {
+            if (in_array($fatOld['status'], ['aberta', 'vencida', 'paga'], true)
+                && in_array($fatOld['status'], ['aberta', 'vencida'], true)
+                && asaas_configured()) {
+                try {
+                    $r = finance_emitir_pagamento($id, true);
+                    $msg = 'Fatura atualizada e novos meios de pagamento gerados.';
+                    if (!empty($r['erros'])) {
+                        $msg .= ' Avisos: ' . implode(' | ', $r['erros']);
+                    }
+                } catch (Throwable $e) {
+                    $msg = 'Fatura atualizada, mas a emissão Asaas falhou: ' . $e->getMessage()
+                        . ' Use “Forçar novos meios” depois.';
+                }
+            } elseif ($precisaNovoMeio) {
+                $msg = 'Fatura atualizada. Meios antigos foram limpos — gere Pix/boleto novamente.';
+            }
+        }
+
+        header('Location: financeiro.php?id=' . $id . '&ok=1&msg=' . rawurlencode($msg));
+        exit;
+    }
 }
 
 if (isset($_GET['emitir'])) {
@@ -158,22 +236,68 @@ admin_flash($ok, $err);
 
 <?php if ($edit):
     $meta = app_fatura_status_meta($edit['status'] ?? 'aberta');
+    $valorBr = number_format(intval($edit['valor_centavos']) / 100, 2, ',', '.');
+    $editavel = in_array($edit['status'], ['aberta', 'vencida', 'cancelada'], true);
 ?>
 <div class="card">
-    <div class="actions" style="margin-bottom:12px;">
+    <div class="actions" style="margin-bottom:12px;flex-wrap:wrap;">
         <a class="btn btn-secondary btn-small" href="financeiro.php">← Lista</a>
         <?php if (in_array($edit['status'], ['aberta', 'vencida'], true)): ?>
             <a class="btn btn-primary btn-small" href="financeiro.php?emitir=<?= intval($edit['id']) ?>">Gerar/atualizar Pix e boleto</a>
             <a class="btn btn-secondary btn-small" href="financeiro.php?emitir=<?= intval($edit['id']) ?>&force=1" onclick="return confirm('Forçar novos Pix e boleto no Asaas? Use se a cobrança antiga foi apagada ou expirou.');">Forçar novos meios</a>
             <a class="btn btn-secondary btn-small" href="financeiro.php?pagar=<?= intval($edit['id']) ?>" onclick="return confirm('Marcar como paga?')">Marcar paga</a>
-            <a class="btn btn-danger btn-small" href="financeiro.php?cancelar=<?= intval($edit['id']) ?>" onclick="return confirm('Cancelar fatura?')">Cancelar</a>
+            <a class="btn btn-secondary btn-small" href="financeiro.php?cancelar=<?= intval($edit['id']) ?>" onclick="return confirm('Cancelar fatura? O cliente deixa de vê-la como em aberto.');">Cancelar</a>
         <?php endif; ?>
+        <a class="btn btn-danger btn-small" href="financeiro.php?excluir=<?= intval($edit['id']) ?>"
+           onclick="return confirm('EXCLUIR permanentemente a fatura #<?= intval($edit['id']) ?>?\n\nIsso remove do sistema. Cobranças já criadas no Asaas não são canceladas automaticamente — cancele lá se precisar.');">
+            Excluir fatura
+        </a>
     </div>
     <h3>Fatura #<?= intval($edit['id']) ?>
         <span style="font-size:.78rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($meta['color']) ?>;background:<?= e($meta['bg']) ?>;"><?= e($meta['label']) ?></span>
     </h3>
     <p class="muted"><?= e($edit['cliente_nome']) ?> · <?= e($edit['cliente_email']) ?> · CPF <?= e($edit['cliente_cpf'] ?: '—') ?></p>
-    <p><strong><?= e($edit['descricao']) ?></strong> · <?= e(app_money_br(intval($edit['valor_centavos']))) ?> · venc. <?= e($edit['vencimento']) ?></p>
+
+    <?php if ($editavel): ?>
+        <h3 style="margin:18px 0 12px;font-size:1.05rem;">Editar fatura</h3>
+        <form method="post">
+            <input type="hidden" name="editar_fatura" value="1">
+            <input type="hidden" name="fatura_id" value="<?= intval($edit['id']) ?>">
+            <div class="field-row">
+                <div class="field">
+                    <label>Valor (R$) *</label>
+                    <input name="valor" required value="<?= e($valorBr) ?>" placeholder="199,90">
+                </div>
+                <div class="field">
+                    <label>Vencimento *</label>
+                    <input type="date" name="vencimento" required value="<?= e((string)$edit['vencimento']) ?>">
+                </div>
+            </div>
+            <div class="field">
+                <label>Descrição</label>
+                <input name="descricao" value="<?= e((string)$edit['descricao']) ?>">
+            </div>
+            <?php if (in_array($edit['status'], ['aberta', 'vencida'], true)): ?>
+                <div class="field">
+                    <label>
+                        <input type="checkbox" name="reemitir_meios" value="1" checked>
+                        Ao salvar, gerar novos Pix/boleto no Asaas (recomendado se mudar o valor)
+                    </label>
+                    <p class="muted" style="margin-top:6px;font-size:.8rem;">
+                        Se o valor ou vencimento mudar, os meios antigos são invalidáveis — o sistema limpa o QR/boleto antigos e pode emitir novos.
+                    </p>
+                </div>
+            <?php endif; ?>
+            <button class="btn btn-primary" type="submit">Salvar alterações</button>
+        </form>
+    <?php else: ?>
+        <p style="margin-top:10px;">
+            <strong><?= e($edit['descricao']) ?></strong> ·
+            <?= e(app_money_br(intval($edit['valor_centavos']))) ?> ·
+            venc. <?= e($edit['vencimento']) ?>
+        </p>
+        <p class="muted" style="margin-top:8px;font-size:.85rem;">Faturas pagas não permitem editar valor (crie uma nova se precisar).</p>
+    <?php endif; ?>
 
     <?php if (!empty($edit['pix_copia_cola'])): ?>
         <div style="margin-top:14px;padding:12px;background:#0f172a;border-radius:12px;border:1px solid var(--line);">
@@ -218,7 +342,11 @@ admin_flash($ok, $err);
                 <td><?= e(app_money_br(intval($f['valor_centavos']))) ?></td>
                 <td><?= e($f['vencimento']) ?></td>
                 <td><span style="font-size:.72rem;font-weight:800;padding:3px 8px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;"><?= e($m['label']) ?></span></td>
-                <td class="actions"><a class="btn btn-secondary btn-small" href="financeiro.php?id=<?= intval($f['id']) ?>">Abrir</a></td>
+                <td class="actions">
+                    <a class="btn btn-secondary btn-small" href="financeiro.php?id=<?= intval($f['id']) ?>">Abrir</a>
+                    <a class="btn btn-danger btn-small" href="financeiro.php?excluir=<?= intval($f['id']) ?>"
+                       onclick="return confirm('Excluir permanentemente a fatura #<?= intval($f['id']) ?>?');">Excluir</a>
+                </td>
             </tr>
         <?php endforeach; ?>
         <?php if (!$lista): ?><tr><td colspan="7" class="muted">Nenhuma fatura ainda.</td></tr><?php endif; ?>
