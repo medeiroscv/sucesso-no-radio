@@ -119,38 +119,6 @@ if (isset($_GET['emitir'])) {
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nova_fatura'])) {
-    $clienteId = intval($_POST['cliente_id'] ?? 0);
-    $desc = trim((string)($_POST['descricao'] ?? 'Mensalidade'));
-    $valor = (float)str_replace(',', '.', preg_replace('/[^\d,.]/', '', (string)($_POST['valor'] ?? '0')));
-    $venc = trim((string)($_POST['vencimento'] ?? ''));
-    $cent = (int)round($valor * 100);
-    if ($clienteId <= 0 || $cent <= 0 || $venc === '') {
-        $err = 'Cliente, valor e vencimento são obrigatórios.';
-    } else {
-        $pdo->prepare(
-            "INSERT INTO faturas (cliente_id, descricao, valor_centavos, vencimento, status, created_at)
-             VALUES (?,?,?,?,'aberta',NOW())"
-        )->execute([$clienteId, $desc !== '' ? $desc : 'Mensalidade', $cent, $venc]);
-        $fid = intval($pdo->lastInsertId());
-
-        $emitir = !empty($_POST['emitir_agora']);
-        if ($emitir && $fid > 0) {
-            try {
-                $r = finance_emitir_pagamento($fid);
-                $ok = 'Fatura criada.';
-                if (!empty($r['erros'])) $ok .= ' ' . implode(' ', $r['erros']);
-            } catch (Throwable $e) {
-                $ok = 'Fatura criada, mas emissão Asaas falhou: ' . $e->getMessage();
-            }
-            header('Location: financeiro.php?id=' . $fid . '&ok=1');
-            exit;
-        }
-        header('Location: financeiro.php?id=' . $fid . '&ok=1');
-        exit;
-    }
-}
-
 if (isset($_GET['id'])) {
     $st = $pdo->prepare(
         'SELECT f.*, c.nome AS cliente_nome, c.email AS cliente_email, c.cpf AS cliente_cpf, c.whatsapp AS cliente_whatsapp
@@ -179,73 +147,20 @@ try {
     )->fetchAll() ?: [];
 } catch (Throwable $e) { /* ok */ }
 
-$clientes = [];
-try {
-    $clientes = $pdo->query('SELECT id, nome, email, cpf FROM clientes WHERE ativo = 1 ORDER BY nome')->fetchAll() ?: [];
-} catch (Throwable $e) { /* ok */ }
-
 if (isset($_GET['ok'])) $ok = isset($_GET['msg']) ? (string)$_GET['msg'] : 'Salvo.';
 
-admin_header('Financeiro', 'financeiro');
+admin_header($edit ? ('Fatura #' . intval($edit['id'])) : 'Financeiro', 'financeiro');
 admin_flash($ok, $err);
-?>
-<div class="card">
-    <div class="actions" style="justify-content:space-between;width:100%;align-items:center;">
-        <div>
-            <strong>Faturas e cobranças</strong>
-            <div class="muted" style="margin-top:4px;font-size:.85rem;">
-                Asaas: <?= asaas_configured() ? 'API Key ok' : 'pendente' ?> ·
-                <?= e(asaas_ambiente_label()) ?>
-            </div>
-        </div>
-        <a class="btn btn-secondary btn-small" href="configuracoes.php?sec=financeiro">⚙️ Configurar financeiro / Asaas</a>
-    </div>
-</div>
 
-<div class="card">
-    <h3 style="margin-bottom:12px;">Nova fatura</h3>
-    <form method="post">
-        <input type="hidden" name="nova_fatura" value="1">
-        <div class="field-row">
-            <div class="field">
-                <label>Cliente *</label>
-                <select name="cliente_id" required>
-                    <option value="">—</option>
-                    <?php foreach ($clientes as $c): ?>
-                        <option value="<?= intval($c['id']) ?>"><?= e($c['nome']) ?> · <?= e($c['email']) ?><?= empty($c['cpf']) ? ' (sem CPF)' : '' ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="field">
-                <label>Valor (R$) *</label>
-                <input name="valor" required placeholder="199,90" value="<?= e($_POST['valor'] ?? '') ?>">
-            </div>
-        </div>
-        <div class="field-row">
-            <div class="field">
-                <label>Vencimento *</label>
-                <input type="date" name="vencimento" required value="<?= e($_POST['vencimento'] ?? date('Y-m-d', strtotime('+5 days'))) ?>">
-            </div>
-            <div class="field">
-                <label>Descrição</label>
-                <input name="descricao" value="<?= e($_POST['descricao'] ?? 'Mensalidade Sucesso no Rádio') ?>">
-            </div>
-        </div>
-        <div class="field">
-            <label><input type="checkbox" name="emitir_agora" value="1" checked> Gerar Pix e boleto agora no Asaas</label>
-        </div>
-        <button class="btn btn-primary" type="submit">Criar fatura</button>
-    </form>
-</div>
-
-<?php if ($edit):
+// ========== DETALHE DA FATURA ==========
+if ($edit):
     $meta = app_fatura_status_meta($edit['status'] ?? 'aberta');
     $valorBr = number_format(intval($edit['valor_centavos']) / 100, 2, ',', '.');
     $editavel = in_array($edit['status'], ['aberta', 'vencida', 'cancelada'], true);
 ?>
 <div class="card">
     <div class="actions" style="margin-bottom:12px;flex-wrap:wrap;">
-        <a class="btn btn-secondary btn-small" href="financeiro.php">← Lista</a>
+        <a class="btn btn-secondary btn-small" href="financeiro.php">← Todas as faturas</a>
         <?php if (in_array($edit['status'], ['aberta', 'vencida'], true)): ?>
             <a class="btn btn-primary btn-small" href="financeiro.php?emitir=<?= intval($edit['id']) ?>">Gerar/atualizar Pix e boleto</a>
             <a class="btn btn-secondary btn-small" href="financeiro.php?emitir=<?= intval($edit['id']) ?>&force=1" onclick="return confirm('Forçar novos Pix e boleto no Asaas? Use se a cobrança antiga foi apagada ou expirou.');">Forçar novos meios</a>
@@ -335,10 +250,29 @@ admin_flash($ok, $err);
         </div>
     <?php endif; ?>
 </div>
-<?php endif; ?>
+<?php
+// ========== LISTA DE FATURAS ==========
+else:
+?>
+<div class="card">
+    <div class="actions" style="justify-content:space-between;width:100%;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+            <strong>Faturas</strong>
+            <div class="muted" style="margin-top:4px;font-size:.85rem;">
+                Asaas: <?= asaas_configured() ? 'API Key ok' : 'pendente' ?> ·
+                <?= e(asaas_ambiente_label()) ?>
+                · <?= count($lista) ?> registro(s)
+            </div>
+        </div>
+        <div class="actions" style="flex-wrap:wrap;">
+            <a class="btn btn-primary" href="fatura-nova.php">+ Nova fatura</a>
+            <a class="btn btn-secondary btn-small" href="assinaturas.php">Assinaturas</a>
+            <a class="btn btn-secondary btn-small" href="configuracoes.php?sec=financeiro">⚙️ Asaas</a>
+        </div>
+    </div>
+</div>
 
 <div class="card">
-    <h3 style="margin-bottom:12px;">Faturas</h3>
     <table>
         <thead>
             <tr><th>ID</th><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Venc.</th><th>Status</th><th></th></tr>
@@ -361,8 +295,18 @@ admin_flash($ok, $err);
                 </td>
             </tr>
         <?php endforeach; ?>
-        <?php if (!$lista): ?><tr><td colspan="7" class="muted">Nenhuma fatura ainda.</td></tr><?php endif; ?>
+        <?php if (!$lista): ?>
+            <tr>
+                <td colspan="7" class="muted">
+                    Nenhuma fatura ainda.
+                    <a href="fatura-nova.php" style="color:var(--accent);font-weight:700;">Criar a primeira</a>
+                    ou use <a href="assinaturas.php" style="color:var(--accent);font-weight:700;">Assinaturas</a> para recorrência.
+                </td>
+            </tr>
+        <?php endif; ?>
         </tbody>
     </table>
 </div>
-<?php admin_footer(); ?>
+<?php
+endif;
+admin_footer();
