@@ -874,6 +874,17 @@ function cliente_logado(): bool {
     return !empty($_SESSION['cliente_logado']) && !empty($_SESSION['cliente_id']);
 }
 
+/** Admin está navegando a área do cliente como se fosse o cliente. */
+function cliente_impersonando(): bool {
+    cliente_session_start();
+    return !empty($_SESSION['cliente_impersonating']) && cliente_logado();
+}
+
+function cliente_impersonator_nome(): string {
+    cliente_session_start();
+    return trim((string)($_SESSION['cliente_impersonator'] ?? 'Admin'));
+}
+
 function cliente_id(): int {
     return cliente_logado() ? intval($_SESSION['cliente_id']) : 0;
 }
@@ -882,7 +893,12 @@ function cliente_atual(): ?array {
     $id = cliente_id();
     if ($id <= 0) return null;
     try {
-        $st = app_pdo()->prepare('SELECT * FROM clientes WHERE id = ? AND ativo = 1 LIMIT 1');
+        // Impersonação permite ver cliente inativo (suporte)
+        if (cliente_impersonando()) {
+            $st = app_pdo()->prepare('SELECT * FROM clientes WHERE id = ? LIMIT 1');
+        } else {
+            $st = app_pdo()->prepare('SELECT * FROM clientes WHERE id = ? AND ativo = 1 LIMIT 1');
+        }
         $st->execute([$id]);
         $row = $st->fetch();
         if (!$row) {
@@ -914,16 +930,69 @@ function cliente_login_ok(array $cli): void {
     $_SESSION['cliente_id'] = intval($cli['id']);
     $_SESSION['cliente_nome'] = (string)($cli['nome'] ?? '');
     $_SESSION['cliente_email'] = (string)($cli['email'] ?? '');
+    unset($_SESSION['cliente_impersonating'], $_SESSION['cliente_impersonator'], $_SESSION['cliente_impersonator_id']);
     try {
         app_pdo()->prepare('UPDATE clientes SET last_login = NOW() WHERE id = ?')->execute([intval($cli['id'])]);
     } catch (Throwable $e) { /* ok */ }
 }
 
+/**
+ * Entra na área do cliente como o cliente informado (somente admin logado).
+ * Não atualiza last_login do cliente.
+ * @return array{ok:bool,message:string,cliente?:array}
+ */
+function admin_impersonate_cliente(int $clienteId): array {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+    if (empty($_SESSION['admin_logado'])) {
+        return ['ok' => false, 'message' => 'Admin não autenticado.'];
+    }
+    if ($clienteId <= 0) {
+        return ['ok' => false, 'message' => 'Cliente inválido.'];
+    }
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM clientes WHERE id = ? LIMIT 1');
+        $st->execute([$clienteId]);
+        $cli = $st->fetch();
+    } catch (Throwable $e) {
+        return ['ok' => false, 'message' => 'Erro ao carregar cliente.'];
+    }
+    if (!$cli) {
+        return ['ok' => false, 'message' => 'Cliente não encontrado.'];
+    }
+
+    cliente_session_start();
+    session_regenerate_id(true);
+    $_SESSION['cliente_logado'] = true;
+    $_SESSION['cliente_id'] = intval($cli['id']);
+    $_SESSION['cliente_nome'] = (string)($cli['nome'] ?? '');
+    $_SESSION['cliente_email'] = (string)($cli['email'] ?? '');
+    $_SESSION['cliente_impersonating'] = true;
+    $_SESSION['cliente_impersonator'] = (string)($_SESSION['admin_nome'] ?? 'Admin');
+    $_SESSION['cliente_impersonator_id'] = intval($_SESSION['admin_id'] ?? 0);
+
+    return ['ok' => true, 'message' => 'Acesso como cliente iniciado.', 'cliente' => $cli];
+}
+
 function cliente_logout(bool $redirect = true): void {
     cliente_session_start();
-    unset($_SESSION['cliente_logado'], $_SESSION['cliente_id'], $_SESSION['cliente_nome'], $_SESSION['cliente_email']);
+    $wasImpersonating = !empty($_SESSION['cliente_impersonating']);
+    unset(
+        $_SESSION['cliente_logado'],
+        $_SESSION['cliente_id'],
+        $_SESSION['cliente_nome'],
+        $_SESSION['cliente_email'],
+        $_SESSION['cliente_impersonating'],
+        $_SESSION['cliente_impersonator'],
+        $_SESSION['cliente_impersonator_id']
+    );
     if ($redirect) {
-        header('Location: ' . app_url('cliente/login.php'));
+        if ($wasImpersonating && !empty($_SESSION['admin_logado'])) {
+            header('Location: ' . app_url('admin/clientes.php'));
+        } else {
+            header('Location: ' . app_url('cliente/login.php'));
+        }
         exit;
     }
 }

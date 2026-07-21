@@ -7,11 +7,36 @@ cliente_session_start();
 
 function cliente_header(string $title, string $active = ''): void {
     layout_header($title, $active !== '' ? $active : 'cliente');
+    $impersonating = function_exists('cliente_impersonando') && cliente_impersonando();
+    $cliNome = '';
+    if ($impersonating) {
+        $c = cliente_atual();
+        $cliNome = (string)($c['nome'] ?? $_SESSION['cliente_nome'] ?? 'cliente');
+    }
     ?>
 <main>
     <div class="container">
+        <?php if ($impersonating): ?>
+            <div class="alert" style="margin-bottom:16px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.45);color:#fde68a;padding:12px 14px;border-radius:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
+                <div style="font-size:.92rem;line-height:1.45;">
+                    <strong>Modo suporte</strong> — você está acessando como
+                    <strong><?= e($cliNome) ?></strong>
+                    (admin: <?= e(cliente_impersonator_nome()) ?>).
+                    <?php
+                    $cAtivo = cliente_atual();
+                    if ($cAtivo && empty($cAtivo['ativo'])):
+                    ?>
+                        <span style="display:inline-block;margin-left:6px;font-size:.78rem;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(239,68,68,.2);color:#fecaca;">cliente inativo</span>
+                    <?php endif; ?>
+                </div>
+                <div class="actions" style="gap:8px;">
+                    <a class="btn btn-ghost btn-small" href="<?= e(app_url('admin/clientes.php')) ?>">Voltar ao admin</a>
+                    <a class="btn btn-primary btn-small" href="<?= e(app_url('cliente/logout.php')) ?>">Encerrar acesso como cliente</a>
+                </div>
+            </div>
+        <?php endif; ?>
         <div class="page-title">
-            <p class="cliente-kicker">Área do cliente</p>
+            <p class="cliente-kicker">Área do cliente<?= $impersonating ? ' · suporte' : '' ?></p>
             <h1><?= e($title) ?></h1>
         </div>
         <?php cliente_subnav($active); ?>
@@ -38,7 +63,12 @@ function cliente_subnav(string $active = ''): void {
             <a href="<?= e(app_url('cliente/financeiro.php')) ?>" class="<?= $active === 'financeiro' ? 'active' : '' ?>">Financeiro</a>
         <?php endif; ?>
         <a href="<?= e(app_url('cliente/perfil.php')) ?>" class="<?= $active === 'perfil' ? 'active' : '' ?>">Meus dados</a>
-        <a href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
+        <?php if (function_exists('cliente_impersonando') && cliente_impersonando()): ?>
+            <a href="<?= e(app_url('admin/clientes.php')) ?>">Admin</a>
+            <a href="<?= e(app_url('cliente/logout.php')) ?>">Encerrar suporte</a>
+        <?php else: ?>
+            <a href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
+        <?php endif; ?>
     </nav>
     <?php
 }

@@ -124,6 +124,9 @@ try {
 } catch (Throwable $e) { /* ok */ }
 
 if (isset($_GET['ok'])) $ok = 'Salvo com sucesso.';
+if (isset($_GET['err']) && $err === '') {
+    $err = (string)$_GET['err'];
+}
 
 admin_header($edit !== null ? (!empty($edit['id']) ? 'Editar cliente' : 'Novo cliente') : 'Clientes', 'clientes');
 admin_flash($ok, $err);
@@ -132,8 +135,14 @@ if ($edit !== null):
     if (!isset($tiposLiberados)) $tiposLiberados = [];
     $acessoTotalChecked = !empty($edit['acesso_total']);
 ?>
-<div class="actions" style="margin-bottom:12px;">
+<div class="actions" style="margin-bottom:12px;justify-content:space-between;width:100%;">
     <a class="btn btn-secondary btn-small" href="clientes.php">← Lista de clientes</a>
+    <?php if (!empty($edit['id'])): ?>
+        <a class="btn btn-primary btn-small" href="impersonate-cliente.php?id=<?= intval($edit['id']) ?>" target="_blank" rel="noopener"
+           title="Abre a área do cliente como este cadastro (para suporte e testes)">
+            👁 Acessar como cliente
+        </a>
+    <?php endif; ?>
 </div>
 <div class="card">
     <form method="post">
@@ -245,6 +254,9 @@ if ($edit !== null):
                 <td><?= !empty($c['ativo']) ? '<span class="badge badge-ok">Ativo</span>' : '<span class="badge badge-off">Inativo</span>' ?></td>
                 <td class="muted"><?= $c['last_login'] ? e(substr((string)$c['last_login'], 0, 16)) : '—' ?></td>
                 <td class="actions">
+                    <a class="btn btn-primary btn-small" href="impersonate-cliente.php?id=<?= intval($c['id']) ?>" target="_blank" rel="noopener" title="Entrar na área do cliente como este usuário">
+                        Acessar como
+                    </a>
                     <a class="btn btn-secondary btn-small" href="clientes.php?id=<?= intval($c['id']) ?>">Editar / Liberar</a>
                     <a class="btn btn-danger btn-small" href="clientes.php?del=<?= intval($c['id']) ?>" onclick="return confirm('Excluir este cliente?')">Excluir</a>
                 </td>
