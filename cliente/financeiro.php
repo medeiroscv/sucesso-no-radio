@@ -17,11 +17,12 @@ $prep = ['ok' => 0, 'regenerated' => 0, 'paid' => 0, 'errors' => []];
 // Ao entrar no financeiro: marca vencidas + garante Pix/boleto em TODAS as faturas abertas
 if ($finAtivo && asaas_configured()) {
     finance_marcar_vencidas($cliId);
+    // Só gera Pix/boleto NOVOS se estiverem ausentes ou realmente vencidos/expirados
     $prep = finance_preparar_faturas_cliente($cliId, 20);
     if (!empty($prep['regenerated'])) {
-        $regenMsg = 'Seus meios de pagamento foram atualizados automaticamente'
+        $regenMsg = 'Atualizamos meios que estavam expirados ou indisponíveis'
             . ($prep['regenerated'] > 1 ? ' em ' . $prep['regenerated'] . ' faturas' : '')
-            . '. Use o Pix ou boleto exibido abaixo.';
+            . '. Boleto/QR ainda válidos foram mantidos.';
     }
     if (!empty($prep['paid'])) {
         $regenMsg = trim($regenMsg . ' ' . ($prep['paid'] === 1
@@ -209,8 +210,9 @@ if ($atraso):
             </a>
         </div>
         <p class="muted" style="margin-top:14px;font-size:.85rem;">
-            <strong>Dica:</strong> se o app do banco disser que o QR expirou, use <em>Atualizar / gerar novo</em> e escaneie o código novo.
-            Não reutilize um QR ou boleto antigo salvo no celular.
+            <strong>Importante:</strong> se o boleto e o QR ainda estiverem válidos, o sistema <strong>não gera outro</strong> ao você entrar aqui.
+            Só cria novos quando o QR estiver <strong>expirado</strong> ou o boleto estiver <strong>indisponível/removido</strong>.
+            Se o app do banco recusar o código, use <em>Atualizar / gerar novo</em>.
             Após o Pix, a liberação costuma ser automática em poucos minutos.
         </p>
     <?php elseif (($ver['status'] ?? '') === 'paga'): ?>
