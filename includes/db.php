@@ -214,6 +214,63 @@ function app_bootstrap_database(PDO $pdo): void {
     try { $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_boleto_charge ON faturas (boleto_charge_id)'); } catch (Throwable $e) { /* ok */ }
     // Linha digitável completa (antes VARCHAR(120) cortava / gravava nossoNumero incompleto)
     try { $pdo->exec('ALTER TABLE faturas ALTER COLUMN boleto_barcode TYPE TEXT'); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS assinatura_id INT NULL"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS produto_id INT NULL"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS periodo_ref VARCHAR(40) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS cobrancas_log TEXT DEFAULT '[]'"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_assinatura ON faturas (assinatura_id, periodo_ref)'); } catch (Throwable $e) { /* ok */ }
+
+    // ===== Produtos / planos / pacotes / mensalidades (estilo WHMCS) =====
+    $pdo->exec("CREATE TABLE IF NOT EXISTS produtos (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(200) NOT NULL,
+        slug VARCHAR(220) NOT NULL UNIQUE,
+        tipo VARCHAR(40) NOT NULL DEFAULT 'mensalidade',
+        ciclo VARCHAR(40) NOT NULL DEFAULT 'mensal',
+        valor_centavos INT NOT NULL DEFAULT 0,
+        descricao TEXT DEFAULT '',
+        recursos TEXT DEFAULT '',
+        destaque SMALLINT DEFAULT 0,
+        ativo SMALLINT DEFAULT 1,
+        mostrar_site SMALLINT DEFAULT 1,
+        ordem INT DEFAULT 0,
+        dias_gerar_antes INT NOT NULL DEFAULT 7,
+        cobranca_antes TEXT DEFAULT '[]',
+        cobranca_no_vencimento SMALLINT DEFAULT 1,
+        cobranca_apos TEXT DEFAULT '[1,2,3]',
+        emitir_auto SMALLINT DEFAULT 1,
+        botao_texto VARCHAR(80) DEFAULT 'Contratar',
+        whatsapp_msg TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP NULL
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_ativo ON produtos (ativo, mostrar_site, ordem, id)');
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS assinaturas (
+        id SERIAL PRIMARY KEY,
+        cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+        produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE RESTRICT,
+        status VARCHAR(40) NOT NULL DEFAULT 'ativa',
+        valor_centavos INT NOT NULL DEFAULT 0,
+        dia_vencimento INT NOT NULL DEFAULT 10,
+        data_inicio DATE NOT NULL DEFAULT CURRENT_DATE,
+        proximo_vencimento DATE NOT NULL,
+        ultima_fatura_id INT NULL,
+        observacao TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP NULL,
+        cancelada_em TIMESTAMP NULL
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assinaturas_cliente ON assinaturas (cliente_id, status)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assinaturas_proximo ON assinaturas (status, proximo_vencimento)');
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS billing_log (
+        id SERIAL PRIMARY KEY,
+        tipo VARCHAR(60) NOT NULL,
+        referencia VARCHAR(120) DEFAULT '',
+        mensagem TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW()
+    )");
 
     // Textos enviados para gravação (sempre vinculados ao cliente logado)
     $pdo->exec("CREATE TABLE IF NOT EXISTS textos_gravacao (
@@ -334,7 +391,10 @@ function app_bootstrap_database(PDO $pdo): void {
         'finance_ativo' => '0',
         'finance_bloquear_atraso' => '1',
         'asaas_sandbox' => '1',
-        'db_version' => '10',
+        'billing_cron_token' => '',
+        'precos_titulo' => 'Planos e preços',
+        'precos_intro' => 'Escolha o plano ideal para a sua rádio. Valores e condições sob consulta também pelo WhatsApp.',
+        'db_version' => '11',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -345,7 +405,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['10']);
+            )->execute(['11']);
             continue;
         }
         $st->execute([$k, $v]);

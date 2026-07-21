@@ -108,6 +108,19 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
 
 Tudo que aparece no front vem do banco via admin — sem editar HTML à mão.
 
+## Preços e cobrança recorrente
+
+- Página pública: `/precos.php`  
+- Admin: **Produtos / preços** e **Assinaturas**  
+- Cron diário (recomendado):
+
+```bash
+# variável BILLING_CRON_TOKEN no EasyPanel
+curl -s "https://seu-dominio/api/billing-cron.php?token=SEU_TOKEN"
+```
+
+O motor gera faturas com antecedência configurável e emite Pix/boleto nos dias de cobrança (antes, no vencimento e após o vencimento).
+
 ## Atualizações (sem rebuild)
 
 No admin: **Configurações → Atualização do site**.

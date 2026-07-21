@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/asaas.php';
+require_once __DIR__ . '/../includes/billing.php';
+
+// Gera faturas/cobranças recorrentes (leve, com throttle)
+billing_run_throttled(300);
 
 $pdo = app_pdo();
 $ok = $err = '';
