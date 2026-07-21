@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/_layout.php';
-require_once __DIR__ . '/../includes/efi.php';
+require_once __DIR__ . '/../includes/asaas.php';
 
 cliente_require_auth('financeiro');
 $cli = cliente_atual();
@@ -12,11 +12,12 @@ $cliId = intval($cli['id']);
 $atraso = isset($_GET['atraso']) || !cliente_financeiro_em_dia($cli);
 $finAtivo = app_finance_ativo();
 
-// Sincroniza Pix abertas
+// Sincroniza cobranças abertas com Asaas (Pix e/ou boleto)
 $faturas = app_faturas_cliente($cliId, 30);
 foreach ($faturas as $i => $f) {
-    if (in_array($f['status'], ['aberta', 'vencida'], true) && !empty($f['pix_txid'])) {
-        $faturas[$i] = finance_sync_pix_fatura($f);
+    if (in_array($f['status'], ['aberta', 'vencida'], true)
+        && (!empty($f['pix_txid']) || !empty($f['boleto_charge_id']))) {
+        $faturas[$i] = finance_sync_fatura($f);
     }
 }
 // recarrega após sync

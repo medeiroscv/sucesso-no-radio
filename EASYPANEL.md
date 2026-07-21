@@ -36,23 +36,23 @@ BOOTSTRAP_ADMIN_NAME=Administrador
 APP_TIMEZONE=America/Sao_Paulo
 APP_NAME=Sucesso no Rádio
 
-# Efí Bank (financeiro — Pix + boleto)
-# EFI_CLIENT_ID=
-# EFI_CLIENT_SECRET=
-# EFI_SANDBOX=true
-# EFI_PIX_KEY=sua-chave-pix
-# EFI_CERT_PATH=/var/www/html/config/efi-cert.p12
-# EFI_CERT_PASSWORD=
+# Asaas (financeiro — Pix + boleto)
+# ASAAS_API_KEY=$aact_hmlg_...   # sandbox  |  $aact_prod_... em produção
+# ASAAS_SANDBOX=true
+# ASAAS_WEBHOOK_TOKEN=token-forte-opcional
 ```
 
-### Financeiro (Efí)
+### Financeiro (Asaas)
 
-1. Crie aplicação na conta Efí com **API Pix** + **API Cobranças**.  
-2. Gere certificado e monte o arquivo em volume `config/` (ex.: `/var/www/html/config/efi-cert.p12`).  
-3. Preencha as variáveis `EFI_*` acima.  
-4. No admin → **Financeiro**, ative o módulo e o bloqueio por atraso.  
-5. Cadastre webhook Pix: `https://seu-dominio/api/efi-webhook.php`  
-6. Informe **CPF** no cadastro do cliente (boleto/Pix).
+1. Crie conta em [sandbox.asaas.com](https://sandbox.asaas.com) (testes) ou [asaas.com](https://www.asaas.com) (produção).  
+2. Gere a **API Key** em Integrações → API Key.  
+3. Cadastre uma **chave Pix** na conta Asaas (menu Pix).  
+4. Preencha `ASAAS_API_KEY` / `ASAAS_SANDBOX` no EasyPanel **ou** em Admin → Configurações → Financeiro.  
+5. Ative o módulo financeiro e o bloqueio por atraso.  
+6. Cadastre o webhook: `https://seu-dominio/api/asaas-webhook.php`  
+   - Eventos: `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`  
+   - Token opcional: use o mesmo valor em `ASAAS_WEBHOOK_TOKEN` e no header de autenticação do webhook.  
+7. Informe **CPF/CNPJ** no cadastro de cada cliente (obrigatório para cobranças).
 
 Hostname interno do Postgres no EasyPanel: `{nome_do_projeto}_{servico}`  
 (ex.: `sucesso_postgres`). Veja **Credentials** no painel.
@@ -86,22 +86,24 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
 | `/admin/` | Painel administrativo |
 | `/admin/conteudos.php` | Conteúdos (diários, semanais, informativos, programetes) |
 | `/admin/login.php` | Login |
+| `/cliente/` | Área do cliente |
+| `/api/asaas-webhook.php` | Webhook Asaas (pagamentos) |
 
 ## O que o admin controla
 
 - **Conteúdos** — hub com 4 tipos: Diários, Semanais, Informativos, Programetes  
   - **Demonstrativos** (públicos na home)  
   - **Arquivos de entrega** (só área do cliente, atualização diária)  
-- **Clientes** — cadastro com e-mail/senha, WhatsApp, rádio  
+- **Clientes** — cadastro com e-mail/senha, WhatsApp, rádio, CPF  
 - **Textos a gravar** — envios dos clientes logados (com dados do cadastro)  
+- **Financeiro** — faturas, emissão Pix/boleto Asaas, baixa manual  
 - **Banners** da home  
-- **Configurações** — site (logo/favicon), formulário de contato, textos do form de gravação  
+- **Configurações** — site (logo/favicon), formulários, Asaas  
 
 ### Área do cliente (`/cliente/`)
 - Login obrigatório  
 - Acesso a diários, semanais, informativos e programetes + downloads de entrega  
 - Envio de texto para gravação vinculado ao cliente  
-
-
+- Financeiro (Pix QR + boleto) quando o módulo estiver ativo  
 
 Tudo que aparece no front vem do banco via admin — sem editar HTML à mão.

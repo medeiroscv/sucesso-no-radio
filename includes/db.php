@@ -183,9 +183,11 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     try { $pdo->exec("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS acesso_total SMALLINT DEFAULT 0"); } catch (Throwable $e) { /* ok */ }
     try { $pdo->exec("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cpf VARCHAR(14) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS asaas_customer_id VARCHAR(60) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_clientes_ativo ON clientes (ativo, nome)');
 
-    // Faturas / área financeira (EFI Pix + boleto)
+    // Faturas / área financeira (Asaas Pix + boleto)
+    // pix_txid guarda o payment id Asaas (pay_xxx); boleto_charge_id idem
     $pdo->exec("CREATE TABLE IF NOT EXISTS faturas (
         id SERIAL PRIMARY KEY,
         cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
@@ -209,6 +211,7 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_cliente ON faturas (cliente_id, status, vencimento DESC, id DESC)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_pix_txid ON faturas (pix_txid)');
+    try { $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_boleto_charge ON faturas (boleto_charge_id)'); } catch (Throwable $e) { /* ok */ }
 
     // Textos enviados para gravação (sempre vinculados ao cliente logado)
     $pdo->exec("CREATE TABLE IF NOT EXISTS textos_gravacao (
@@ -325,10 +328,11 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
         'form_texto_btn' => 'Enviar texto',
         'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
-        // Financeiro / EFI
+        // Financeiro / Asaas
         'finance_ativo' => '0',
         'finance_bloquear_atraso' => '1',
-        'db_version' => '9',
+        'asaas_sandbox' => '1',
+        'db_version' => '10',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -339,7 +343,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['9']);
+            )->execute(['10']);
             continue;
         }
         $st->execute([$k, $v]);
@@ -978,7 +982,7 @@ function app_config_secoes(): array {
         'financeiro' => [
             'label' => 'Financeiro',
             'icon' => '💳',
-            'desc' => 'Efí Bank: Pix, boleto, certificado e bloqueio por atraso',
+            'desc' => 'Asaas: Pix, boleto, API Key e bloqueio por atraso',
         ],
     ];
 }

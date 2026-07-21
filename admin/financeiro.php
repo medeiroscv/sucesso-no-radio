@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/_layout.php';
-require_once __DIR__ . '/../includes/efi.php';
+require_once __DIR__ . '/../includes/asaas.php';
 
 $pdo = app_pdo();
 $ok = $err = '';
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nova_fatura'])) {
                 $ok = 'Fatura criada.';
                 if (!empty($r['erros'])) $ok .= ' ' . implode(' ', $r['erros']);
             } catch (Throwable $e) {
-                $ok = 'Fatura criada, mas emissão EFI falhou: ' . $e->getMessage();
+                $ok = 'Fatura criada, mas emissão Asaas falhou: ' . $e->getMessage();
             }
             header('Location: financeiro.php?id=' . $fid . '&ok=1');
             exit;
@@ -72,8 +72,9 @@ if (isset($_GET['id'])) {
     );
     $st->execute([intval($_GET['id'])]);
     $edit = $st->fetch() ?: null;
-    if ($edit && in_array($edit['status'], ['aberta', 'vencida'], true) && !empty($edit['pix_txid'])) {
-        $edit = finance_sync_pix_fatura($edit);
+    if ($edit && in_array($edit['status'], ['aberta', 'vencida'], true)
+        && (!empty($edit['pix_txid']) || !empty($edit['boleto_charge_id']))) {
+        $edit = finance_sync_fatura($edit);
     }
 }
 
@@ -104,12 +105,11 @@ admin_flash($ok, $err);
         <div>
             <strong>Faturas e cobranças</strong>
             <div class="muted" style="margin-top:4px;font-size:.85rem;">
-                Efí: <?= efi_configured() ? 'credenciais ok' : 'pendente' ?> ·
-                Pix: <?= efi_pix_configured() ? 'pronto' : 'pendente' ?> ·
-                <?= efi_sandbox() ? 'sandbox' : 'produção' ?>
+                Asaas: <?= asaas_configured() ? 'API Key ok' : 'pendente' ?> ·
+                <?= asaas_sandbox() ? 'sandbox' : 'produção' ?>
             </div>
         </div>
-        <a class="btn btn-secondary btn-small" href="configuracoes.php?sec=financeiro">⚙️ Configurar financeiro / certificado</a>
+        <a class="btn btn-secondary btn-small" href="configuracoes.php?sec=financeiro">⚙️ Configurar financeiro / Asaas</a>
     </div>
 </div>
 
@@ -143,7 +143,7 @@ admin_flash($ok, $err);
             </div>
         </div>
         <div class="field">
-            <label><input type="checkbox" name="emitir_agora" value="1" checked> Gerar Pix e boleto agora na Efí</label>
+            <label><input type="checkbox" name="emitir_agora" value="1" checked> Gerar Pix e boleto agora no Asaas</label>
         </div>
         <button class="btn btn-primary" type="submit">Criar fatura</button>
     </form>

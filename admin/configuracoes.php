@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/_layout.php';
-require_once __DIR__ . '/../includes/efi.php';
+require_once __DIR__ . '/../includes/asaas.php';
 
 $pdo = app_pdo();
 $secoes = app_config_secoes();
@@ -8,36 +8,6 @@ $ok = $err = '';
 $sec = trim((string)($_GET['sec'] ?? $_POST['sec'] ?? ''));
 if ($sec !== '' && !isset($secoes[$sec])) {
     $sec = '';
-}
-
-/** Upload do certificado EFI (.p12 / .pem) para config/ (volume persistente). */
-function admin_upload_efi_cert(string $field = 'efi_cert'): string {
-    if (empty($_FILES[$field]['tmp_name']) || !is_uploaded_file($_FILES[$field]['tmp_name'])) {
-        return '';
-    }
-    if (($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        return '';
-    }
-    $orig = (string)($_FILES[$field]['name'] ?? '');
-    $ext = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
-    if (!in_array($ext, ['p12', 'pfx', 'pem'], true)) {
-        return '';
-    }
-    $dir = dirname(__DIR__) . '/config';
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0775, true);
-    }
-    // remove certificados anteriores efi-cert.*
-    foreach (glob($dir . '/efi-cert.*') ?: [] as $old) {
-        @unlink($old);
-    }
-    $destName = 'efi-cert.' . $ext;
-    $dest = $dir . '/' . $destName;
-    if (!@move_uploaded_file($_FILES[$field]['tmp_name'], $dest)) {
-        return '';
-    }
-    @chmod($dest, 0640);
-    return 'config/' . $destName;
 }
 
 // ---- POST ----
@@ -98,45 +68,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($secPost === 'financeiro') {
         app_setting_set('finance_ativo', !empty($_POST['finance_ativo']) ? '1' : '0');
         app_setting_set('finance_bloquear_atraso', !empty($_POST['finance_bloquear_atraso']) ? '1' : '0');
-        app_setting_set('efi_sandbox', !empty($_POST['efi_sandbox']) ? '1' : '0');
-        app_setting_set('efi_client_id', trim((string)($_POST['efi_client_id'] ?? '')));
-        // secret: só atualiza se preenchido
-        $secret = trim((string)($_POST['efi_client_secret'] ?? ''));
-        if ($secret !== '') {
-            app_setting_set('efi_client_secret', $secret);
+        app_setting_set('asaas_sandbox', !empty($_POST['asaas_sandbox']) ? '1' : '0');
+
+        // API Key: só atualiza se preenchida (não expor no form)
+        $apiKey = trim((string)($_POST['asaas_api_key'] ?? ''));
+        if ($apiKey !== '') {
+            app_setting_set('asaas_api_key', $apiKey);
         }
-        app_setting_set('efi_pix_key', trim((string)($_POST['efi_pix_key'] ?? '')));
-        $certPwd = (string)($_POST['efi_cert_password'] ?? '');
-        // permite limpar senha com checkbox
-        if (!empty($_POST['limpar_cert_password'])) {
-            app_setting_set('efi_cert_password', '');
-        } elseif (trim($certPwd) !== '') {
-            app_setting_set('efi_cert_password', trim($certPwd));
+        if (!empty($_POST['limpar_asaas_api_key'])) {
+            app_setting_set('asaas_api_key', '');
         }
 
-        if (!empty($_POST['remover_cert'])) {
-            $rel = app_setting('efi_cert_rel', '');
-            if ($rel !== '') {
-                $full = dirname(__DIR__) . '/' . ltrim($rel, '/');
-                if (is_file($full)) @unlink($full);
-            }
-            foreach (glob(dirname(__DIR__) . '/config/efi-cert.*') ?: [] as $old) {
-                @unlink($old);
-            }
-            app_setting_set('efi_cert_rel', '');
-        } else {
-            $certRel = admin_upload_efi_cert('efi_cert');
-            if ($certRel !== '') {
-                app_setting_set('efi_cert_rel', $certRel);
-            }
+        $whToken = trim((string)($_POST['asaas_webhook_token'] ?? ''));
+        if ($whToken !== '') {
+            app_setting_set('asaas_webhook_token', $whToken);
+        }
+        if (!empty($_POST['limpar_webhook_token'])) {
+            app_setting_set('asaas_webhook_token', '');
         }
 
-        // limpa cache de token OAuth
-        foreach (glob(dirname(__DIR__) . '/data/efi_token_*.json') ?: [] as $tf) {
-            @unlink($tf);
-        }
-
-        $ok = 'Configurações financeiras salvas.';
+        $ok = 'Configurações financeiras (Asaas) salvas.';
         $sec = 'financeiro';
     }
 }
@@ -173,7 +124,7 @@ if ($sec === ''):
                 <?php elseif ($key === 'formulario_texto'): ?>
                     <div class="conteudo-hub-count"><?= $qTextos ?> texto(s)<?= $qTextosNovos ? " · {$qTextosNovos} novo(s)" : '' ?></div>
                 <?php elseif ($key === 'financeiro'): ?>
-                    <div class="conteudo-hub-count"><?= app_finance_ativo() ? 'Módulo ativo' : 'Módulo inativo' ?> · <?= efi_configured() ? 'EFI ok' : 'EFI pendente' ?></div>
+                    <div class="conteudo-hub-count"><?= app_finance_ativo() ? 'Módulo ativo' : 'Módulo inativo' ?> · <?= asaas_configured() ? 'Asaas ok' : 'Asaas pendente' ?></div>
                 <?php else: ?>
                     <div class="conteudo-hub-count">Identidade e contato do site</div>
                 <?php endif; ?>
@@ -314,15 +265,14 @@ elseif ($sec === 'formulario_texto'):
     </ul>
 </div>
 <?php
-// ========== FINANCEIRO / EFI ==========
+// ========== FINANCEIRO / ASAAS ==========
 elseif ($sec === 'financeiro'):
-    $certPath = efi_cert_path();
-    $certRel = app_setting('efi_cert_rel', '');
-    $certNome = $certRel !== '' ? basename($certRel) : ($certPath !== '' ? basename($certPath) : '');
     $webhook = (isset($_SERVER['HTTP_HOST'])
         ? (((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? 'https' : 'http')
           . '://' . $_SERVER['HTTP_HOST']
-        : '') . app_url('api/efi-webhook.php');
+        : '') . app_url('api/asaas-webhook.php');
+    $hasKey = asaas_configured();
+    $hasWh = asaas_webhook_token() !== '';
 ?>
 <div class="actions" style="margin-bottom:12px;">
     <a class="btn btn-secondary btn-small" href="configuracoes.php">← Configurações</a>
@@ -332,10 +282,10 @@ elseif ($sec === 'financeiro'):
 <div class="card">
     <h3 style="margin-bottom:10px;">Módulo financeiro</h3>
     <p class="muted" style="margin-bottom:14px;">
-        Integração com a <strong>Efí Bank</strong> (API Pix + boleto). Documentação:
-        <a href="https://dev.efipay.com.br/" target="_blank" rel="noopener">dev.efipay.com.br</a>
+        Integração com o <strong>Asaas</strong> (Pix + boleto via API). Documentação:
+        <a href="https://docs.asaas.com/" target="_blank" rel="noopener">docs.asaas.com</a>
     </p>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post">
         <input type="hidden" name="sec" value="financeiro">
 
         <div class="field">
@@ -345,66 +295,49 @@ elseif ($sec === 'financeiro'):
             <label><input type="checkbox" name="finance_bloquear_atraso" value="1" <?= app_setting('finance_bloquear_atraso', '1') === '1' ? 'checked' : '' ?>> Bloquear conteúdos/textos se houver fatura vencida</label>
         </div>
         <div class="field">
-            <label><input type="checkbox" name="efi_sandbox" value="1" <?= app_setting('efi_sandbox', '1') === '1' ? 'checked' : '' ?>> Usar ambiente de homologação (sandbox)</label>
+            <label><input type="checkbox" name="asaas_sandbox" value="1" <?= asaas_sandbox() ? 'checked' : '' ?>> Usar ambiente de homologação (sandbox)</label>
         </div>
 
-        <h3 style="margin:20px 0 12px;font-size:1.05rem;">Credenciais da aplicação Efí</h3>
+        <h3 style="margin:20px 0 12px;font-size:1.05rem;">API Key Asaas</h3>
         <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-            Conta Efí → API → Aplicações. Variáveis de ambiente <code>EFI_*</code> no EasyPanel têm prioridade se estiverem preenchidas.
+            Conta Asaas → <strong>Integrações → API Key</strong>. Gere uma chave de sandbox (<code>$aact_hmlg_…</code>)
+            ou produção (<code>$aact_prod_…</code>). Variável de ambiente <code>ASAAS_API_KEY</code> no EasyPanel tem prioridade se preenchida.
         </p>
         <div class="field">
-            <label>Client ID</label>
-            <input name="efi_client_id" value="<?= e(app_setting('efi_client_id')) ?>" placeholder="Client_Id_..." autocomplete="off">
-        </div>
-        <div class="field">
-            <label>Client Secret</label>
-            <input type="password" name="efi_client_secret" value="" placeholder="<?= app_setting('efi_client_secret') !== '' ? '•••••••• (deixe em branco para manter)' : 'Client_Secret_...' ?>" autocomplete="new-password">
-        </div>
-        <div class="field">
-            <label>Chave Pix da conta</label>
-            <input name="efi_pix_key" value="<?= e(app_setting('efi_pix_key')) ?>" placeholder="CPF, e-mail, telefone ou chave aleatória">
+            <label>API Key</label>
+            <input type="password" name="asaas_api_key" value="" placeholder="<?= $hasKey ? '•••••••• (deixe em branco para manter)' : '$aact_hmlg_... ou $aact_prod_...' ?>" autocomplete="new-password">
+            <?php if ($hasKey): ?>
+                <label style="margin-top:8px;display:block;"><input type="checkbox" name="limpar_asaas_api_key" value="1"> Remover API Key salva</label>
+            <?php endif; ?>
         </div>
 
-        <h3 style="margin:20px 0 12px;font-size:1.05rem;">Certificado Efí (obrigatório para Pix)</h3>
+        <h3 style="margin:20px 0 12px;font-size:1.05rem;">Webhook (recomendado)</h3>
         <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-            Conta Efí → API → Meus Certificados → baixe o arquivo <strong>.p12</strong> (ou .pem) e anexe aqui.
-            O arquivo fica em <code>config/</code> (use o volume <code>/var/www/html/config</code> no EasyPanel para não perder no deploy).
+            No painel Asaas → Integrações → Webhooks, cadastre a URL abaixo e os eventos
+            <code>PAYMENT_RECEIVED</code> e <code>PAYMENT_CONFIRMED</code>.
+            Se definir um token de autenticação no Asaas, coloque o mesmo valor aqui.
         </p>
-        <?php if ($certNome !== ''): ?>
-            <div style="background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;">
-                <strong style="color:#86efac;">Certificado instalado:</strong>
-                <span class="muted"><?= e($certNome) ?></span>
-                <?php if ($certPath !== ''): ?>
-                    <div class="muted" style="font-size:.78rem;margin-top:4px;word-break:break-all;"><?= e($certPath) ?></div>
-                <?php endif; ?>
-                <label style="display:block;margin-top:10px;font-weight:600;">
-                    <input type="checkbox" name="remover_cert" value="1"> Remover certificado atual
-                </label>
-            </div>
-        <?php else: ?>
-            <div class="alert alert-err" style="margin-bottom:12px;">Nenhum certificado anexado ainda. O Pix não funciona sem ele.</div>
-        <?php endif; ?>
         <div class="field">
-            <label>Anexar certificado (.p12, .pfx ou .pem)</label>
-            <input type="file" name="efi_cert" accept=".p12,.pfx,.pem,application/x-pkcs12,application/pem-certificate-chain">
-        </div>
-        <div class="field">
-            <label>Senha do certificado (se houver)</label>
-            <input type="password" name="efi_cert_password" value="" placeholder="<?= app_setting('efi_cert_password') !== '' ? '•••• (deixe em branco para manter)' : 'Opcional' ?>" autocomplete="new-password">
-            <?php if (app_setting('efi_cert_password') !== ''): ?>
-                <label style="margin-top:8px;display:block;"><input type="checkbox" name="limpar_cert_password" value="1"> Limpar senha salva</label>
+            <label>Token do webhook (opcional, header <code>asaas-access-token</code>)</label>
+            <input type="password" name="asaas_webhook_token" value="" placeholder="<?= $hasWh ? '•••••••• (deixe em branco para manter)' : 'Gere um token forte e use no Asaas' ?>" autocomplete="new-password">
+            <?php if ($hasWh): ?>
+                <label style="margin-top:8px;display:block;"><input type="checkbox" name="limpar_webhook_token" value="1"> Remover token do webhook</label>
             <?php endif; ?>
         </div>
 
         <div style="background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:16px 0;">
             <strong>Status</strong>
             <div class="muted" style="margin-top:8px;line-height:1.7;">
-                Credenciais: <?= efi_configured() ? '✅ configuradas' : '❌ pendentes' ?><br>
-                Pix (chave + certificado): <?= efi_pix_configured() ? '✅ pronto' : '❌ pendente' ?><br>
-                Ambiente: <?= efi_sandbox() ? 'Homologação (sandbox)' : 'Produção' ?>
+                API Key: <?= $hasKey ? '✅ configurada' : '❌ pendente' ?><br>
+                Webhook token: <?= $hasWh ? '✅ definido' : '⚠️ opcional (recomendado em produção)' ?><br>
+                Ambiente: <?= asaas_sandbox() ? 'Homologação (sandbox)' : 'Produção' ?>
             </div>
             <p class="muted" style="margin-top:10px;font-size:.82rem;word-break:break-all;">
-                Webhook Pix (cadastre na Efí):<br><code><?= e($webhook) ?></code>
+                URL do webhook (cadastre no Asaas):<br><code><?= e($webhook) ?></code>
+            </p>
+            <p class="muted" style="margin-top:8px;font-size:.82rem;">
+                Cadastre a <strong>chave Pix</strong> na conta Asaas (menu Pix) para QR Codes estáveis.
+                Informe <strong>CPF/CNPJ</strong> no cadastro de cada cliente.
             </p>
         </div>
 

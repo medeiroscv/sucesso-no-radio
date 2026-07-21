@@ -40,9 +40,15 @@ Acesse:
 
 Veja **[EASYPANEL.md](EASYPANEL.md)** — Postgres + volumes + `BOOTSTRAP_ADMIN_*`.
 
+## Financeiro (Asaas)
+
+Pix + boleto via [Asaas](https://docs.asaas.com/). Configure a API Key em Admin → Configurações → Financeiro (ou `ASAAS_*` no ambiente).  
+Webhook: `/api/asaas-webhook.php`. Detalhes em **EASYPANEL.md**.
+
 ## Próximos passos possíveis
 
 - Editor de páginas estáticas  
 - Upload de áudio demo por programa  
 - Multi-usuário / permissões  
 - SEO por programa (meta tags)  
+- Assinaturas recorrentes Asaas  
