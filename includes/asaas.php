@@ -349,15 +349,29 @@ function asaas_criar_boleto(array $cliente, int $valorCentavos, string $descrica
         throw new RuntimeException('Asaas não retornou ID da cobrança boleto.');
     }
 
-    $barcode = (string)($pay['identificationField'] ?? $pay['nossoNumero'] ?? '');
     $link = (string)($pay['bankSlipUrl'] ?? $pay['invoiceUrl'] ?? '');
     $pdf = $link;
+    // Linha digitável completa (47 dígitos) — NUNCA usar nossoNumero (é só referência curta)
+    $barcode = asaas_extrair_linha_digitavel($pay);
 
-    // Linha digitável às vezes só vem em endpoint separado ou após registro
-    if ($barcode === '') {
+    // Registro do boleto pode demorar alguns segundos; tenta endpoint dedicado com retry
+    if (!asaas_linha_digitavel_completa($barcode)) {
+        $barcode = asaas_buscar_linha_digitavel($paymentId, 4);
+    }
+    if (!asaas_linha_digitavel_completa($barcode)) {
+        // última tentativa: reconsulta a cobrança
         try {
-            $idField = asaas_request('GET', '/payments/' . rawurlencode($paymentId) . '/identificationField');
-            $barcode = (string)($idField['data']['identificationField'] ?? $idField['data']['barCode'] ?? '');
+            $pay2 = asaas_consultar_pagamento($paymentId);
+            if (!empty($pay2['bankSlipUrl'])) {
+                $link = (string)$pay2['bankSlipUrl'];
+                $pdf = $link;
+            }
+            $barcode2 = asaas_extrair_linha_digitavel($pay2);
+            if (asaas_linha_digitavel_completa($barcode2)) {
+                $barcode = $barcode2;
+            } elseif ($barcode === '' && $barcode2 !== '') {
+                $barcode = $barcode2;
+            }
         } catch (Throwable $e) { /* ok */ }
     }
 
@@ -368,6 +382,137 @@ function asaas_criar_boleto(array $cliente, int $valorCentavos, string $descrica
         'pdf' => $pdf,
         'raw' => $pay,
     ];
+}
+
+/**
+ * Linha digitável de boleto FEBRABAN: 47 dígitos (sem formatação).
+ * Com espaços/pontos costuma ter ~54 caracteres — nunca é o nossoNumero (~8–11 dígitos).
+ */
+function asaas_linha_digitavel_completa(string $linha): bool {
+    $digits = preg_replace('/\D+/', '', $linha) ?? '';
+    return strlen($digits) >= 47;
+}
+
+/** Extrai identificationField do payload Asaas (ignora nossoNumero). */
+function asaas_extrair_linha_digitavel(array $pay): string {
+    $candidates = [
+        $pay['identificationField'] ?? '',
+        $pay['nossoNumero'] ?? '', // só se for a única opção; validamos tamanho depois
+    ];
+    // Às vezes vem aninhado
+    if (!empty($pay['bankSlip']['identificationField'])) {
+        array_unshift($candidates, $pay['bankSlip']['identificationField']);
+    }
+    foreach ($candidates as $i => $c) {
+        $c = trim((string)$c);
+        if ($c === '') continue;
+        // nossoNumero nunca é linha digitável completa
+        if ($i > 0 && !asaas_linha_digitavel_completa($c)) {
+            continue;
+        }
+        if (asaas_linha_digitavel_completa($c)) {
+            return asaas_formatar_linha_digitavel($c);
+        }
+        // guarda candidato “longo” mesmo sem 47 (pode vir parcial com formatação)
+        if (strlen(preg_replace('/\D+/', '', $c) ?? '') >= 40) {
+            return asaas_formatar_linha_digitavel($c);
+        }
+    }
+    // tenta identificationField cru mesmo incompleto (melhor que vazio); evita nossoNumero
+    $id = trim((string)($pay['identificationField'] ?? ''));
+    return $id !== '' ? asaas_formatar_linha_digitavel($id) : '';
+}
+
+/** Formata 47 dígitos no padrão visual da linha digitável. */
+function asaas_formatar_linha_digitavel(string $linha): string {
+    $d = preg_replace('/\D+/', '', $linha) ?? '';
+    if (strlen($d) < 47) {
+        // devolve original se ainda não completa (sem inventar dígitos)
+        return trim($linha);
+    }
+    $d = substr($d, 0, 47);
+    // AAABC.CCCCX DDDDD.DDDDDY EEEEE.EEEEEZ K HHHHHHHHHHHHHH
+    return substr($d, 0, 5) . '.' . substr($d, 5, 5) . ' '
+        . substr($d, 10, 5) . '.' . substr($d, 15, 6) . ' '
+        . substr($d, 21, 5) . '.' . substr($d, 26, 6) . ' '
+        . substr($d, 32, 1) . ' '
+        . substr($d, 33, 14);
+}
+
+/**
+ * GET /v3/payments/{id}/identificationField com retentativas
+ * (o Asaas às vezes só libera a linha após o registro do boleto).
+ */
+function asaas_buscar_linha_digitavel(string $paymentId, int $tentativas = 4): string {
+    $paymentId = trim($paymentId);
+    if ($paymentId === '') return '';
+    $last = '';
+    for ($i = 0; $i < max(1, $tentativas); $i++) {
+        if ($i > 0) {
+            usleep(700000); // 0,7s entre tentativas
+        }
+        try {
+            $res = asaas_request('GET', '/payments/' . rawurlencode($paymentId) . '/identificationField');
+            $data = $res['data'] ?? [];
+            $line = trim((string)($data['identificationField'] ?? $data['identification_field'] ?? ''));
+            // barCode = código de barras 44 posições (não é linha digitável) — só usa se não houver identificationField
+            $bar = trim((string)($data['barCode'] ?? $data['barcode'] ?? ''));
+            if ($line !== '') {
+                $last = asaas_formatar_linha_digitavel($line);
+                if (asaas_linha_digitavel_completa($last)) {
+                    return $last;
+                }
+            } elseif ($bar !== '' && strlen(preg_replace('/\D+/', '', $bar) ?? '') >= 44) {
+                // não converter barras→digitável aqui; guarda se for o único dado (raro)
+                $last = $bar;
+            }
+        } catch (Throwable $e) {
+            // continua tentando
+        }
+    }
+    return $last;
+}
+
+/**
+ * Se a linha digitável local estiver incompleta, busca de novo no Asaas e atualiza a fatura.
+ */
+function finance_refresh_linha_digitavel(array $fat): array {
+    $id = intval($fat['id'] ?? 0);
+    $chargeId = trim((string)($fat['boleto_charge_id'] ?? ''));
+    $atual = trim((string)($fat['boleto_barcode'] ?? ''));
+    if ($id <= 0 || $chargeId === '') return $fat;
+    if (asaas_linha_digitavel_completa($atual)) {
+        // só reformata se já completa sem pontuação
+        $fmt = asaas_formatar_linha_digitavel($atual);
+        if ($fmt !== $atual) {
+            try {
+                app_pdo()->prepare('UPDATE faturas SET boleto_barcode=?, updated_at=NOW() WHERE id=?')
+                    ->execute([$fmt, $id]);
+                $fat['boleto_barcode'] = $fmt;
+            } catch (Throwable $e) { /* ok */ }
+        }
+        return $fat;
+    }
+    $linha = asaas_buscar_linha_digitavel($chargeId, 3);
+    if ($linha === '') {
+        try {
+            $pay = asaas_consultar_pagamento($chargeId);
+            $linha = asaas_extrair_linha_digitavel($pay);
+            if (!empty($pay['bankSlipUrl']) && empty($fat['boleto_url'])) {
+                $fat['boleto_url'] = (string)$pay['bankSlipUrl'];
+                app_pdo()->prepare('UPDATE faturas SET boleto_url=?, boleto_pdf=?, updated_at=NOW() WHERE id=?')
+                    ->execute([$fat['boleto_url'], $fat['boleto_url'], $id]);
+            }
+        } catch (Throwable $e) { /* ok */ }
+    }
+    if ($linha !== '' && (asaas_linha_digitavel_completa($linha) || strlen($linha) > strlen($atual))) {
+        try {
+            app_pdo()->prepare('UPDATE faturas SET boleto_barcode=?, updated_at=NOW() WHERE id=?')
+                ->execute([$linha, $id]);
+            $fat['boleto_barcode'] = $linha;
+        } catch (Throwable $e) { /* ok */ }
+    }
+    return $fat;
 }
 
 function asaas_consultar_pagamento(string $paymentId): array {
@@ -501,7 +646,7 @@ function asaas_charge_check(string $paymentId, string $tipo = 'any'): array {
     // Boleto: PENDING ou OVERDUE ainda podem ser pagáveis se houver URL/linha
     if ($tipo === 'boleto' || ($tipo === 'any' && $billing === 'BOLETO')) {
         $link = (string)($pay['bankSlipUrl'] ?? $pay['invoiceUrl'] ?? '');
-        $barcode = (string)($pay['identificationField'] ?? '');
+        $barcode = asaas_extrair_linha_digitavel($pay);
         if ($link === '' && $barcode === '') {
             $base['reason'] = 'boleto_sem_dados';
             return $base;
@@ -510,6 +655,10 @@ function asaas_charge_check(string $paymentId, string $tipo = 'any'): array {
         if (!empty($pay['postalService']) && empty($pay['bankSlipUrl']) && $barcode === '') {
             $base['reason'] = 'boleto_registro_cancelado';
             return $base;
+        }
+        // Anexa linha completa quando possível (para refresh no emitir)
+        if ($barcode !== '') {
+            $base['pay']['identificationField'] = $barcode;
         }
     }
 
@@ -736,9 +885,16 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
                 $bolOk = true;
             } elseif ($chk['usable']) {
                 $pay = $chk['pay'];
+                $barcode = asaas_extrair_linha_digitavel($pay);
+                if (!asaas_linha_digitavel_completa($barcode)) {
+                    $barcode = asaas_buscar_linha_digitavel($existingBol, 3);
+                }
+                if (!asaas_linha_digitavel_completa($barcode) && asaas_linha_digitavel_completa((string)($fat['boleto_barcode'] ?? ''))) {
+                    $barcode = asaas_formatar_linha_digitavel((string)$fat['boleto_barcode']);
+                }
                 $bol = [
                     'charge_id' => $existingBol,
-                    'barcode' => (string)($pay['identificationField'] ?? $fat['boleto_barcode'] ?? ''),
+                    'barcode' => $barcode !== '' ? $barcode : (string)($fat['boleto_barcode'] ?? ''),
                     'link' => (string)($pay['bankSlipUrl'] ?? $pay['invoiceUrl'] ?? $fat['boleto_url'] ?? ''),
                     'pdf' => (string)($pay['bankSlipUrl'] ?? $fat['boleto_pdf'] ?? $fat['boleto_url'] ?? ''),
                 ];
@@ -806,6 +962,9 @@ function finance_garantir_meios_pagamento(array $fat, bool $force = false): arra
     if (($fat['status'] ?? '') === 'paga') {
         return ['fatura' => $fat, 'regenerated' => false, 'message' => 'Pagamento confirmado.'];
     }
+
+    // Completa linha digitável se estiver truncada/incompleta (sem recriar cobrança)
+    $fat = finance_refresh_linha_digitavel($fat);
 
     if ($force) {
         try {

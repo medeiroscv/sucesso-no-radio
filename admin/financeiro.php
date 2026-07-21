@@ -318,7 +318,15 @@ admin_flash($ok, $err);
     <?php if (!empty($edit['boleto_url']) || !empty($edit['boleto_barcode'])): ?>
         <div style="margin-top:14px;padding:12px;background:#0f172a;border-radius:12px;border:1px solid var(--line);">
             <strong>Boleto</strong>
-            <?php if (!empty($edit['boleto_barcode'])): ?><p class="muted" style="margin-top:8px;">Linha digitável: <?= e($edit['boleto_barcode']) ?></p><?php endif; ?>
+            <?php if (!empty($edit['boleto_barcode'])):
+                $adminLinha = (string)$edit['boleto_barcode'];
+                $adminDigits = preg_replace('/\D+/', '', $adminLinha) ?? '';
+            ?>
+                <p class="muted" style="margin-top:8px;word-break:break-all;line-height:1.5;">
+                    Linha digitável (<?= strlen($adminDigits) ?> dígitos<?= strlen($adminDigits) >= 47 ? ', completa' : ', incompleta' ?>):<br>
+                    <strong style="color:var(--text);letter-spacing:.02em;"><?= e($adminLinha) ?></strong>
+                </p>
+            <?php endif; ?>
             <?php if (!empty($edit['boleto_url'])): ?><p style="margin-top:8px;"><a class="btn btn-secondary btn-small" href="<?= e($edit['boleto_url']) ?>" target="_blank">Abrir boleto</a></p><?php endif; ?>
         </div>
     <?php endif; ?>

@@ -177,10 +177,20 @@ if ($atraso):
             <div style="background:#0b1220;border:1px solid var(--line);border-radius:14px;padding:16px;">
                 <h3 style="margin:0 0 10px;font-size:1.05rem;">Boleto</h3>
                 <?php if ($bolOk): ?>
-                    <?php if (!empty($ver['boleto_barcode'])): ?>
+                    <?php if (!empty($ver['boleto_barcode'])):
+                        $linhaDig = (string)$ver['boleto_barcode'];
+                        $linhaDigits = preg_replace('/\D+/', '', $linhaDig) ?? '';
+                        $linhaIncompleta = strlen($linhaDigits) > 0 && strlen($linhaDigits) < 47;
+                    ?>
                         <p class="muted" style="font-size:.8rem;">Linha digitável</p>
-                        <p style="font-size:.9rem;word-break:break-all;margin:8px 0 12px;font-weight:600;"><?= e($ver['boleto_barcode']) ?></p>
-                        <button type="button" class="btn btn-ghost btn-small" style="width:100%;margin-bottom:10px;" onclick="navigator.clipboard.writeText('<?= e(addslashes($ver['boleto_barcode'])) ?>');this.textContent='Copiado!';">Copiar linha digitável</button>
+                        <p style="font-size:.88rem;word-break:break-all;margin:8px 0 12px;font-weight:600;letter-spacing:.02em;line-height:1.45;"><?= e($linhaDig) ?></p>
+                        <button type="button" class="btn btn-ghost btn-small" style="width:100%;margin-bottom:10px;"
+                            onclick="navigator.clipboard.writeText(<?= json_encode($linhaDigits !== '' ? $linhaDigits : $linhaDig, JSON_UNESCAPED_UNICODE) ?>);this.textContent='Copiado!';">
+                            Copiar linha digitável
+                        </button>
+                        <?php if ($linhaIncompleta): ?>
+                            <p class="muted" style="font-size:.78rem;color:#fbbf24;">Linha incompleta detectada. Toque em “Atualizar / gerar novo” ou abra o PDF do boleto.</p>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <?php if (!empty($ver['boleto_url'])): ?>
                         <a class="btn btn-primary btn-small" style="width:100%;" href="<?= e($ver['boleto_url']) ?>" target="_blank" rel="noopener">Abrir / imprimir boleto</a>

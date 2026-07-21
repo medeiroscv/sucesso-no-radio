@@ -202,7 +202,7 @@ function app_bootstrap_database(PDO $pdo): void {
         pix_expira_em TIMESTAMP NULL,
         boleto_charge_id VARCHAR(80) DEFAULT '',
         boleto_url TEXT DEFAULT '',
-        boleto_barcode VARCHAR(120) DEFAULT '',
+        boleto_barcode TEXT DEFAULT '',
         boleto_pdf TEXT DEFAULT '',
         pago_em TIMESTAMP NULL,
         observacao TEXT DEFAULT '',
@@ -212,6 +212,8 @@ function app_bootstrap_database(PDO $pdo): void {
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_cliente ON faturas (cliente_id, status, vencimento DESC, id DESC)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_pix_txid ON faturas (pix_txid)');
     try { $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_boleto_charge ON faturas (boleto_charge_id)'); } catch (Throwable $e) { /* ok */ }
+    // Linha digitável completa (antes VARCHAR(120) cortava / gravava nossoNumero incompleto)
+    try { $pdo->exec('ALTER TABLE faturas ALTER COLUMN boleto_barcode TYPE TEXT'); } catch (Throwable $e) { /* ok */ }
 
     // Textos enviados para gravação (sempre vinculados ao cliente logado)
     $pdo->exec("CREATE TABLE IF NOT EXISTS textos_gravacao (
