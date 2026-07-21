@@ -1,8 +1,8 @@
 {
-    "commit": "f68652de1ebdd69a2538873900632402cdd816f0",
-    "short": "f68652d",
+    "commit": "3d1136a2f4d6047f390bee1cb90c31cee47b98e4",
+    "short": "3d1136a",
     "branch": "master",
     "repo": "medeiroscv/sucesso-no-radio",
-    "updated_at": "2026-07-21T22:53:03+00:00",
-    "message": "feat: card Atualizacao no admin com consulta ao GitHub"
+    "updated_at": "2026-07-21T23:03:11+00:00",
+    "message": "feat: atualizacao do site via ZIP do GitHub no painel admin"
 }
