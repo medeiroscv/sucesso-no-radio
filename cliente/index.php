@@ -67,11 +67,20 @@ exit;
 endif;
 
 if (!cliente_financeiro_em_dia($cli)):
+    // Prepara meios válidos em background leve (cliente já encontra QR/boleto prontos no Financeiro)
+    try {
+        if (function_exists('asaas_configured') || is_file(__DIR__ . '/../includes/asaas.php')) {
+            require_once __DIR__ . '/../includes/asaas.php';
+            if (asaas_configured()) {
+                finance_preparar_faturas_cliente(intval($cli['id'] ?? 0), 10);
+            }
+        }
+    } catch (Throwable $e) { /* não bloqueia a home */ }
 ?>
 <div class="empty" style="margin-bottom:28px;">
     <strong style="display:block;font-size:1.1rem;margin-bottom:10px;color:var(--text);">Pagamento em atraso</strong>
-    Há fatura vencida. Regularize em <strong>Financeiro</strong> para liberar conteúdos e textos.<br>
-    <a class="btn btn-primary" style="margin-top:16px;" href="<?= e(app_url('cliente/financeiro.php')) ?>">Ir para Financeiro</a>
+    Há fatura em aberto ou vencida. Em <strong>Financeiro</strong> o Pix e o boleto são gerados/atualizados automaticamente para você pagar sem erro de QR expirado.<br>
+    <a class="btn btn-primary" style="margin-top:16px;" href="<?= e(app_url('cliente/financeiro.php')) ?>">Ir para Financeiro e pagar</a>
 </div>
 <?php
 cliente_footer();

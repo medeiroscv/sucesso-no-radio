@@ -728,11 +728,14 @@ function cliente_financeiro_em_dia(?array $cli = null): bool {
     if ($cli === null) $cli = cliente_atual();
     if (!$cli) return false;
     try {
-        // marca vencidas
-        app_pdo()->prepare(
-            "UPDATE faturas SET status = 'vencida', updated_at = NOW()
-             WHERE cliente_id = ? AND status = 'aberta' AND vencimento < CURRENT_DATE"
-        )->execute([intval($cli['id'])]);
+        if (function_exists('finance_marcar_vencidas')) {
+            finance_marcar_vencidas(intval($cli['id']));
+        } else {
+            app_pdo()->prepare(
+                "UPDATE faturas SET status = 'vencida', updated_at = NOW()
+                 WHERE cliente_id = ? AND status = 'aberta' AND vencimento < CURRENT_DATE"
+            )->execute([intval($cli['id'])]);
+        }
 
         $st = app_pdo()->prepare(
             "SELECT COUNT(*) FROM faturas

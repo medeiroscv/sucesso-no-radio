@@ -337,6 +337,8 @@ function asaas_criar_boleto(array $cliente, int $valorCentavos, string $descrica
         'dueDate' => $vencimentoYmd,
         'description' => mb_substr($descricao !== '' ? $descricao : 'Mensalidade', 0, 500),
         'externalReference' => $externalRef !== '' ? $externalRef : null,
+        // Mantém boleto pagável por 30 dias após o vencimento (evita “boleto cancelado” no dia seguinte)
+        'daysAfterDueDateToRegistrationCancellation' => 30,
     ];
     $body = array_filter($body, static fn($v) => $v !== null && $v !== '');
 
@@ -401,6 +403,20 @@ function asaas_status_inutil(string $status): bool {
 }
 
 /**
+ * Cancela/remove cobrança no Asaas (best-effort ao regenerar meios).
+ */
+function asaas_cancelar_pagamento(string $paymentId): bool {
+    $paymentId = trim($paymentId);
+    if ($paymentId === '' || !str_starts_with($paymentId, 'pay_')) return false;
+    try {
+        asaas_request('DELETE', '/payments/' . rawurlencode($paymentId));
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
  * Verifica se uma cobrança Asaas ainda serve para pagamento.
  * @return array{usable:bool,paid:bool,missing:bool,status:string,pay:array,reason:string}
  */
@@ -410,6 +426,7 @@ function asaas_charge_check(string $paymentId, string $tipo = 'any'): array {
         'usable' => false,
         'paid' => false,
         'missing' => false,
+        'uncertain' => false,
         'status' => '',
         'pay' => [],
         'reason' => '',
@@ -423,13 +440,14 @@ function asaas_charge_check(string $paymentId, string $tipo = 'any'): array {
         $pay = asaas_consultar_pagamento($paymentId);
     } catch (Throwable $e) {
         $msg = $e->getMessage();
-        // 404 / deleted no Asaas
-        if (preg_match('/\b404\b|not found|não encontrad|nao encontrad/i', $msg)) {
+        if (preg_match('/\b404\b|not found|não encontrad|nao encontrad|deleted/i', $msg)) {
             $base['missing'] = true;
             $base['reason'] = 'nao_encontrada';
             return $base;
         }
-        $base['reason'] = 'erro_consulta: ' . $msg;
+        // Rede/instabilidade: caller decide (não regenera se já houver QR/boleto local)
+        $base['reason'] = 'erro_consulta';
+        $base['uncertain'] = true;
         return $base;
     }
 
@@ -447,47 +465,50 @@ function asaas_charge_check(string $paymentId, string $tipo = 'any'): array {
         $base['reason'] = 'status_' . strtolower($status);
         return $base;
     }
+    if (!empty($pay['deleted'])) {
+        $base['reason'] = 'flag_deleted';
+        return $base;
+    }
 
-    // Pix: precisa conseguir QR Code válido
-    if ($tipo === 'pix' || $tipo === 'any') {
-        $billing = strtoupper((string)($pay['billingType'] ?? ''));
-        if ($billing === 'PIX' || $tipo === 'pix') {
-            try {
-                $qr = asaas_request('GET', '/payments/' . rawurlencode($paymentId) . '/pixQrCode');
-                $payload = (string)($qr['data']['payload'] ?? '');
-                $img = (string)($qr['data']['encodedImage'] ?? '');
-                if ($payload === '' && $img === '') {
-                    $base['reason'] = 'pix_qr_vazio';
-                    return $base;
-                }
-                // expiração do QR (se informada e já passou)
-                $exp = (string)($qr['data']['expirationDate'] ?? '');
-                if ($exp !== '') {
-                    $ts = strtotime($exp);
-                    if ($ts !== false && $ts < time() - 30) {
-                        $base['reason'] = 'pix_expirado';
-                        return $base;
-                    }
-                }
-                $base['pay']['_pix_qr'] = $qr['data'];
-            } catch (Throwable $e) {
-                $base['reason'] = 'pix_qr_falhou';
+    $billing = strtoupper((string)($pay['billingType'] ?? ''));
+
+    // Pix: precisa conseguir QR Code válido e não expirado
+    if ($tipo === 'pix' || ($tipo === 'any' && $billing === 'PIX')) {
+        try {
+            $qr = asaas_request('GET', '/payments/' . rawurlencode($paymentId) . '/pixQrCode');
+            $payload = (string)($qr['data']['payload'] ?? '');
+            $img = (string)($qr['data']['encodedImage'] ?? '');
+            if ($payload === '' && $img === '') {
+                $base['reason'] = 'pix_qr_vazio';
                 return $base;
             }
+            $exp = (string)($qr['data']['expirationDate'] ?? '');
+            if ($exp !== '') {
+                $ts = strtotime($exp);
+                // margem de 2 min: regenera antes de o cliente escanear algo já morto
+                if ($ts !== false && $ts < time() + 120) {
+                    $base['reason'] = 'pix_expirado';
+                    return $base;
+                }
+            }
+            $base['pay']['_pix_qr'] = $qr['data'];
+        } catch (Throwable $e) {
+            $base['reason'] = 'pix_qr_falhou';
+            return $base;
         }
     }
 
-    // Boleto: precisa de URL ou linha digitável
-    if ($tipo === 'boleto') {
+    // Boleto: PENDING ou OVERDUE ainda podem ser pagáveis se houver URL/linha
+    if ($tipo === 'boleto' || ($tipo === 'any' && $billing === 'BOLETO')) {
         $link = (string)($pay['bankSlipUrl'] ?? $pay['invoiceUrl'] ?? '');
         $barcode = (string)($pay['identificationField'] ?? '');
         if ($link === '' && $barcode === '') {
             $base['reason'] = 'boleto_sem_dados';
             return $base;
         }
-        // deleted bank slip registration can leave OVERDUE without usable slip
-        if (!empty($pay['deleted'])) {
-            $base['reason'] = 'boleto_deletado';
+        // Se o Asaas cancelou o registro do boleto (CIP), não serve mais
+        if (!empty($pay['postalService']) && empty($pay['bankSlipUrl']) && $barcode === '') {
+            $base['reason'] = 'boleto_registro_cancelado';
             return $base;
         }
     }
@@ -495,6 +516,45 @@ function asaas_charge_check(string $paymentId, string $tipo = 'any'): array {
     $base['usable'] = true;
     $base['reason'] = 'ok';
     return $base;
+}
+
+/**
+ * Data de vencimento enviada ao Asaas na emissão/reemissão.
+ * - Fatura futura: mantém o vencimento original
+ * - Fatura vencida: usa hoje + 7 dias (cliente precisa de prazo real para pagar)
+ */
+function finance_due_date_for_emit(string $vencimentoYmd): string {
+    $today = date('Y-m-d');
+    if ($vencimentoYmd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $vencimentoYmd)) {
+        return date('Y-m-d', strtotime('+7 days'));
+    }
+    if ($vencimentoYmd < $today) {
+        return date('Y-m-d', strtotime('+7 days'));
+    }
+    // Vence hoje ou amanhã: garante pelo menos 3 dias no Asaas para o QR/boleto
+    if ($vencimentoYmd <= date('Y-m-d', strtotime('+1 day'))) {
+        return date('Y-m-d', strtotime('+3 days'));
+    }
+    return $vencimentoYmd;
+}
+
+/** Expiração local do Pix (sem chamar API). true = precisa renovar. */
+function finance_pix_local_expired(array $fat): bool {
+    $exp = trim((string)($fat['pix_expira_em'] ?? ''));
+    if ($exp === '') {
+        // sem data: se tem QR com mais de 20h, renova preventivamente (QR diário comum)
+        $upd = trim((string)($fat['updated_at'] ?? $fat['created_at'] ?? ''));
+        if ($upd !== '') {
+            $ts = strtotime($upd);
+            if ($ts !== false && $ts < time() - 20 * 3600 && (!empty($fat['pix_txid']) || !empty($fat['pix_copia_cola']))) {
+                return true;
+            }
+        }
+        return false;
+    }
+    $ts = strtotime($exp);
+    if ($ts === false) return false;
+    return $ts < time() + 120; // 2 min de folga
 }
 
 function finance_clear_pix_fields(int $faturaId): void {
@@ -507,6 +567,23 @@ function finance_clear_boleto_fields(int $faturaId): void {
     app_pdo()->prepare(
         "UPDATE faturas SET boleto_charge_id='', boleto_url='', boleto_barcode='', boleto_pdf='', updated_at=NOW() WHERE id=?"
     )->execute([$faturaId]);
+}
+
+/** Marca faturas abertas com vencimento passado como vencidas. */
+function finance_marcar_vencidas(?int $clienteId = null): void {
+    try {
+        if ($clienteId !== null && $clienteId > 0) {
+            app_pdo()->prepare(
+                "UPDATE faturas SET status = 'vencida', updated_at = NOW()
+                 WHERE cliente_id = ? AND status = 'aberta' AND vencimento < CURRENT_DATE"
+            )->execute([$clienteId]);
+        } else {
+            app_pdo()->exec(
+                "UPDATE faturas SET status = 'vencida', updated_at = NOW()
+                 WHERE status = 'aberta' AND vencimento < CURRENT_DATE"
+            );
+        }
+    } catch (Throwable $e) { /* ok */ }
 }
 
 /**
@@ -540,14 +617,8 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
     ];
     $desc = (string)($fat['descricao'] ?: 'Mensalidade');
     $valor = intval($fat['valor_centavos']);
-    $venc = (string)$fat['vencimento'];
-    if ($venc === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $venc)) {
-        $venc = date('Y-m-d', strtotime('+3 days'));
-    }
-    if ($venc < date('Y-m-d')) {
-        $venc = date('Y-m-d');
-    }
-    // externalReference único a cada reemissão (Asaas permite; facilita rastreio)
+    // Vencimento “de pagamento” no Asaas (não altera o vencimento da fatura no sistema)
+    $venc = finance_due_date_for_emit((string)$fat['vencimento']);
     $suffix = substr(bin2hex(random_bytes(3)), 0, 6);
     $extRef = 'fatura_' . $faturaId;
     $pdo = app_pdo();
@@ -555,15 +626,26 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
     // ---------- PIX ----------
     $existingPix = trim((string)($fat['pix_txid'] ?? ''));
     $pixOk = false;
+    $localPixExpired = finance_pix_local_expired($fat);
 
-    if (!$force && $existingPix !== '') {
+    if (!$force && $existingPix !== '' && !$localPixExpired) {
         $chk = asaas_charge_check($existingPix, 'pix');
         if ($chk['paid']) {
             finance_marcar_paga($faturaId, 'Pago via Asaas (sync na emissão)');
             $out['pix'] = ['payment_id' => $existingPix, 'already_paid' => true];
             return $out;
         }
-        if ($chk['usable']) {
+        if (!empty($chk['uncertain']) && (!empty($fat['pix_copia_cola']) || !empty($fat['pix_qrcode']))) {
+            // API instável: mantém o que o cliente já tem
+            $out['pix'] = [
+                'payment_id' => $existingPix,
+                'txid' => $existingPix,
+                'qrcode' => (string)($fat['pix_qrcode'] ?? ''),
+                'copia_cola' => (string)($fat['pix_copia_cola'] ?? ''),
+            ];
+            $out['reused']['pix'] = true;
+            $pixOk = true;
+        } elseif ($chk['usable']) {
             $qrData = $chk['pay']['_pix_qr'] ?? [];
             $pix = [
                 'payment_id' => $existingPix,
@@ -576,37 +658,45 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
             $out['pix'] = $pix;
             $out['reused']['pix'] = true;
             $pixOk = true;
+            $expSql = null;
+            if (!empty($pix['expiracao'])) {
+                $ts = strtotime($pix['expiracao']);
+                if ($ts) $expSql = date('Y-m-d H:i:s', $ts);
+            }
             $pdo->prepare(
-                'UPDATE faturas SET pix_qrcode=?, pix_copia_cola=?, updated_at=NOW() WHERE id=?'
-            )->execute([$pix['qrcode'], $pix['copia_cola'], $faturaId]);
+                'UPDATE faturas SET pix_qrcode=?, pix_copia_cola=?, pix_expira_em=COALESCE(?, pix_expira_em), updated_at=NOW() WHERE id=?'
+            )->execute([$pix['qrcode'], $pix['copia_cola'], $expSql, $faturaId]);
         } else {
-            // inválida / deletada / QR expirado → limpa e recria
+            asaas_cancelar_pagamento($existingPix);
             finance_clear_pix_fields($faturaId);
             $out['regenerated']['pix'] = true;
             $existingPix = '';
         }
-    } elseif ($force && $existingPix !== '') {
+    } elseif ($force || $localPixExpired) {
+        if ($existingPix !== '') {
+            asaas_cancelar_pagamento($existingPix);
+        }
         finance_clear_pix_fields($faturaId);
         $out['regenerated']['pix'] = true;
+        $existingPix = '';
     }
 
     if (!$pixOk) {
         try {
             $pix = asaas_criar_pix($cli, $valor, $desc, $venc, $extRef . '_pix_' . $suffix);
             $out['pix'] = $pix;
-            if ($out['regenerated']['pix'] || $force) {
-                $out['regenerated']['pix'] = true;
-            }
+            $out['regenerated']['pix'] = $out['regenerated']['pix'] || $force || $localPixExpired || $existingPix === '';
             $expSql = null;
             if (!empty($pix['expiracao'])) {
-                try {
-                    $expSql = date('Y-m-d H:i:s', strtotime((string)$pix['expiracao']));
-                } catch (Throwable $e) {
-                    $expSql = null;
-                }
+                $ts = strtotime((string)$pix['expiracao']);
+                if ($ts) $expSql = date('Y-m-d H:i:s', $ts);
+            }
+            if ($expSql === null) {
+                // fallback: QR costuma valer até o fim do dia / ~24h
+                $expSql = date('Y-m-d H:i:s', strtotime('+1 day'));
             }
             $pdo->prepare(
-                'UPDATE faturas SET pix_txid=?, pix_loc_id=?, pix_qrcode=?, pix_copia_cola=?, pix_expira_em=COALESCE(?, NOW() + INTERVAL \'3 days\'), updated_at=NOW() WHERE id=?'
+                'UPDATE faturas SET pix_txid=?, pix_loc_id=?, pix_qrcode=?, pix_copia_cola=?, pix_expira_em=?, updated_at=NOW() WHERE id=?'
             )->execute([
                 $pix['txid'],
                 $pix['loc_id'],
@@ -635,7 +725,16 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
                 $out['boleto'] = ['charge_id' => $existingBol, 'already_paid' => true];
                 return $out;
             }
-            if ($chk['usable']) {
+            if (!empty($chk['uncertain']) && (!empty($fat['boleto_url']) || !empty($fat['boleto_barcode']))) {
+                $out['boleto'] = [
+                    'charge_id' => $existingBol,
+                    'barcode' => (string)$fat['boleto_barcode'],
+                    'link' => (string)$fat['boleto_url'],
+                    'pdf' => (string)($fat['boleto_pdf'] ?: $fat['boleto_url']),
+                ];
+                $out['reused']['boleto'] = true;
+                $bolOk = true;
+            } elseif ($chk['usable']) {
                 $pay = $chk['pay'];
                 $bol = [
                     'charge_id' => $existingBol,
@@ -650,11 +749,13 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
                     'UPDATE faturas SET boleto_url=?, boleto_barcode=?, boleto_pdf=?, updated_at=NOW() WHERE id=?'
                 )->execute([$bol['link'], $bol['barcode'], $bol['pdf'], $faturaId]);
             } else {
+                asaas_cancelar_pagamento($existingBol);
                 finance_clear_boleto_fields($faturaId);
                 $out['regenerated']['boleto'] = true;
                 $existingBol = '';
             }
         } elseif ($force && $existingBol !== '') {
+            asaas_cancelar_pagamento($existingBol);
             finance_clear_boleto_fields($faturaId);
             $out['regenerated']['boleto'] = true;
         }
@@ -663,9 +764,7 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
             try {
                 $bol = asaas_criar_boleto($cli, $valor, $desc, $venc, $extRef . '_boleto_' . $suffix);
                 $out['boleto'] = $bol;
-                if ($out['regenerated']['boleto'] || $force) {
-                    $out['regenerated']['boleto'] = true;
-                }
+                $out['regenerated']['boleto'] = true;
                 $pdo->prepare(
                     'UPDATE faturas SET boleto_charge_id=?, boleto_url=?, boleto_barcode=?, boleto_pdf=?, updated_at=NOW() WHERE id=?'
                 )->execute([
@@ -690,7 +789,7 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
  *
  * @return array{fatura:array,regenerated:bool,message:string,detail?:array}
  */
-function finance_garantir_meios_pagamento(array $fat): array {
+function finance_garantir_meios_pagamento(array $fat, bool $force = false): array {
     $id = intval($fat['id'] ?? 0);
     if ($id <= 0 || !in_array($fat['status'] ?? '', ['aberta', 'vencida'], true)) {
         return ['fatura' => $fat, 'regenerated' => false, 'message' => ''];
@@ -699,86 +798,105 @@ function finance_garantir_meios_pagamento(array $fat): array {
         return ['fatura' => $fat, 'regenerated' => false, 'message' => ''];
     }
 
-    // 1) sync pagamento
+    finance_marcar_vencidas(intval($fat['cliente_id'] ?? 0));
+    $fat = app_fatura_by_id($id) ?: $fat;
+
+    // Sync se já pago
     $fat = finance_sync_fatura($fat);
     if (($fat['status'] ?? '') === 'paga') {
         return ['fatura' => $fat, 'regenerated' => false, 'message' => 'Pagamento confirmado.'];
     }
 
+    if ($force) {
+        try {
+            $r = finance_emitir_pagamento($id, true);
+            $fresh = app_fatura_by_id($id) ?: $fat;
+            return [
+                'fatura' => $fresh,
+                'regenerated' => true,
+                'message' => 'Novos meios de pagamento gerados.',
+                'detail' => $r,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'fatura' => $fat,
+                'regenerated' => false,
+                'message' => 'Não foi possível gerar meios: ' . $e->getMessage(),
+            ];
+        }
+    }
+
     $needEmit = false;
+    $reasons = [];
+
     $pixId = trim((string)($fat['pix_txid'] ?? ''));
     $bolId = trim((string)($fat['boleto_charge_id'] ?? ''));
     $hasPixData = !empty($fat['pix_copia_cola']) || !empty($fat['pix_qrcode']);
     $hasBolData = !empty($fat['boleto_url']) || !empty($fat['boleto_barcode']);
 
+    // ---- Pix ----
     if ($pixId === '' || !$hasPixData) {
         $needEmit = true;
+        $reasons[] = 'pix_ausente';
+    } elseif (finance_pix_local_expired($fat)) {
+        $needEmit = true;
+        $reasons[] = 'pix_expirado_local';
     } else {
         $chk = asaas_charge_check($pixId, 'pix');
         if ($chk['paid']) {
             finance_marcar_paga($id, 'Pago via Asaas');
-            $fat = app_fatura_by_id($id) ?: $fat;
-            return ['fatura' => $fat, 'regenerated' => false, 'message' => 'Pagamento confirmado.'];
+            return ['fatura' => app_fatura_by_id($id) ?: $fat, 'regenerated' => false, 'message' => 'Pagamento confirmado.'];
         }
-        if (!$chk['usable']) {
+        if (!empty($chk['uncertain'])) {
+            // mantém local
+        } elseif (!$chk['usable']) {
             $needEmit = true;
+            $reasons[] = 'pix_' . ($chk['reason'] ?: 'invalido');
         }
     }
 
+    // ---- Boleto ----
     if ($bolId === '' || !$hasBolData) {
         $needEmit = true;
+        $reasons[] = 'boleto_ausente';
     } else {
         $chk = asaas_charge_check($bolId, 'boleto');
         if ($chk['paid']) {
             finance_marcar_paga($id, 'Pago via Asaas');
-            $fat = app_fatura_by_id($id) ?: $fat;
-            return ['fatura' => $fat, 'regenerated' => false, 'message' => 'Pagamento confirmado.'];
+            return ['fatura' => app_fatura_by_id($id) ?: $fat, 'regenerated' => false, 'message' => 'Pagamento confirmado.'];
         }
-        if (!$chk['usable']) {
+        if (!empty($chk['uncertain'])) {
+            // mantém local
+        } elseif (!$chk['usable']) {
             $needEmit = true;
+            $reasons[] = 'boleto_' . ($chk['reason'] ?: 'invalido');
         }
     }
 
-    if (!$needEmit) {
-        // só atualiza QR/dados se ainda válido
-        try {
-            $r = finance_emitir_pagamento($id, false);
-            $fresh = app_fatura_by_id($id) ?: $fat;
-            $regen = !empty($r['regenerated']['pix']) || !empty($r['regenerated']['boleto']);
-            return [
-                'fatura' => $fresh,
-                'regenerated' => $regen,
-                'message' => $regen
-                    ? 'Meios de pagamento atualizados (cobrança anterior inválida no Asaas).'
-                    : '',
-                'detail' => $r,
-            ];
-        } catch (Throwable $e) {
-            return ['fatura' => $fat, 'regenerated' => false, 'message' => ''];
-        }
-    }
-
+    // Sempre chama emitir: reutiliza o que for válido e recria o que falhou
     try {
         $r = finance_emitir_pagamento($id, false);
         $fresh = app_fatura_by_id($id) ?: $fat;
-        $regen = !empty($r['regenerated']['pix']) || !empty($r['regenerated']['boleto'])
-            || (empty($r['reused']['pix']) && !empty($r['pix']))
-            || (empty($r['reused']['boleto']) && !empty($r['boleto']));
-        $parts = [];
-        if (!empty($r['regenerated']['pix']) || (empty($r['reused']['pix']) && !empty($r['pix']))) {
-            $parts[] = 'Pix';
+        $regen = !empty($r['regenerated']['pix']) || !empty($r['regenerated']['boleto']);
+        $msg = '';
+        if ($regen) {
+            $parts = [];
+            if (!empty($r['regenerated']['pix'])) $parts[] = 'Pix';
+            if (!empty($r['regenerated']['boleto'])) $parts[] = 'boleto';
+            $msg = 'Atualizamos automaticamente o ' . implode(' e o ', $parts)
+                . ' desta fatura (o anterior estava expirado, removido ou indisponível). Use os dados abaixo.';
+        } elseif ($needEmit && (!empty($r['pix']) || !empty($r['boleto']))) {
+            $msg = 'Meios de pagamento conferidos e disponíveis.';
         }
-        if (!empty($r['regenerated']['boleto']) || (empty($r['reused']['boleto']) && !empty($r['boleto']))) {
-            $parts[] = 'boleto';
+        if (!empty($r['erros']) && $msg === '') {
+            $msg = implode(' | ', $r['erros']);
         }
-        $msg = $parts
-            ? 'Novo ' . implode(' e ', $parts) . ' gerado(s) automaticamente (a cobrança anterior não estava mais disponível no Asaas).'
-            : 'Meios de pagamento verificados.';
         return [
             'fatura' => $fresh,
-            'regenerated' => true,
+            'regenerated' => $regen,
             'message' => $msg,
             'detail' => $r,
+            'reasons' => $reasons,
         ];
     } catch (Throwable $e) {
         return [
@@ -787,6 +905,60 @@ function finance_garantir_meios_pagamento(array $fat): array {
             'message' => 'Não foi possível regenerar os meios de pagamento: ' . $e->getMessage(),
         ];
     }
+}
+
+/**
+ * Prepara TODAS as faturas em aberto do cliente (entrada na área financeira).
+ * Garante Pix/boleto válidos sem o cliente precisar “descobrir” o erro.
+ *
+ * @return array{ok:int,regenerated:int,paid:int,errors:list<string>}
+ */
+function finance_preparar_faturas_cliente(int $clienteId, int $limit = 15): array {
+    $result = ['ok' => 0, 'regenerated' => 0, 'paid' => 0, 'errors' => []];
+    if ($clienteId <= 0 || !asaas_configured()) return $result;
+
+    finance_marcar_vencidas($clienteId);
+
+    // Throttle por sessão (evita martelar a API a cada clique)
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        @session_start();
+    }
+    $cacheKey = 'finance_prep_' . $clienteId;
+    $last = intval($_SESSION[$cacheKey] ?? 0);
+    $forceRefresh = !empty($_GET['renovar']) || !empty($_GET['refresh']);
+    if (!$forceRefresh && $last > 0 && (time() - $last) < 90) {
+        return $result;
+    }
+
+    try {
+        $st = app_pdo()->prepare(
+            "SELECT * FROM faturas
+             WHERE cliente_id = ? AND status IN ('aberta','vencida')
+             ORDER BY vencimento ASC, id ASC
+             LIMIT " . max(1, min(30, $limit))
+        );
+        $st->execute([$clienteId]);
+        $rows = $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return $result;
+    }
+
+    foreach ($rows as $fat) {
+        try {
+            $g = finance_garantir_meios_pagamento($fat);
+            $result['ok']++;
+            if (!empty($g['regenerated'])) $result['regenerated']++;
+            if (($g['fatura']['status'] ?? '') === 'paga') $result['paid']++;
+            if (!empty($g['message']) && str_contains((string)$g['message'], 'Não foi possível')) {
+                $result['errors'][] = 'Fatura #' . intval($fat['id']) . ': ' . $g['message'];
+            }
+        } catch (Throwable $e) {
+            $result['errors'][] = 'Fatura #' . intval($fat['id']) . ': ' . $e->getMessage();
+        }
+    }
+
+    $_SESSION[$cacheKey] = time();
+    return $result;
 }
 
 function finance_marcar_paga(int $faturaId, string $obs = ''): void {
