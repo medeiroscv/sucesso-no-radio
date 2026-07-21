@@ -21,9 +21,13 @@ if (isset($_GET['cancelar'])) {
 
 if (isset($_GET['emitir'])) {
     $id = intval($_GET['emitir']);
+    $force = isset($_GET['force']);
     try {
-        $r = finance_emitir_pagamento($id);
-        $msg = 'Meios de pagamento gerados.';
+        $r = finance_emitir_pagamento($id, $force);
+        $msg = $force ? 'Novos meios de pagamento gerados (forçado).' : 'Meios de pagamento gerados/atualizados.';
+        if (!empty($r['regenerated']['pix']) || !empty($r['regenerated']['boleto'])) {
+            $msg = 'Meios regenerados (cobrança anterior inválida no Asaas).';
+        }
         if (!empty($r['erros'])) $msg .= ' Avisos: ' . implode(' | ', $r['erros']);
         header('Location: financeiro.php?id=' . $id . '&ok=1&msg=' . rawurlencode($msg));
         exit;
@@ -72,9 +76,12 @@ if (isset($_GET['id'])) {
     );
     $st->execute([intval($_GET['id'])]);
     $edit = $st->fetch() ?: null;
-    if ($edit && in_array($edit['status'], ['aberta', 'vencida'], true)
-        && (!empty($edit['pix_txid']) || !empty($edit['boleto_charge_id']))) {
-        $edit = finance_sync_fatura($edit);
+    if ($edit && in_array($edit['status'], ['aberta', 'vencida'], true) && asaas_configured()) {
+        $g = finance_garantir_meios_pagamento($edit);
+        $edit = $g['fatura'];
+        if (!empty($g['regenerated']) && $ok === '' && $err === '') {
+            $ok = (string)($g['message'] ?: 'Meios de pagamento regenerados automaticamente.');
+        }
     }
 }
 
@@ -157,6 +164,7 @@ admin_flash($ok, $err);
         <a class="btn btn-secondary btn-small" href="financeiro.php">← Lista</a>
         <?php if (in_array($edit['status'], ['aberta', 'vencida'], true)): ?>
             <a class="btn btn-primary btn-small" href="financeiro.php?emitir=<?= intval($edit['id']) ?>">Gerar/atualizar Pix e boleto</a>
+            <a class="btn btn-secondary btn-small" href="financeiro.php?emitir=<?= intval($edit['id']) ?>&force=1" onclick="return confirm('Forçar novos Pix e boleto no Asaas? Use se a cobrança antiga foi apagada ou expirou.');">Forçar novos meios</a>
             <a class="btn btn-secondary btn-small" href="financeiro.php?pagar=<?= intval($edit['id']) ?>" onclick="return confirm('Marcar como paga?')">Marcar paga</a>
             <a class="btn btn-danger btn-small" href="financeiro.php?cancelar=<?= intval($edit['id']) ?>" onclick="return confirm('Cancelar fatura?')">Cancelar</a>
         <?php endif; ?>

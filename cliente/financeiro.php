@@ -25,11 +25,44 @@ $faturas = app_faturas_cliente($cliId, 30);
 $emAberto = array_values(array_filter($faturas, fn($f) => in_array($f['status'], ['aberta', 'vencida'], true)));
 $verId = intval($_GET['id'] ?? 0);
 $ver = null;
+$regenMsg = '';
+$regenErr = '';
+
+// Cliente pediu regenerar meios de pagamento
+if ($verId > 0 && isset($_GET['renovar']) && asaas_configured()) {
+    $tmp = null;
+    foreach ($faturas as $f) {
+        if (intval($f['id']) === $verId) { $tmp = $f; break; }
+    }
+    if ($tmp && in_array($tmp['status'], ['aberta', 'vencida'], true)) {
+        try {
+            $r = finance_emitir_pagamento($verId, true);
+            $regenMsg = 'Novos meios de pagamento gerados (Pix e/ou boleto).';
+            if (!empty($r['erros'])) {
+                $regenMsg .= ' Avisos: ' . implode(' | ', $r['erros']);
+            }
+        } catch (Throwable $e) {
+            $regenErr = $e->getMessage();
+        }
+        $faturas = app_faturas_cliente($cliId, 30);
+    }
+}
+
 if ($verId > 0) {
     foreach ($faturas as $f) {
         if (intval($f['id']) === $verId) {
             $ver = $f;
             break;
+        }
+    }
+    // Ao abrir a fatura: se cobrança morreu no Asaas, regenera sozinho
+    if ($ver && in_array($ver['status'], ['aberta', 'vencida'], true) && asaas_configured()) {
+        $g = finance_garantir_meios_pagamento($ver);
+        $ver = $g['fatura'];
+        if (!empty($g['regenerated']) && $regenMsg === '') {
+            $regenMsg = (string)($g['message'] ?? 'Meios de pagamento atualizados.');
+        } elseif ($regenMsg === '' && !empty($g['message']) && str_contains((string)$g['message'], 'Não foi possível')) {
+            $regenErr = (string)$g['message'];
         }
     }
 }
@@ -64,6 +97,13 @@ if ($atraso):
     <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/financeiro.php')) ?>">← Todas as faturas</a>
 </div>
 
+<?php if ($regenMsg !== ''): ?>
+    <div class="alert alert-ok" style="margin-bottom:14px;"><?= e($regenMsg) ?></div>
+<?php endif; ?>
+<?php if ($regenErr !== ''): ?>
+    <div class="alert alert-err" style="margin-bottom:14px;"><?= e($regenErr) ?></div>
+<?php endif; ?>
+
 <div class="form-card" style="max-width:720px;margin-bottom:28px;">
     <div class="actions" style="margin-bottom:10px;">
         <h3 style="margin:0;flex:1;"><?= e($ver['descricao'] ?: 'Fatura') ?> #<?= intval($ver['id']) ?></h3>
@@ -93,7 +133,7 @@ if ($atraso):
                         <button type="button" class="btn btn-primary btn-small" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText(document.getElementById('pixCopia').value);this.textContent='Copiado!';">Copiar código Pix</button>
                     <?php endif; ?>
                 <?php else: ?>
-                    <p class="muted">QR Code ainda não gerado. Aguarde a equipe ou atualize em instantes.</p>
+                    <p class="muted">QR Code ainda não gerado. Use o botão abaixo para gerar novamente.</p>
                 <?php endif; ?>
             </div>
             <div style="background:#0b1220;border:1px solid var(--line);border-radius:14px;padding:16px;">
@@ -108,11 +148,21 @@ if ($atraso):
                         <a class="btn btn-primary btn-small" style="width:100%;" href="<?= e($ver['boleto_url']) ?>" target="_blank" rel="noopener">Abrir / imprimir boleto</a>
                     <?php endif; ?>
                 <?php else: ?>
-                    <p class="muted">Boleto ainda não gerado. Confirme se o CPF está cadastrado em Meus dados.</p>
+                    <p class="muted">Boleto ainda não gerado. Confirme o CPF em Meus dados ou gere novamente.</p>
                 <?php endif; ?>
             </div>
         </div>
-        <p class="muted" style="margin-top:14px;font-size:.85rem;">Após o pagamento Pix, a liberação costuma ser automática em poucos minutos. Boleto pode levar até 1–2 dias úteis; a equipe também pode confirmar manualmente.</p>
+        <div class="actions" style="margin-top:16px;">
+            <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/financeiro.php?id=' . intval($ver['id']) . '&renovar=1')) ?>"
+               onclick="return confirm('Gerar um novo Pix e um novo boleto? Use se o QR Code ou o boleto anterior não funcionar mais.');">
+                🔄 Gerar novo Pix e boleto
+            </a>
+        </div>
+        <p class="muted" style="margin-top:14px;font-size:.85rem;">
+            Se o QR Code ou boleto não funcionar (expirado ou removido no Asaas), abra esta fatura de novo ou use
+            <strong>Gerar novo Pix e boleto</strong> — o sistema cria meios novos automaticamente.
+            Após o Pix, a liberação costuma ser automática em poucos minutos.
+        </p>
     <?php elseif (($ver['status'] ?? '') === 'paga'): ?>
         <div class="alert alert-ok" style="margin-top:14px;">Pagamento confirmado. Obrigado!</div>
     <?php endif; ?>
