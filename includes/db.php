@@ -985,9 +985,9 @@ function app_config_secoes(): array {
             'desc' => 'Asaas: Pix, boleto, API Key e bloqueio por atraso',
         ],
         'atualizacao' => [
-            'label' => 'Atualização',
+            'label' => 'Atualização do site',
             'icon' => '🔄',
-            'desc' => 'Verificar novas versões no GitHub e instruções de update',
+            'desc' => 'Atualizar código via GitHub sem rebuild do EasyPanel',
         ],
     ];
 }

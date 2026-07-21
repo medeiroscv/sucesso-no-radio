@@ -108,23 +108,22 @@ Sem volumes, **redeploy apaga** imagens e força login de novo.
 
 Tudo que aparece no front vem do banco via admin — sem editar HTML à mão.
 
-## Atualizações
+## Atualizações (sem rebuild)
 
-No admin: **Configurações → Atualização** consulta o GitHub e lista commits novos.
+No admin: **Configurações → Atualização do site**.
 
-### Forma recomendada no EasyPanel
+1. Informe `dono/repositorio`, branch `master` e (se preciso) token  
+2. **Testar GitHub** → **Salvar**  
+3. **Buscar e aplicar atualização** — baixa o ZIP do GitHub e atualiza o código  
 
-1. Faça push no repositório GitHub  
-2. No EasyPanel → App → **Deploy / Redeploy** (rebuild da imagem)  
-3. Aguarde o container subir (o bootstrap atualiza o schema automaticamente)
+**Preservado:** banco PostgreSQL, `uploads/`, `data/` (sessões), `config/`, `.env`  
+**Atualizado:** PHP, assets, admin, includes, etc.
 
-### Linha de comando (pasta com Git)
+Também via CLI no container:
 
 ```bash
-cd /caminho/do/Sucesso-no-Radio
-bash scripts/update.sh --check    # só verificar
-bash scripts/update.sh            # git pull --ff-only
-php scripts/check-update.php      # verificação via API
+php scripts/check-update.php          # verificar
+php scripts/check-update.php --apply  # baixar e aplicar
 ```
 
-Variáveis opcionais: `GITHUB_REPO`, `GITHUB_BRANCH`, `GITHUB_TOKEN`, `APP_UPDATE_ALLOW`.
+Variáveis opcionais: `GITHUB_REPO`, `GITHUB_BRANCH`, `GITHUB_TOKEN`.
