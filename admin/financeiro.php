@@ -106,7 +106,7 @@ admin_flash($ok, $err);
             <strong>Faturas e cobranças</strong>
             <div class="muted" style="margin-top:4px;font-size:.85rem;">
                 Asaas: <?= asaas_configured() ? 'API Key ok' : 'pendente' ?> ·
-                <?= asaas_sandbox() ? 'sandbox' : 'produção' ?>
+                <?= e(asaas_ambiente_label()) ?>
             </div>
         </div>
         <a class="btn btn-secondary btn-small" href="configuracoes.php?sec=financeiro">⚙️ Configurar financeiro / Asaas</a>

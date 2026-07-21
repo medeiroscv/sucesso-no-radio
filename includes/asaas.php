@@ -22,7 +22,10 @@ function asaas_cfg(string $settingKey, string $envKey, string $default = ''): st
 }
 
 function asaas_api_key(): string {
-    return trim(asaas_cfg('asaas_api_key', 'ASAAS_API_KEY'));
+    // Remove espaços/quebras que às vezes colam no copy-paste
+    $key = trim(asaas_cfg('asaas_api_key', 'ASAAS_API_KEY'));
+    $key = preg_replace('/\s+/', '', $key) ?? $key;
+    return $key;
 }
 
 /** Token opcional de autenticação do webhook (header asaas-access-token). */
@@ -39,7 +42,35 @@ function asaas_pix_configured(): bool {
     return asaas_configured();
 }
 
+/**
+ * Detecta ambiente pela própria API Key (mais confiável que o checkbox).
+ * @return 'sandbox'|'production'|null  null = não deu para inferir
+ */
+function asaas_key_environment(): ?string {
+    $key = asaas_api_key();
+    if ($key === '') return null;
+    // Prefixo oficial Asaas
+    if (str_contains($key, 'aact_hmlg') || str_starts_with($key, '$aact_hmlg')) {
+        return 'sandbox';
+    }
+    if (str_contains($key, 'aact_prod') || str_starts_with($key, '$aact_prod')) {
+        return 'production';
+    }
+    // Fallbacks comuns
+    if (preg_match('/hmlg|sandbox|homolog/i', $key)) return 'sandbox';
+    if (preg_match('/_prod_|production/i', $key)) return 'production';
+    return null;
+}
+
+/**
+ * true = sandbox (homologação), false = produção.
+ * Prioridade: ambiente da API Key > ENV ASAAS_SANDBOX > setting do admin > default sandbox.
+ */
 function asaas_sandbox(): bool {
+    $fromKey = asaas_key_environment();
+    if ($fromKey === 'sandbox') return true;
+    if ($fromKey === 'production') return false;
+
     $env = app_env('ASAAS_SANDBOX', null);
     if ($env !== null && $env !== false && $env !== '') {
         return app_env_bool('ASAAS_SANDBOX', true);
@@ -54,6 +85,11 @@ function asaas_base_url(): string {
     return asaas_sandbox()
         ? 'https://api-sandbox.asaas.com/v3'
         : 'https://api.asaas.com/v3';
+}
+
+/** Rótulo amigável do ambiente efetivo. */
+function asaas_ambiente_label(): string {
+    return asaas_sandbox() ? 'Homologação (sandbox)' : 'Produção';
 }
 
 /**
@@ -102,6 +138,20 @@ function asaas_request(string $method, string $path, ?array $body = null): array
 
     if ($code >= 400) {
         $msg = asaas_format_error($data, (string)$raw);
+        // Mensagem clara para o erro mais comum (chave x ambiente)
+        if ($code === 401 || stripos($msg, 'não pertence a este ambiente') !== false || stripos($msg, 'invalid_environment') !== false) {
+            $keyEnv = asaas_key_environment();
+            $usando = asaas_sandbox() ? 'sandbox (api-sandbox.asaas.com)' : 'produção (api.asaas.com)';
+            $dica = 'A API Key não corresponde ao ambiente. ';
+            if ($keyEnv === 'production') {
+                $dica .= 'Sua chave é de PRODUÇÃO ($aact_prod_…). Desmarque “sandbox” no admin ou use a chave de sandbox.';
+            } elseif ($keyEnv === 'sandbox') {
+                $dica .= 'Sua chave é de SANDBOX ($aact_hmlg_…). Marque “sandbox” ou use a chave de produção.';
+            } else {
+                $dica .= 'Chave de sandbox começa com $aact_hmlg_ e de produção com $aact_prod_. Ambiente em uso agora: ' . $usando . '.';
+            }
+            throw new RuntimeException('Asaas HTTP ' . $code . ': ' . $msg . ' — ' . $dica);
+        }
         throw new RuntimeException('Asaas HTTP ' . $code . ': ' . $msg);
     }
 

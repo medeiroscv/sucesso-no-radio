@@ -348,15 +348,37 @@ elseif ($sec === 'financeiro'):
         <div class="field">
             <label><input type="checkbox" name="finance_bloquear_atraso" value="1" <?= app_setting('finance_bloquear_atraso', '1') === '1' ? 'checked' : '' ?>> Bloquear conteúdos/textos se houver fatura vencida</label>
         </div>
+        <?php
+        $keyEnv = asaas_key_environment();
+        $efetivoSandbox = asaas_sandbox();
+        ?>
         <div class="field">
-            <label><input type="checkbox" name="asaas_sandbox" value="1" <?= asaas_sandbox() ? 'checked' : '' ?>> Usar ambiente de homologação (sandbox)</label>
+            <label><input type="checkbox" name="asaas_sandbox" value="1" <?= $efetivoSandbox ? 'checked' : '' ?>> Usar ambiente de homologação (sandbox)</label>
+            <p class="muted" style="margin-top:6px;font-size:.82rem;">
+                O sistema prioriza o ambiente indicado pela própria API Key
+                (<code>$aact_hmlg_…</code> = sandbox, <code>$aact_prod_…</code> = produção),
+                para evitar o erro “chave não pertence a este ambiente”.
+            </p>
         </div>
 
         <h3 style="margin:20px 0 12px;font-size:1.05rem;">API Key Asaas</h3>
         <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-            Conta Asaas → <strong>Integrações → API Key</strong>. Gere uma chave de sandbox (<code>$aact_hmlg_…</code>)
-            ou produção (<code>$aact_prod_…</code>). Variável de ambiente <code>ASAAS_API_KEY</code> no EasyPanel tem prioridade se preenchida.
+            Conta Asaas → <strong>Integrações → API Key</strong>.
+            Sandbox: <a href="https://sandbox.asaas.com" target="_blank" rel="noopener">sandbox.asaas.com</a>
+            (<code>$aact_hmlg_…</code>).
+            Produção: <a href="https://www.asaas.com" target="_blank" rel="noopener">asaas.com</a>
+            (<code>$aact_prod_…</code>).
+            Variável <code>ASAAS_API_KEY</code> no EasyPanel tem prioridade se preenchida.
         </p>
+        <?php if ($keyEnv === 'production' && app_setting('asaas_sandbox', '1') === '1'): ?>
+            <div class="alert alert-ok" style="margin-bottom:12px;">
+                Detectamos chave de <strong>produção</strong>. O sistema usará a API de produção automaticamente (mesmo com sandbox marcado no formulário).
+            </div>
+        <?php elseif ($keyEnv === 'sandbox' && app_setting('asaas_sandbox', '1') !== '1'): ?>
+            <div class="alert alert-ok" style="margin-bottom:12px;">
+                Detectamos chave de <strong>sandbox</strong>. O sistema usará a API de homologação automaticamente.
+            </div>
+        <?php endif; ?>
         <div class="field">
             <label>API Key</label>
             <input type="password" name="asaas_api_key" value="" placeholder="<?= $hasKey ? '•••••••• (deixe em branco para manter)' : '$aact_hmlg_... ou $aact_prod_...' ?>" autocomplete="new-password">
@@ -382,9 +404,11 @@ elseif ($sec === 'financeiro'):
         <div style="background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:16px 0;">
             <strong>Status</strong>
             <div class="muted" style="margin-top:8px;line-height:1.7;">
-                API Key: <?= $hasKey ? '✅ configurada' : '❌ pendente' ?><br>
+                API Key: <?= $hasKey ? '✅ configurada' : '❌ pendente' ?>
+                <?php if ($keyEnv): ?> (detectada: <?= $keyEnv === 'sandbox' ? 'sandbox' : 'produção' ?>)<?php endif; ?><br>
                 Webhook token: <?= $hasWh ? '✅ definido' : '⚠️ opcional (recomendado em produção)' ?><br>
-                Ambiente: <?= asaas_sandbox() ? 'Homologação (sandbox)' : 'Produção' ?>
+                Ambiente efetivo: <?= e(asaas_ambiente_label()) ?><br>
+                URL API: <code><?= e(asaas_base_url()) ?></code>
             </div>
             <p class="muted" style="margin-top:10px;font-size:.82rem;word-break:break-all;">
                 URL do webhook (cadastre no Asaas):<br><code><?= e($webhook) ?></code>
