@@ -906,7 +906,7 @@ function finance_emitir_pagamento(int $faturaId, bool $force = false): array {
                 'charge_id' => $existingBol,
                 'barcode' => (string)($fat['boleto_barcode'] ?? ''),
                 'link' => (string)($fat['boleto_url'] ?? ''),
-                'pdf' => (string)($fat['boleto_pdf'] ?: $fat['boleto_url'] ?? ''),
+                'pdf' => (string)(($fat['boleto_pdf'] ?? '') ?: ($fat['boleto_url'] ?? '')),
             ];
             $out['reused']['boleto'] = true;
             $bolOk = true;
