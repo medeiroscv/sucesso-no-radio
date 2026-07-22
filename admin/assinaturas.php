@@ -23,19 +23,29 @@ if (isset($_GET['cancelar'])) {
     exit;
 }
 
-// Exclusão permanente da assinatura (faturas antigas permanecem no histórico)
+// Exclusão permanente — só permitida se já estiver cancelada (ou encerrada)
 if (isset($_GET['excluir'])) {
     $id = intval($_GET['excluir']);
     try {
-        try {
-            $pdo->prepare('UPDATE faturas SET assinatura_id = NULL WHERE assinatura_id = ?')->execute([$id]);
-        } catch (Throwable $e) { /* ok */ }
-        $pdo->prepare('DELETE FROM assinaturas WHERE id = ?')->execute([$id]);
-        if (function_exists('billing_log')) {
-            billing_log('assinatura_excluida', 'ass_' . $id, 'Removida pelo admin');
+        $st = $pdo->prepare('SELECT id, status FROM assinaturas WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        if (!$row) {
+            $err = 'Assinatura não encontrada.';
+        } elseif (!in_array((string)$row['status'], ['cancelada', 'encerrada'], true)) {
+            $err = 'Cancele a assinatura antes de excluir. Só assinaturas canceladas (ou encerradas) podem ser removidas.';
+            $_GET['id'] = $id; // reabre o detalhe com o erro
+        } else {
+            try {
+                $pdo->prepare('UPDATE faturas SET assinatura_id = NULL WHERE assinatura_id = ?')->execute([$id]);
+            } catch (Throwable $e) { /* ok */ }
+            $pdo->prepare('DELETE FROM assinaturas WHERE id = ?')->execute([$id]);
+            if (function_exists('billing_log')) {
+                billing_log('assinatura_excluida', 'ass_' . $id, 'Removida pelo admin após cancelamento');
+            }
+            header('Location: assinaturas.php?ok=1&msg=' . rawurlencode('Assinatura #' . $id . ' excluída.'));
+            exit;
         }
-        header('Location: assinaturas.php?ok=1&msg=' . rawurlencode('Assinatura #' . $id . ' excluída.'));
-        exit;
     } catch (Throwable $e) {
         $err = 'Não foi possível excluir: ' . $e->getMessage();
     }
@@ -164,14 +174,17 @@ admin_flash($ok, $err);
     <a class="btn btn-primary btn-small" href="assinaturas.php?gerar_agora=<?= intval($edit['id']) ?>">Gerar fatura / processar agora</a>
     <?php if (($edit['status'] ?? '') === 'ativa'): ?>
         <a class="btn btn-secondary btn-small" href="assinaturas.php?suspender=<?= intval($edit['id']) ?>">Suspender</a>
-        <a class="btn btn-secondary btn-small" href="assinaturas.php?cancelar=<?= intval($edit['id']) ?>" onclick="return confirm('Cancelar assinatura? Ela para de gerar faturas, mas permanece no histórico.');">Cancelar</a>
-    <?php elseif (in_array($edit['status'], ['suspensa', 'cancelada'], true)): ?>
+        <a class="btn btn-secondary btn-small" href="assinaturas.php?cancelar=<?= intval($edit['id']) ?>" onclick="return confirm('Cancelar assinatura? Ela para de gerar faturas. Depois você poderá excluí-la da lista.');">Cancelar</a>
+    <?php elseif (($edit['status'] ?? '') === 'suspensa'): ?>
         <a class="btn btn-primary btn-small" href="assinaturas.php?ativar=<?= intval($edit['id']) ?>">Reativar</a>
+        <a class="btn btn-secondary btn-small" href="assinaturas.php?cancelar=<?= intval($edit['id']) ?>" onclick="return confirm('Cancelar assinatura? Depois você poderá excluí-la.');">Cancelar</a>
+    <?php elseif (in_array($edit['status'] ?? '', ['cancelada', 'encerrada'], true)): ?>
+        <a class="btn btn-primary btn-small" href="assinaturas.php?ativar=<?= intval($edit['id']) ?>">Reativar</a>
+        <a class="btn btn-danger btn-small" href="assinaturas.php?excluir=<?= intval($edit['id']) ?>"
+           onclick="return confirm('EXCLUIR permanentemente a assinatura #<?= intval($edit['id']) ?>?\n\nEla some da lista. As faturas já geradas continuam no Financeiro.');">
+            Excluir assinatura
+        </a>
     <?php endif; ?>
-    <a class="btn btn-danger btn-small" href="assinaturas.php?excluir=<?= intval($edit['id']) ?>"
-       onclick="return confirm('EXCLUIR permanentemente a assinatura #<?= intval($edit['id']) ?>?\n\nEla some da lista. As faturas já geradas continuam no Financeiro (histórico).');">
-        Excluir assinatura
-    </a>
     <a class="btn btn-secondary btn-small" href="clientes.php?id=<?= intval($edit['cliente_id']) ?>">Ver cliente</a>
 </div>
 
@@ -311,8 +324,10 @@ admin_flash($ok, $err);
                 <td><span style="font-size:.72rem;font-weight:800;padding:3px 8px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;"><?= e($m['label']) ?></span></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="assinaturas.php?id=<?= intval($a['id']) ?>">Abrir</a>
-                    <a class="btn btn-danger btn-small" href="assinaturas.php?excluir=<?= intval($a['id']) ?>"
-                       onclick="return confirm('Excluir permanentemente a assinatura #<?= intval($a['id']) ?>?');">Excluir</a>
+                    <?php if (in_array($a['status'] ?? '', ['cancelada', 'encerrada'], true)): ?>
+                        <a class="btn btn-danger btn-small" href="assinaturas.php?excluir=<?= intval($a['id']) ?>"
+                           onclick="return confirm('Excluir permanentemente a assinatura #<?= intval($a['id']) ?>?');">Excluir</a>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
