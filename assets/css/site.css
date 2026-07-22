@@ -439,12 +439,18 @@ a.cliente-list-item:hover { border-color: var(--accent); }
   border: 1px dashed var(--line); border-radius: var(--radius);
 }
 
-/* Tabela de preços */
+/* Tabela de preços — 3 cards por linha (desktop) */
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 18px;
   align-items: stretch;
+}
+@media (max-width: 960px) {
+  .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .pricing-grid { grid-template-columns: 1fr; }
 }
 .pricing-card {
   position: relative;
