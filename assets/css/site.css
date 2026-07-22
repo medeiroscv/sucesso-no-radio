@@ -523,3 +523,17 @@ a.cliente-list-item:hover { border-color: var(--accent); }
   color: var(--accent);
   font-weight: 800;
 }
+.pricing-cta {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+.pricing-cta .btn {
+  width: auto;
+  min-width: 140px;
+  max-width: 100%;
+  padding: 9px 20px;
+  font-size: .88rem;
+  font-weight: 700;
+}

@@ -68,9 +68,11 @@ $base = app_base_path();
                                 <?php endforeach; ?>
                             </ul>
                         <?php endif; ?>
-                        <a class="btn <?= $destaque ? 'btn-primary' : 'btn-ghost' ?>" style="width:100%;margin-top:auto;" href="<?= e($href) ?>" target="_blank" rel="noopener">
-                            <?= e($p['botao_texto'] ?: 'Contratar') ?>
-                        </a>
+                        <div class="pricing-cta">
+                            <a class="btn btn-small <?= $destaque ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e($href) ?>" target="_blank" rel="noopener">
+                                <?= e($p['botao_texto'] ?: 'Contratar') ?>
+                            </a>
+                        </div>
                     </article>
                 <?php endforeach; ?>
             </div>
