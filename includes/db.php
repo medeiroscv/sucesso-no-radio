@@ -245,6 +245,8 @@ function app_bootstrap_database(PDO $pdo): void {
         updated_at TIMESTAMP NULL
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_ativo ON produtos (ativo, mostrar_site, ordem, id)');
+    try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS liberar_tipos TEXT DEFAULT '[]'"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS liberar_acesso_total SMALLINT DEFAULT 0"); } catch (Throwable $e) { /* ok */ }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS assinaturas (
         id SERIAL PRIMARY KEY,
@@ -742,7 +744,7 @@ function cliente_conteudos_por_tipo(int $clienteId, string $tipo, ?array $cli = 
     return app_conteudos_por_tipo($tipo, true, 'conteudo');
 }
 
-/** Salva liberação por CATEGORIA (tipos). */
+/** Salva liberação por CATEGORIA (tipos) — substitui a lista atual. */
 function cliente_salvar_liberacoes(int $clienteId, array $tipos, bool $acessoTotal): void {
     $pdo = app_pdo();
     $pdo->prepare('UPDATE clientes SET acesso_total = ?, updated_at = NOW() WHERE id = ?')
@@ -758,6 +760,35 @@ function cliente_salvar_liberacoes(int $clienteId, array $tipos, bool $acessoTot
             $ins->execute([$clienteId, $tipo]);
         }
     }
+}
+
+/**
+ * Acrescenta liberação (merge) — usado no pagamento de produtos sem remover o que o cliente já tem.
+ */
+function cliente_adicionar_liberacoes(int $clienteId, array $tipos, bool $acessoTotal = false): void {
+    if ($clienteId <= 0) return;
+    $pdo = app_pdo();
+    if ($acessoTotal) {
+        try {
+            $pdo->prepare('UPDATE clientes SET acesso_total = 1, updated_at = NOW() WHERE id = ?')
+                ->execute([$clienteId]);
+        } catch (Throwable $e) { /* ok */ }
+        return;
+    }
+    $ins = $pdo->prepare(
+        'INSERT INTO cliente_tipos (cliente_id, tipo, created_at) VALUES (?,?,NOW()) ON CONFLICT DO NOTHING'
+    );
+    foreach ($tipos as $tipo) {
+        $tipo = trim((string)$tipo);
+        if (function_exists('app_conteudo_tipo_valido') && app_conteudo_tipo_valido($tipo)) {
+            try {
+                $ins->execute([$clienteId, $tipo]);
+            } catch (Throwable $e) { /* ok */ }
+        }
+    }
+    try {
+        $pdo->prepare('UPDATE clientes SET updated_at = NOW() WHERE id = ?')->execute([$clienteId]);
+    } catch (Throwable $e) { /* ok */ }
 }
 
 /** Exige cliente logado E com liberação de conteúdos. */

@@ -1172,6 +1172,15 @@ function finance_marcar_paga(int $faturaId, string $obs = ''): void {
     app_pdo()->prepare(
         "UPDATE faturas SET status='paga', pago_em=COALESCE(pago_em, NOW()), observacao=CASE WHEN ? <> '' THEN ? ELSE observacao END, updated_at=NOW() WHERE id=? AND status IN ('aberta','vencida')"
     )->execute([$obs, $obs, $faturaId]);
+    // Libera categorias do produto vinculado (checkout / assinatura)
+    if (is_file(__DIR__ . '/billing.php')) {
+        require_once __DIR__ . '/billing.php';
+        if (function_exists('billing_liberar_cliente_por_fatura')) {
+            try {
+                billing_liberar_cliente_por_fatura($faturaId);
+            } catch (Throwable $e) { /* ok */ }
+        }
+    }
 }
 
 /**

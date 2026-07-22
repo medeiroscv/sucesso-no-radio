@@ -16,6 +16,10 @@ function cliente_redirect_after_login(string $redirect): string {
     }
     if ($redirect !== '' && !str_contains($redirect, '://') && !str_starts_with($redirect, '//')) {
         $redirect = ltrim($redirect, '/');
+        // contratar.php?produto=slug
+        if (preg_match('#^contratar\.php(\?.*)?$#i', $redirect) || str_starts_with($redirect, 'contratar.php')) {
+            return app_url('cliente/' . $redirect);
+        }
         if (str_starts_with($redirect, 'cliente/')) {
             return app_url($redirect);
         }
@@ -77,7 +81,12 @@ layout_header('Entrar · Área do cliente', 'cliente');
                     <button class="btn btn-primary" type="submit" style="width:100%;">Entrar</button>
                 </form>
                 <p class="muted" style="margin-top:16px;text-align:center;font-size:.88rem;">
-                    Acesso liberado pela equipe · <a href="<?= e(app_url('') ?: '/') ?>">Voltar ao site</a>
+                    Não tem conta?
+                    <a href="<?= e(app_url('cliente/cadastro.php' . ($redirect !== '' ? ('?produto=' . rawurlencode(
+                        preg_match('/produto=([^&]+)/', $redirect, $m) ? urldecode($m[1]) : ''
+                    )) : ''))) ?>">Cadastre-se</a>
+                    · <a href="<?= e(app_url('precos.php')) ?>">Ver planos</a>
+                    · <a href="<?= e(app_url('') ?: '/') ?>">Site</a>
                 </p>
             </div>
             <div class="hero-card">

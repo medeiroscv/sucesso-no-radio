@@ -99,9 +99,14 @@ if ($ver === null && count($emAberto) === 1 && !isset($_GET['lista'])) {
     exit;
 }
 
+// Pedido vindo do checkout de planos
+if (isset($_GET['pedido']) && $regenMsg === '') {
+    $regenMsg = 'Pedido criado! Efetue o pagamento abaixo (Pix ou boleto). Após a confirmação, o acesso é liberado automaticamente.';
+}
+
 cliente_header('Financeiro', 'financeiro');
 
-if (!$finAtivo):
+if (!$finAtivo && !$ver && !$emAberto):
 ?>
 <div class="empty">O módulo financeiro ainda não está ativo. Em caso de dúvidas, fale com a equipe.</div>
 <?php
@@ -125,7 +130,7 @@ if ($atraso):
 
 <p class="cliente-intro">
     Acompanhe suas faturas e pague com <strong>Pix (QR Code)</strong> ou <strong>boleto</strong>.
-    Se algo expirar ou for removido, o sistema <strong>gera novos meios automaticamente</strong> quando você entra aqui.
+    Após a confirmação do pagamento, as categorias do plano são liberadas automaticamente.
 </p>
 
 <?php if ($ver):

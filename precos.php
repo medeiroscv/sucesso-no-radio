@@ -39,11 +39,7 @@ $base = app_base_path();
                 <?php foreach ($produtos as $p):
                     $cicloLabel = $ciclos[$p['ciclo']]['label'] ?? $p['ciclo'];
                     $tipoLabel = $tipos[$p['tipo']]['label'] ?? $p['tipo'];
-                    $msg = trim((string)($p['whatsapp_msg'] ?? ''));
-                    if ($msg === '') {
-                        $msg = 'Olá! Tenho interesse no plano: ' . $p['nome'];
-                    }
-                    $href = $wa ? ('https://wa.me/' . $wa . '?text=' . rawurlencode($msg)) : app_url('contato.php');
+                    $href = app_url('cliente/contratar.php?produto=' . rawurlencode((string)$p['slug']));
                     $destaque = !empty($p['destaque']);
                 ?>
                     <article class="pricing-card<?= $destaque ? ' is-featured' : '' ?>">
@@ -69,8 +65,8 @@ $base = app_base_path();
                             </ul>
                         <?php endif; ?>
                         <div class="pricing-cta">
-                            <a class="btn btn-small <?= $destaque ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e($href) ?>" target="_blank" rel="noopener">
-                                <?= e($p['botao_texto'] ?: 'Contratar') ?>
+                            <a class="btn btn-small <?= $destaque ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e($href) ?>">
+                                <?= e($p['botao_texto'] ?: 'Assinar') ?>
                             </a>
                         </div>
                     </article>

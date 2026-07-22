@@ -49,8 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $apos = billing_encode_dias_list(billing_parse_dias_list($_POST['cobranca_apos'] ?? ''));
     $noVenc = !empty($_POST['cobranca_no_vencimento']) ? 1 : 0;
     $emitir = !empty($_POST['emitir_auto']) ? 1 : 0;
-    $botao = trim((string)($_POST['botao_texto'] ?? 'Contratar')) ?: 'Contratar';
+    $botao = trim((string)($_POST['botao_texto'] ?? 'Assinar')) ?: 'Assinar';
     $wa = trim((string)($_POST['whatsapp_msg'] ?? ''));
+    $libTotal = !empty($_POST['liberar_acesso_total']) ? 1 : 0;
+    $libTipos = [];
+    if (!$libTotal && !empty($_POST['liberar_tipos']) && is_array($_POST['liberar_tipos'])) {
+        foreach ($_POST['liberar_tipos'] as $t) {
+            $t = trim((string)$t);
+            if (app_conteudo_tipo_valido($t)) $libTipos[] = $t;
+        }
+    }
+    $libTiposJson = json_encode(array_values(array_unique($libTipos)), JSON_UNESCAPED_UNICODE);
 
     if ($nome === '' || $cent < 0) {
         $err = 'Nome e valor são obrigatórios.';
@@ -73,21 +82,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare(
                     'UPDATE produtos SET nome=?, slug=?, tipo=?, ciclo=?, valor_centavos=?, descricao=?, recursos=?,
                      destaque=?, ativo=?, mostrar_site=?, ordem=?, dias_gerar_antes=?, cobranca_antes=?,
-                     cobranca_no_vencimento=?, cobranca_apos=?, emitir_auto=?, botao_texto=?, whatsapp_msg=?, updated_at=NOW()
+                     cobranca_no_vencimento=?, cobranca_apos=?, emitir_auto=?, botao_texto=?, whatsapp_msg=?,
+                     liberar_tipos=?, liberar_acesso_total=?, updated_at=NOW()
                      WHERE id=?'
                 )->execute([
                     $nome, $slug, $tipo, $ciclo, $cent, $desc, $recursos, $destaque, $ativo, $mostrar, $ordem,
-                    $diasGerar, $antes, $noVenc, $apos, $emitir, $botao, $wa, $id,
+                    $diasGerar, $antes, $noVenc, $apos, $emitir, $botao, $wa, $libTiposJson, $libTotal, $id,
                 ]);
             } else {
                 $pdo->prepare(
                     'INSERT INTO produtos
                      (nome, slug, tipo, ciclo, valor_centavos, descricao, recursos, destaque, ativo, mostrar_site, ordem,
-                      dias_gerar_antes, cobranca_antes, cobranca_no_vencimento, cobranca_apos, emitir_auto, botao_texto, whatsapp_msg, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
+                      dias_gerar_antes, cobranca_antes, cobranca_no_vencimento, cobranca_apos, emitir_auto, botao_texto, whatsapp_msg,
+                      liberar_tipos, liberar_acesso_total, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
                 )->execute([
                     $nome, $slug, $tipo, $ciclo, $cent, $desc, $recursos, $destaque, $ativo, $mostrar, $ordem,
-                    $diasGerar, $antes, $noVenc, $apos, $emitir, $botao, $wa,
+                    $diasGerar, $antes, $noVenc, $apos, $emitir, $botao, $wa, $libTiposJson, $libTotal,
                 ]);
                 $id = intval($pdo->lastInsertId());
             }
@@ -103,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'destaque' => $destaque, 'ativo' => $ativo, 'mostrar_site' => $mostrar, 'ordem' => $ordem,
         'dias_gerar_antes' => $diasGerar, 'cobranca_antes' => $antes, 'cobranca_apos' => $apos,
         'cobranca_no_vencimento' => $noVenc, 'emitir_auto' => $emitir, 'botao_texto' => $botao, 'whatsapp_msg' => $wa,
+        'liberar_tipos' => $libTiposJson, 'liberar_acesso_total' => $libTotal,
     ];
 }
 
@@ -115,7 +127,8 @@ if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
             'valor_centavos' => 0, 'descricao' => '', 'recursos' => "Conteúdos liberados\nSuporte\nAtualizações",
             'destaque' => 0, 'ativo' => 1, 'mostrar_site' => 1, 'ordem' => 0,
             'dias_gerar_antes' => 7, 'cobranca_antes' => '[3]', 'cobranca_apos' => '[1,2,3]',
-            'cobranca_no_vencimento' => 1, 'emitir_auto' => 1, 'botao_texto' => 'Contratar', 'whatsapp_msg' => '',
+            'cobranca_no_vencimento' => 1, 'emitir_auto' => 1, 'botao_texto' => 'Assinar', 'whatsapp_msg' => '',
+            'liberar_tipos' => '[]', 'liberar_acesso_total' => 0,
         ];
     }
 }
@@ -210,12 +223,50 @@ if ($edit):
             <label><input type="checkbox" name="emitir_auto" value="1" <?= !empty($edit['emitir_auto']) ? 'checked' : '' ?>> Emitir Pix/boleto automaticamente no Asaas</label>
         </div>
 
+        <h3 style="margin:22px 0 12px;font-size:1.05rem;">Liberação após o pagamento</h3>
+        <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
+            Quando o cliente pagar a fatura deste produto, o sistema libera automaticamente as categorias abaixo na área do cliente.
+        </p>
+        <div class="field">
+            <label>
+                <input type="checkbox" name="liberar_acesso_total" value="1" id="libTotal"
+                    <?= !empty($edit['liberar_acesso_total']) ? 'checked' : '' ?>>
+                <strong>Acesso total</strong> — todas as categorias de conteúdo
+            </label>
+        </div>
+        <div id="libTiposBox" style="<?= !empty($edit['liberar_acesso_total']) ? 'opacity:.45;pointer-events:none;' : '' ?>">
+            <div style="display:grid;gap:8px;">
+                <?php
+                $libList = $edit['liberar_tipos_list'] ?? [];
+                foreach (app_conteudo_tipos_cliente() as $tKey => $tMeta):
+                ?>
+                    <label style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:600;">
+                        <input type="checkbox" name="liberar_tipos[]" value="<?= e($tKey) ?>"
+                            <?= in_array($tKey, $libList, true) ? 'checked' : '' ?>>
+                        <span><?= $tMeta['icon'] ?? '' ?> <?= e($tMeta['label']) ?></span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
         <div class="actions" style="margin-top:16px;">
             <button class="btn btn-primary" type="submit">Salvar</button>
             <a class="btn btn-secondary" href="produtos.php">Cancelar</a>
         </div>
     </form>
 </div>
+<script>
+(function () {
+    var t = document.getElementById('libTotal');
+    var b = document.getElementById('libTiposBox');
+    if (t && b) {
+        t.addEventListener('change', function () {
+            b.style.opacity = t.checked ? '.45' : '1';
+            b.style.pointerEvents = t.checked ? 'none' : '';
+        });
+    }
+})();
+</script>
 <?php else: ?>
 <div class="card">
     <div class="actions" style="margin-bottom:14px;justify-content:space-between;width:100%;">

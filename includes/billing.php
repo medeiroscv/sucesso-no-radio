@@ -117,7 +117,185 @@ function billing_produto_normalize_row(array $p): array {
     $p['cobranca_antes_list'] = billing_parse_dias_list($p['cobranca_antes'] ?? '[]');
     $p['cobranca_apos_list'] = billing_parse_dias_list($p['cobranca_apos'] ?? '[]');
     $p['recursos_list'] = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)($p['recursos'] ?? '')) ?: [])));
+    $lib = $p['liberar_tipos'] ?? '[]';
+    if (is_string($lib)) {
+        $j = json_decode($lib, true);
+        $p['liberar_tipos_list'] = is_array($j) ? array_values(array_filter(array_map('strval', $j))) : [];
+    } elseif (is_array($lib)) {
+        $p['liberar_tipos_list'] = array_values(array_filter(array_map('strval', $lib)));
+    } else {
+        $p['liberar_tipos_list'] = [];
+    }
+    $p['liberar_acesso_total'] = !empty($p['liberar_acesso_total']);
     return $p;
+}
+
+/** Aplica liberação de conteúdos do produto ao cliente (após pagamento). */
+function billing_aplicar_liberacao_produto(int $clienteId, int $produtoId): void {
+    if ($clienteId <= 0 || $produtoId <= 0) return;
+    $prod = billing_produto_by_id($produtoId);
+    if (!$prod) return;
+    $prod = billing_produto_normalize_row($prod);
+    if (!empty($prod['liberar_acesso_total'])) {
+        if (function_exists('cliente_adicionar_liberacoes')) {
+            cliente_adicionar_liberacoes($clienteId, [], true);
+        }
+        billing_log('liberacao', 'cli_' . $clienteId, 'Acesso total via produto #' . $produtoId);
+        return;
+    }
+    $tipos = $prod['liberar_tipos_list'] ?? [];
+    if ($tipos && function_exists('cliente_adicionar_liberacoes')) {
+        cliente_adicionar_liberacoes($clienteId, $tipos, false);
+        billing_log('liberacao', 'cli_' . $clienteId, 'Tipos [' . implode(',', $tipos) . '] via produto #' . $produtoId);
+    }
+}
+
+/** Libera conteúdos ao confirmar pagamento da fatura. */
+function billing_liberar_cliente_por_fatura(int $faturaId): void {
+    $fat = function_exists('app_fatura_by_id') ? app_fatura_by_id($faturaId) : null;
+    if (!$fat) return;
+    $cliId = intval($fat['cliente_id'] ?? 0);
+    $prodId = intval($fat['produto_id'] ?? 0);
+    if ($prodId <= 0 && !empty($fat['assinatura_id'])) {
+        try {
+            $st = app_pdo()->prepare('SELECT produto_id FROM assinaturas WHERE id = ? LIMIT 1');
+            $st->execute([intval($fat['assinatura_id'])]);
+            $prodId = intval($st->fetchColumn());
+        } catch (Throwable $e) { /* ok */ }
+    }
+    if ($cliId > 0 && $prodId > 0) {
+        billing_aplicar_liberacao_produto($cliId, $prodId);
+    }
+}
+
+/**
+ * Checkout: cria assinatura + fatura do produto e emite meios de pagamento.
+ * Reutiliza fatura em aberto do mesmo produto se já existir.
+ *
+ * @return array{ok:bool,fatura_id?:int,assinatura_id?:int,message:string,created?:bool}
+ */
+function billing_checkout_produto(int $clienteId, int $produtoId): array {
+    $prod = billing_produto_by_id($produtoId);
+    if (!$prod || empty($prod['ativo'])) {
+        return ['ok' => false, 'message' => 'Produto indisponível.'];
+    }
+    $prod = billing_produto_normalize_row($prod);
+
+    // Já tem fatura em aberto deste produto?
+    try {
+        $st = app_pdo()->prepare(
+            "SELECT id, assinatura_id FROM faturas
+             WHERE cliente_id = ? AND produto_id = ? AND status IN ('aberta','vencida')
+             ORDER BY id DESC LIMIT 1"
+        );
+        $st->execute([$clienteId, $produtoId]);
+        $exist = $st->fetch();
+        if ($exist) {
+            $fid = intval($exist['id']);
+            // garante meios
+            if (function_exists('finance_emitir_pagamento') && function_exists('asaas_configured') && asaas_configured()) {
+                try {
+                    require_once __DIR__ . '/asaas.php';
+                    finance_emitir_pagamento($fid, false);
+                } catch (Throwable $e) { /* ok */ }
+            }
+            return [
+                'ok' => true,
+                'fatura_id' => $fid,
+                'assinatura_id' => intval($exist['assinatura_id'] ?? 0),
+                'created' => false,
+                'message' => 'Pedido em aberto encontrado.',
+            ];
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    // Assinatura ativa do mesmo produto sem fatura recente?
+    try {
+        $st = app_pdo()->prepare(
+            "SELECT id FROM assinaturas WHERE cliente_id = ? AND produto_id = ? AND status = 'ativa' ORDER BY id DESC LIMIT 1"
+        );
+        $st->execute([$clienteId, $produtoId]);
+        $assId = intval($st->fetchColumn());
+        if ($assId > 0) {
+            billing_run(false, $assId);
+            $st2 = app_pdo()->prepare(
+                "SELECT id FROM faturas WHERE assinatura_id = ? AND status IN ('aberta','vencida') ORDER BY id DESC LIMIT 1"
+            );
+            $st2->execute([$assId]);
+            $fid = intval($st2->fetchColumn());
+            if ($fid > 0) {
+                if (function_exists('finance_emitir_pagamento') && function_exists('asaas_configured') && asaas_configured()) {
+                    try {
+                        require_once __DIR__ . '/asaas.php';
+                        finance_emitir_pagamento($fid, false);
+                    } catch (Throwable $e) { /* ok */ }
+                }
+                return [
+                    'ok' => true,
+                    'fatura_id' => $fid,
+                    'assinatura_id' => $assId,
+                    'created' => false,
+                    'message' => 'Assinatura ativa — fatura pronta.',
+                ];
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    // Nova assinatura com vencimento HOJE (gera fatura na hora)
+    $r = billing_criar_assinatura($clienteId, $produtoId, [
+        'data_inicio' => date('Y-m-d'),
+        'proximo_vencimento' => date('Y-m-d'),
+        'dia_vencimento' => min(28, max(1, (int)date('d'))),
+        'observacao' => 'Checkout site · ' . date('d/m/Y H:i'),
+    ]);
+    if (empty($r['ok'])) {
+        return ['ok' => false, 'message' => $r['message'] ?? 'Falha ao criar pedido.'];
+    }
+    $assId = intval($r['id'] ?? 0);
+
+    // Busca fatura gerada
+    $fid = 0;
+    try {
+        $st = app_pdo()->prepare(
+            "SELECT id FROM faturas WHERE assinatura_id = ? ORDER BY id DESC LIMIT 1"
+        );
+        $st->execute([$assId]);
+        $fid = intval($st->fetchColumn());
+    } catch (Throwable $e) { /* ok */ }
+
+    if ($fid <= 0) {
+        // fallback: cria fatura avulsa com produto
+        try {
+            $valor = intval($prod['valor_centavos']);
+            $desc = (string)$prod['nome'];
+            $venc = date('Y-m-d');
+            app_pdo()->prepare(
+                "INSERT INTO faturas (cliente_id, descricao, valor_centavos, vencimento, status, produto_id, assinatura_id, periodo_ref, created_at)
+                 VALUES (?,?,?,?,'aberta',?,?,?,NOW())"
+            )->execute([$clienteId, $desc, $valor, $venc, $produtoId, $assId > 0 ? $assId : null, $venc]);
+            $fid = intval(app_pdo()->lastInsertId());
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => 'Pedido criado, mas sem fatura: ' . $e->getMessage()];
+        }
+    }
+
+    if (function_exists('finance_emitir_pagamento')) {
+        try {
+            require_once __DIR__ . '/asaas.php';
+            if (asaas_configured()) {
+                finance_emitir_pagamento($fid, false);
+            }
+        } catch (Throwable $e) { /* cliente ainda pode gerar depois */ }
+    }
+
+    billing_log('checkout', 'fat_' . $fid, "Cliente #{$clienteId} produto #{$produtoId}");
+    return [
+        'ok' => true,
+        'fatura_id' => $fid,
+        'assinatura_id' => $assId,
+        'created' => true,
+        'message' => 'Pedido criado. Efetue o pagamento.',
+    ];
 }
 
 function billing_assinatura_by_id(int $id): ?array {
