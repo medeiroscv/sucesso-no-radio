@@ -439,18 +439,15 @@ a.cliente-list-item:hover { border-color: var(--accent); }
   border: 1px dashed var(--line); border-radius: var(--radius);
 }
 
-/* Tabela de preços — 3 cards por linha (desktop) */
+/* Tabela de preços — até 3 cards por linha, largura fixa (não estica a tela) */
 .pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: stretch;
-}
-@media (max-width: 960px) {
-  .pricing-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 600px) {
-  .pricing-grid { grid-template-columns: 1fr; }
+  gap: 18px;
+  max-width: 1020px;
+  margin: 0 auto;
 }
 .pricing-card {
   position: relative;
@@ -459,9 +456,18 @@ a.cliente-list-item:hover { border-color: var(--accent); }
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 22px 20px 20px;
+  padding: 20px 18px 18px;
   box-shadow: var(--shadow);
-  min-height: 100%;
+  width: 100%;
+  max-width: 300px;
+  flex: 0 1 300px;
+  box-sizing: border-box;
+}
+@media (max-width: 600px) {
+  .pricing-card {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
 }
 .pricing-card.is-featured {
   border-color: rgba(34, 197, 94, .55);
