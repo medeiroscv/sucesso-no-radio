@@ -218,6 +218,13 @@ if ($tipo === '' && $edit === null):
         <?php endforeach; ?>
     </div>
 </div>
+<?php if ($isDemo): ?>
+<div class="card" style="margin-top:20px;">
+    <p class="muted" style="margin-bottom:12px;"><strong>Produtos avulsos / pacotes</strong></p>
+    <p class="muted" style="margin-bottom:16px;">Produtos com pagamento único e demonstrativos em áudio. Gerenciados separadamente.</p>
+    <a class="btn btn-secondary" href="produtos.php">Gerenciar produtos</a>
+</div>
+<?php endif; ?>
 <?php
 // ========== FORM ==========
 elseif ($edit !== null):

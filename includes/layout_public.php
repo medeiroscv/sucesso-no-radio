@@ -90,8 +90,9 @@ function layout_header(string $title = '', string $active = ''): void {
             <a href="<?= e($home) ?>#semanais" class="<?= $active === 'semanal' ? 'active' : '' ?>">Semanais</a>
             <a href="<?= e($home) ?>#informativos" class="<?= $active === 'informativo' ? 'active' : '' ?>">Informativos</a>
             <a href="<?= e($home) ?>#programetes" class="<?= $active === 'programete' ? 'active' : '' ?>">Programetes</a>
+            <a href="<?= e($home) ?>#produtos" class="<?= $active === 'produtos' ? 'active' : '' ?>">Produtos</a>
             <a href="<?= e(app_url('precos.php')) ?>" class="<?= $active === 'precos' ? 'active' : '' ?>">Preços</a>
-            <a href="<?= e(app_url('produtos.php')) ?>" class="<?= $active === 'produtos' ? 'active' : '' ?>">Produtos</a>
+            <a href="<?= e(app_url('produtos.php')) ?>">Todos os produtos</a>
             <?php if ($formContatoAtivo): ?>
                 <a href="<?= e(app_url('contato.php')) ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
             <?php endif; ?>

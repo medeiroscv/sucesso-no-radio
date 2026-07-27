@@ -67,7 +67,59 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                                 <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
                             </audio>
                         </div>
-                    <?php endforeach; ?>
+    <?php endforeach; ?>
+
+    <?php
+    // Produtos avulsos/pacotes com demonstrativos
+    if (function_exists('billing_produtos_lista')) {
+        require_once __DIR__ . '/includes/billing.php';
+        $todos = array_map('billing_produto_normalize_row', billing_produtos_lista(true, true));
+        $produtosHome = array_filter($todos, function ($p) {
+            return in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true)
+                && ($p['ciclo'] ?? '') === 'unico'
+                && count(app_produto_demonstrativos(intval($p['id']))) > 0;
+        });
+    } else {
+        $produtosHome = [];
+    }
+    if ($produtosHome):
+    ?>
+    <section class="section container" id="produtos">
+        <div class="section-head">
+            <h2>Produtos avulsos</h2>
+            <p>Pacotes e coleções com pagamento único. Ouça as amostras e adquira.</p>
+        </div>
+        <div class="grid-cards">
+            <?php foreach ($produtosHome as $p):
+                $demos = app_produto_demonstrativos(intval($p['id']));
+            ?>
+                <article class="card">
+                    <div class="card-body">
+                        <h3><?= e($p['nome']) ?></h3>
+                        <div style="font-size:1.3rem;font-weight:800;margin:6px 0;"><?= e(app_money_br(intval($p['valor_centavos']))) ?></div>
+                        <p class="card-desc"><?= e(mb_strimwidth(strip_tags($p['descricao'] ?? ''), 0, 120, '…')) ?></p>
+                        <?php if ($demos): ?>
+                            <div style="display:grid;gap:8px;margin:4px 0 8px;">
+                                <?php foreach ($demos as $d): ?>
+                                    <div>
+                                        <div style="font-size:.8rem;font-weight:700;margin-bottom:4px;color:var(--muted);"><?= e($d['titulo'] ?: 'Amostra') ?></div>
+                                        <audio controls preload="none" style="width:100%;height:36px;">
+                                            <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
+                                        </audio>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                        <div class="card-actions">
+                            <a class="btn btn-primary btn-small" href="<?= e($prefix . '/cliente/contratar.php?produto=' . rawurlencode((string)$p['slug'])) ?>">Comprar</a>
+                            <a class="btn btn-ghost btn-small" href="<?= e($prefix . '/produtos.php') ?>">Ver todos</a>
+                        </div>
+                    </div>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
                 </div>
             <?php endif; ?>
             <div class="card-actions">
@@ -86,7 +138,8 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                 <h1><?= e($s['site_slogan'] ?? 'Tudo que sua rádio precisa em um só lugar') ?></h1>
                 <p><?= e($s['sobre'] ?? 'Diários, semanais, informativos e programetes profissionais para a sua grade.') ?></p>
                 <div class="hero-actions">
-                    <a class="btn btn-primary" href="#diarios">Ver demonstrativos</a>
+                    <a class="btn btn-primary" href="#diarios">Demonstrativos</a>
+                    <a class="btn btn-secondary" href="#produtos">Produtos</a>
                     <a class="btn btn-ghost" href="<?= e($prefix . '/cliente/login.php') ?>">Área do cliente</a>
                     <a class="btn btn-wa" href="<?= e(wa_link('Olá! Quero conhecer os planos da ' . ($s['site_nome'] ?? 'Sucesso no Rádio'))) ?>" target="_blank" rel="noopener">Falar no WhatsApp</a>
                 </div>
