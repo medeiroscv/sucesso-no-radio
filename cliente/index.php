@@ -147,4 +147,41 @@ endif;
         </div>
     <?php endif; ?>
 </section>
+
+<?php
+// Seção de produtos adquiridos (avulsos/pacotes)
+$meusProdutos = $liberado ? app_cliente_produtos($cliId) : [];
+if ($meusProdutos):
+?>
+<section class="section" style="padding-top:12px;">
+    <div class="section-head">
+        <h2>Meus Produtos</h2>
+        <p>Produtos avulsos e pacotes que você comprou.</p>
+    </div>
+    <div class="cliente-list">
+        <?php foreach (array_slice($meusProdutos, 0, 5) as $p):
+            $qtd = count(app_produto_entregas(intval($p['produto_id'])));
+        ?>
+            <a class="cliente-list-item" href="<?= e(app_url('cliente/produto.php?id=' . intval($p['produto_id']))) ?>">
+                <div>
+                    <strong><?= e($p['produto_nome']) ?></strong>
+                    <div class="muted" style="font-size:.88rem;margin-top:4px;">
+                        <?= $qtd ?> arquivo(s) · liberado em <?= e(substr((string)($p['liberado_em'] ?? ''), 0, 10)) ?>
+                    </div>
+                </div>
+                <div class="cliente-list-meta">
+                    <span class="btn btn-ghost btn-small">Acessar</span>
+                </div>
+            </a>
+        <?php endforeach; ?>
+        <?php if (count($meusProdutos) > 5): ?>
+            <a class="cliente-list-item" href="<?= e(app_url('cliente/produtos.php')) ?>">
+                <div><strong>Ver todos (<?= count($meusProdutos) ?> produtos)</strong></div>
+                <div class="cliente-list-meta"><span class="btn btn-ghost btn-small">Ver mais</span></div>
+            </a>
+        <?php endif; ?>
+    </div>
+</section>
+<?php endif; ?>
+
 <?php cliente_footer(); ?>

@@ -615,3 +615,98 @@ function admin_bloco_entregas(int $conteudoId): void {
     </script>
     <?php
 }
+
+/** Grava arquivos de entrega de produto único/pacote e remove marcados. */
+function admin_salvar_produto_entregas(int $produtoId): void {
+    if ($produtoId <= 0) return;
+    $pdo = app_pdo();
+
+    $del = $_POST['prod_entrega_del'] ?? [];
+    if (is_array($del)) {
+        foreach ($del as $eid) {
+            app_delete_produto_entrega(intval($eid));
+        }
+    }
+
+    $titExist = $_POST['prod_entrega_titulo_existente'] ?? [];
+    if (is_array($titExist)) {
+        $st = $pdo->prepare('UPDATE produto_entregas SET titulo = ? WHERE id = ? AND produto_id = ?');
+        foreach ($titExist as $eid => $tit) {
+            $st->execute([trim((string)$tit), intval($eid), $produtoId]);
+        }
+    }
+
+    $novos = admin_upload_audios_multi('prod_entregas', 'prod_entrega_titulos', 'produtos_entrega', 'Arquivo');
+    if (!$novos) return;
+
+    $ordSt = $pdo->prepare('SELECT COALESCE(MAX(ordem), 0) FROM produto_entregas WHERE produto_id = ?');
+    $ordSt->execute([$produtoId]);
+    $ordem = intval($ordSt->fetchColumn());
+    $ins = $pdo->prepare(
+        'INSERT INTO produto_entregas (produto_id, titulo, arquivo, ordem, created_at) VALUES (?,?,?,?,NOW())'
+    );
+    foreach ($novos as $n) {
+        $ordem++;
+        $ins->execute([$produtoId, $n['titulo'], $n['arquivo'], $ordem]);
+    }
+}
+
+function admin_bloco_produto_entregas(int $produtoId): void {
+    $itens = app_produto_entregas($produtoId);
+    ?>
+    <div class="field" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+        <label style="font-size:1rem;color:var(--text);">Arquivos de entrega (para o cliente)</label>
+        <p class="muted" style="margin:6px 0 12px;">
+            Estes arquivos <strong>não aparecem no site público</strong> — só na área logada do cliente
+            <strong>após o pagamento</strong>. Use para vender pacotes de áudio, playlists, coleções, etc.
+        </p>
+
+        <?php if ($itens): ?>
+            <div style="display:grid;gap:10px;margin-bottom:14px;">
+                <?php foreach ($itens as $d): ?>
+                    <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+                        <div>
+                            <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do arquivo" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;">
+                            <audio controls preload="none" style="width:100%;max-width:420px;">
+                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                            </audio>
+                        </div>
+                        <label class="muted" style="font-size:.82rem;white-space:nowrap;">
+                            <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+
+        <div id="prodEntregaSlots" style="display:grid;gap:10px;"></div>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" class="btn btn-secondary btn-small" onclick="addProdEntregaSlot()">+ Adicionar arquivo</button>
+        </div>
+    </div>
+    <script>
+    (function () {
+        var idx = 0;
+        window.addProdEntregaSlot = function () {
+            var box = document.getElementById('prodEntregaSlots');
+            if (!box) return;
+            var i = idx++;
+            var today = new Date().toISOString().slice(0, 10);
+            var row = document.createElement('div');
+            row.className = 'prod-entrega-slot';
+            row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;';
+            row.innerHTML =
+                '<div class="field" style="margin:0"><label>Nome do arquivo</label>' +
+                '<input name="prod_entrega_titulos[' + i + ']" placeholder="Ex.: Playlist Completa"></div>' +
+                '<div class="field" style="margin:0"><label>Arquivo de áudio</label>' +
+                '<input type="file" name="prod_entregas[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg,.zip,.rar,.pdf"></div>' +
+                '<button type="button" class="btn btn-danger btn-small" onclick="this.closest(\'.prod-entrega-slot\').remove()">Remover</button>';
+            box.appendChild(row);
+        };
+        if (document.getElementById('prodEntregaSlots') && !document.getElementById('prodEntregaSlots').children.length) {
+            addProdEntregaSlot();
+        }
+    })();
+    </script>
+    <?php
+}

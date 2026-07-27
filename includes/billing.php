@@ -127,15 +127,44 @@ function billing_produto_normalize_row(array $p): array {
         $p['liberar_tipos_list'] = [];
     }
     $p['liberar_acesso_total'] = !empty($p['liberar_acesso_total']);
+    $p['is_single_product'] = in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true) && ($p['ciclo'] ?? '') === 'unico';
     return $p;
 }
 
+/** Produto é do tipo único/pacote com entrega de arquivo (sem recorrência). */
+function billing_produto_eh_single(array $prod): bool {
+    return !empty($prod['is_single_product']);
+}
+
 /** Aplica liberação de conteúdos do produto ao cliente (após pagamento). */
-function billing_aplicar_liberacao_produto(int $clienteId, int $produtoId): void {
+function billing_aplicar_liberacao_produto(int $clienteId, int $produtoId, ?int $faturaId = null): void {
     if ($clienteId <= 0 || $produtoId <= 0) return;
     $prod = billing_produto_by_id($produtoId);
     if (!$prod) return;
     $prod = billing_produto_normalize_row($prod);
+
+    // Produto único/pacote com entrega de arquivo: registra em cliente_produtos
+    if (billing_produto_eh_single($prod)) {
+        try {
+            if ($faturaId) {
+                app_pdo()->prepare(
+                    'INSERT INTO cliente_produtos (cliente_id, produto_id, fatura_id, created_at) VALUES (?,?,?,NOW())
+                     ON CONFLICT (cliente_id, produto_id) DO UPDATE SET fatura_id = EXCLUDED.fatura_id'
+                )->execute([$clienteId, $produtoId, $faturaId]);
+            } else {
+                app_pdo()->prepare(
+                    'INSERT INTO cliente_produtos (cliente_id, produto_id, created_at) VALUES (?,?,NOW())
+                     ON CONFLICT (cliente_id, produto_id) DO NOTHING'
+                )->execute([$clienteId, $produtoId]);
+            }
+            billing_log('liberacao_single', 'cli_' . $clienteId, 'Produto único #' . $produtoId . ' (' . ($prod['nome'] ?? '') . ')');
+        } catch (Throwable $e) {
+            billing_log('liberacao_erro', 'cli_' . $clienteId, 'Erro: ' . $e->getMessage());
+        }
+        return;
+    }
+
+    // Produto recorrente: libera categorias
     if (!empty($prod['liberar_acesso_total'])) {
         if (function_exists('cliente_adicionar_liberacoes')) {
             cliente_adicionar_liberacoes($clienteId, [], true);
@@ -164,7 +193,77 @@ function billing_liberar_cliente_por_fatura(int $faturaId): void {
         } catch (Throwable $e) { /* ok */ }
     }
     if ($cliId > 0 && $prodId > 0) {
-        billing_aplicar_liberacao_produto($cliId, $prodId);
+        billing_aplicar_liberacao_produto($cliId, $prodId, $faturaId);
+    }
+}
+
+/**
+ * Checkout de produto único/pacote (sem recorrência).
+ * Cria fatura avulsa e emite meios de pagamento.
+ *
+ * @return array{ok:bool,fatura_id?:int,message:string,created?:bool}
+ */
+function billing_checkout_single_produto(int $clienteId, int $produtoId, array $prod): array {
+    // Já tem fatura em aberto deste produto?
+    try {
+        $st = app_pdo()->prepare(
+            "SELECT id FROM faturas
+             WHERE cliente_id = ? AND produto_id = ? AND status IN ('aberta','vencida')
+             ORDER BY id DESC LIMIT 1"
+        );
+        $st->execute([$clienteId, $produtoId]);
+        $exist = intval($st->fetchColumn());
+        if ($exist > 0) {
+            if (function_exists('finance_emitir_pagamento') && function_exists('asaas_configured') && asaas_configured()) {
+                try {
+                    require_once __DIR__ . '/asaas.php';
+                    finance_emitir_pagamento($exist, false);
+                } catch (Throwable $e) { /* ok */ }
+            }
+            return [
+                'ok' => true,
+                'fatura_id' => $exist,
+                'created' => false,
+                'message' => 'Você já possui uma fatura em aberto para este produto. Efetue o pagamento.',
+            ];
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    // Já comprou e pagou?
+    if (function_exists('cliente_possui_produto') && cliente_possui_produto($clienteId, $produtoId)) {
+        return ['ok' => false,'message' => 'Você já adquiriu este produto.'];
+    }
+
+    // Cria fatura avulsa
+    try {
+        $valor = intval($prod['valor_centavos']);
+        $nomeProd = (string)$prod['nome'];
+        $venc = date('Y-m-d');
+        app_pdo()->prepare(
+            "INSERT INTO faturas (cliente_id, descricao, valor_centavos, vencimento, status, produto_id, created_at)
+             VALUES (?,?,?,?,'aberta',?,NOW())"
+        )->execute([$clienteId, $nomeProd, $valor, $venc, $produtoId]);
+        $fid = intval(app_pdo()->lastInsertId());
+
+        billing_log('checkout_single', 'fat_' . $fid, "Cliente #{$clienteId} produto único #{$produtoId}");
+
+        if (function_exists('finance_emitir_pagamento') && function_exists('asaas_configured') && asaas_configured()) {
+            try {
+                require_once __DIR__ . '/asaas.php';
+                if (asaas_configured()) {
+                    finance_emitir_pagamento($fid, false);
+                }
+            } catch (Throwable $e) { /* ok */ }
+        }
+
+        return [
+            'ok' => true,
+            'fatura_id' => $fid,
+            'created' => true,
+            'message' => 'Pedido criado. Efetue o pagamento.',
+        ];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'message' => 'Erro ao criar pedido: ' . $e->getMessage()];
     }
 }
 
@@ -180,6 +279,11 @@ function billing_checkout_produto(int $clienteId, int $produtoId): array {
         return ['ok' => false, 'message' => 'Produto indisponível.'];
     }
     $prod = billing_produto_normalize_row($prod);
+
+    // Produto único/pacote sem recorrência
+    if (billing_produto_eh_single($prod)) {
+        return billing_checkout_single_produto($clienteId, $produtoId, $prod);
+    }
 
     // Já tem fatura em aberto deste produto?
     try {

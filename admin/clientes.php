@@ -123,6 +123,14 @@ try {
     }
 } catch (Throwable $e) { /* ok */ }
 
+// contagem de produtos adquiridos por cliente
+$qtdProd = [];
+try {
+    foreach ($pdo->query('SELECT cliente_id, COUNT(*) AS n FROM cliente_produtos GROUP BY cliente_id') as $r) {
+        $qtdProd[intval($r['cliente_id'])] = intval($r['n']);
+    }
+} catch (Throwable $e) { /* ok */ }
+
 if (isset($_GET['ok'])) $ok = 'Salvo com sucesso.';
 if (isset($_GET['err']) && $err === '') {
     $err = (string)$_GET['err'];
@@ -199,6 +207,27 @@ if ($edit !== null):
             </div>
         </div>
 
+        <?php if (!empty($edit['id'])): $cliProd = app_cliente_produtos(intval($edit['id'])); ?>
+            <?php if ($cliProd): ?>
+                <h3 style="margin:22px 0 10px;">Produtos adquiridos</h3>
+                <div style="display:grid;gap:8px;">
+                    <?php foreach ($cliProd as $cp): ?>
+                        <div style="display:flex;justify-content:space-between;align-items:center;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 14px;">
+                            <div>
+                                <strong><?= e($cp['produto_nome']) ?></strong>
+                                <span class="muted" style="font-size:.85rem;margin-left:10px;">
+                                    liberado em <?= e(substr((string)($cp['liberado_em'] ?? ''), 0, 10)) ?>
+                                </span>
+                            </div>
+                            <a class="btn btn-ghost btn-small" href="../cliente/produto.php?id=<?= intval($cp['produto_id']) ?>" target="_blank" rel="noopener">
+                                Ver arquivos
+                            </a>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+
         <div class="actions" style="margin-top:16px;">
             <button class="btn btn-primary" type="submit">Salvar</button>
             <a class="btn btn-secondary" href="clientes.php">Cancelar</a>
@@ -236,6 +265,7 @@ if ($edit !== null):
                 <th>WhatsApp</th>
                 <th>Rádio</th>
                 <th>Conteúdos</th>
+                <th>Produtos</th>
                 <th>Status</th>
                 <th>Último acesso</th>
                 <th></th>
@@ -251,6 +281,7 @@ if ($edit !== null):
                 <td><?= e($c['whatsapp'] ?: '—') ?></td>
                 <td><?= e($c['radio'] ?: '—') ?></td>
                 <td><?= e($lib) ?></td>
+                <td><?= (int)($qtdProd[intval($c['id'])] ?? 0) ?></td>
                 <td><?= !empty($c['ativo']) ? '<span class="badge badge-ok">Ativo</span>' : '<span class="badge badge-off">Inativo</span>' ?></td>
                 <td class="muted"><?= $c['last_login'] ? e(substr((string)$c['last_login'], 0, 16)) : '—' ?></td>
                 <td class="actions">

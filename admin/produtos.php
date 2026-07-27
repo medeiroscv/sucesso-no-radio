@@ -102,6 +102,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 $id = intval($pdo->lastInsertId());
             }
+            // Salva arquivos de entrega se for produto único/pacote sem recorrência
+            if (in_array($tipo, ['avulso', 'pacote'], true) && $ciclo === 'unico') {
+                if (function_exists('admin_salvar_produto_entregas')) {
+                    admin_salvar_produto_entregas($id);
+                }
+            }
             header('Location: produtos.php?id=' . $id . '&ok=1');
             exit;
         } catch (Throwable $e) {
@@ -197,57 +203,71 @@ if ($edit):
             <label><input type="checkbox" name="destaque" value="1" <?= !empty($edit['destaque']) ? 'checked' : '' ?>> Destaque (recomendado)</label>
         </div>
 
-        <h3 style="margin:22px 0 12px;font-size:1.05rem;">Cobrança recorrente (automática)</h3>
-        <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-            Configure como o sistema gera faturas e quando emite Pix/boleto no Asaas (estilo WHMCS).
-        </p>
-        <div class="field">
-            <label>Gerar fatura com quantos dias de antecedência?</label>
-            <input type="number" name="dias_gerar_antes" min="0" max="60" value="<?= intval($edit['dias_gerar_antes'] ?? 7) ?>">
-            <p class="muted" style="margin-top:4px;font-size:.78rem;">Ex.: 7 = a fatura do vencimento 20/08 é criada em 13/08.</p>
-        </div>
-        <div class="field">
-            <label>Cobrar (emitir Pix/boleto) quantos dias <strong>antes</strong> do vencimento?</label>
-            <input name="cobranca_antes" value="<?= e($antesStr) ?>" placeholder="Ex.: 7, 3, 1  (vazio = não cobra antes)">
-            <p class="muted" style="margin-top:4px;font-size:.78rem;">Lista de dias separados por vírgula. Opcional.</p>
-        </div>
-        <div class="field">
-            <label><input type="checkbox" name="cobranca_no_vencimento" value="1" <?= !empty($edit['cobranca_no_vencimento']) ? 'checked' : '' ?>> Cobrar no dia do vencimento</label>
-        </div>
-        <div class="field">
-            <label>Cobrar quantos dias <strong>depois</strong> do vencimento?</label>
-            <input name="cobranca_apos" value="<?= e($aposStr) ?>" placeholder="Ex.: 1, 2, 3">
-            <p class="muted" style="margin-top:4px;font-size:.78rem;">Ex.: 1,2,3 = tenta de novo no 1º, 2º e 3º dia de atraso (renova QR/boleto se preciso).</p>
-        </div>
-        <div class="field">
-            <label><input type="checkbox" name="emitir_auto" value="1" <?= !empty($edit['emitir_auto']) ? 'checked' : '' ?>> Emitir Pix/boleto automaticamente no Asaas</label>
-        </div>
-
-        <h3 style="margin:22px 0 12px;font-size:1.05rem;">Liberação após o pagamento</h3>
-        <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-            Quando o cliente pagar a fatura deste produto, o sistema libera automaticamente as categorias abaixo na área do cliente.
-        </p>
-        <div class="field">
-            <label>
-                <input type="checkbox" name="liberar_acesso_total" value="1" id="libTotal"
-                    <?= !empty($edit['liberar_acesso_total']) ? 'checked' : '' ?>>
-                <strong>Acesso total</strong> — todas as categorias de conteúdo
-            </label>
-        </div>
-        <div id="libTiposBox" style="<?= !empty($edit['liberar_acesso_total']) ? 'opacity:.45;pointer-events:none;' : '' ?>">
-            <div style="display:grid;gap:8px;">
-                <?php
-                $libList = $edit['liberar_tipos_list'] ?? [];
-                foreach (app_conteudo_tipos_cliente() as $tKey => $tMeta):
-                ?>
-                    <label style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:600;">
-                        <input type="checkbox" name="liberar_tipos[]" value="<?= e($tKey) ?>"
-                            <?= in_array($tKey, $libList, true) ? 'checked' : '' ?>>
-                        <span><?= $tMeta['icon'] ?? '' ?> <?= e($tMeta['label']) ?></span>
-                    </label>
-                <?php endforeach; ?>
+        <?php
+        $ehSingle = in_array($edit['tipo'] ?? '', ['avulso', 'pacote'], true) && ($edit['ciclo'] ?? '') === 'unico';
+        ?>
+        <?php if ($ehSingle): ?>
+            <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:12px;padding:16px 18px;margin-top:18px;">
+                <h3 style="font-size:1rem;margin:0 0 6px;">Produto único / pacote — sem recorrência</h3>
+                <p class="muted" style="font-size:.85rem;margin:0;">
+                    O cliente paga uma única vez. Após a confirmação do pagamento, os arquivos de entrega
+                    ficam disponíveis na área do cliente. Não há cobranças recorrentes nem liberação de categorias.
+                </p>
             </div>
-        </div>
+            <?php admin_bloco_produto_entregas(intval($edit['id'] ?? 0)); ?>
+        <?php else: ?>
+            <h3 style="margin:22px 0 12px;font-size:1.05rem;">Cobrança recorrente (automática)</h3>
+            <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
+                Configure como o sistema gera faturas e quando emite Pix/boleto no Asaas (estilo WHMCS).
+            </p>
+            <div class="field">
+                <label>Gerar fatura com quantos dias de antecedência?</label>
+                <input type="number" name="dias_gerar_antes" min="0" max="60" value="<?= intval($edit['dias_gerar_antes'] ?? 7) ?>">
+                <p class="muted" style="margin-top:4px;font-size:.78rem;">Ex.: 7 = a fatura do vencimento 20/08 é criada em 13/08.</p>
+            </div>
+            <div class="field">
+                <label>Cobrar (emitir Pix/boleto) quantos dias <strong>antes</strong> do vencimento?</label>
+                <input name="cobranca_antes" value="<?= e($antesStr) ?>" placeholder="Ex.: 7, 3, 1  (vazio = não cobra antes)">
+                <p class="muted" style="margin-top:4px;font-size:.78rem;">Lista de dias separados por vírgula. Opcional.</p>
+            </div>
+            <div class="field">
+                <label><input type="checkbox" name="cobranca_no_vencimento" value="1" <?= !empty($edit['cobranca_no_vencimento']) ? 'checked' : '' ?>> Cobrar no dia do vencimento</label>
+            </div>
+            <div class="field">
+                <label>Cobrar quantos dias <strong>depois</strong> do vencimento?</label>
+                <input name="cobranca_apos" value="<?= e($aposStr) ?>" placeholder="Ex.: 1, 2, 3">
+                <p class="muted" style="margin-top:4px;font-size:.78rem;">Ex.: 1,2,3 = tenta de novo no 1º, 2º e 3º dia de atraso (renova QR/boleto se preciso).</p>
+            </div>
+            <div class="field">
+                <label><input type="checkbox" name="emitir_auto" value="1" <?= !empty($edit['emitir_auto']) ? 'checked' : '' ?>> Emitir Pix/boleto automaticamente no Asaas</label>
+            </div>
+
+            <h3 style="margin:22px 0 12px;font-size:1.05rem;">Liberação após o pagamento</h3>
+            <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
+                Quando o cliente pagar a fatura deste produto, o sistema libera automaticamente as categorias abaixo na área do cliente.
+            </p>
+            <div class="field">
+                <label>
+                    <input type="checkbox" name="liberar_acesso_total" value="1" id="libTotal"
+                        <?= !empty($edit['liberar_acesso_total']) ? 'checked' : '' ?>>
+                    <strong>Acesso total</strong> — todas as categorias de conteúdo
+                </label>
+            </div>
+            <div id="libTiposBox" style="<?= !empty($edit['liberar_acesso_total']) ? 'opacity:.45;pointer-events:none;' : '' ?>">
+                <div style="display:grid;gap:8px;">
+                    <?php
+                    $libList = $edit['liberar_tipos_list'] ?? [];
+                    foreach (app_conteudo_tipos_cliente() as $tKey => $tMeta):
+                    ?>
+                        <label style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:600;">
+                            <input type="checkbox" name="liberar_tipos[]" value="<?= e($tKey) ?>"
+                                <?= in_array($tKey, $libList, true) ? 'checked' : '' ?>>
+                            <span><?= $tMeta['icon'] ?? '' ?> <?= e($tMeta['label']) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <div class="actions" style="margin-top:16px;">
             <button class="btn btn-primary" type="submit">Salvar</button>

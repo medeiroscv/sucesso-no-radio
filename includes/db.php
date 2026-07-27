@@ -358,6 +358,28 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_entregas_conteudo ON conteudo_entregas (conteudo_id, ativo, data_ref DESC, ordem, id)');
 
+    // Arquivos de entrega para produtos únicos/pacotes
+    $pdo->exec("CREATE TABLE IF NOT EXISTS produto_entregas (
+        id SERIAL PRIMARY KEY,
+        produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+        titulo VARCHAR(200) DEFAULT '',
+        arquivo VARCHAR(500) NOT NULL,
+        ordem INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produto_entregas_produto ON produto_entregas (produto_id, ordem, id)');
+
+    // Produtos únicos/pacotes adquiridos pelo cliente
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_produtos (
+        id SERIAL PRIMARY KEY,
+        cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+        produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+        fatura_id INT NULL REFERENCES faturas(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (cliente_id, produto_id)
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_cliente_produtos_cliente ON cliente_produtos (cliente_id, produto_id)');
+
     // Liberação por CATEGORIA (tipo) para o cliente — não por item
     $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_tipos (
         cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
@@ -396,7 +418,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'billing_cron_token' => '',
         'precos_titulo' => 'Planos e preços',
         'precos_intro' => 'Escolha o plano ideal para a sua rádio. Valores e condições sob consulta também pelo WhatsApp.',
-        'db_version' => '11',
+        'db_version' => '12',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -1297,5 +1319,72 @@ function app_delete_demonstrativo(int $id): bool {
         return true;
     } catch (Throwable $e) {
         return false;
+    }
+}
+
+// ======== Produto único / pacote (arquivos de entrega) ========
+
+/** Arquivos de entrega de um produto único/pacote. */
+function app_produto_entregas(int $produtoId): array {
+    if ($produtoId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT * FROM produto_entregas WHERE produto_id = ? ORDER BY ordem ASC, id ASC'
+        );
+        $st->execute([$produtoId]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_delete_produto_entrega(int $id): bool {
+    if ($id <= 0) return false;
+    try {
+        $pdo = app_pdo();
+        $st = $pdo->prepare('SELECT arquivo FROM produto_entregas WHERE id = ?');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        if (!$row) return false;
+        $pdo->prepare('DELETE FROM produto_entregas WHERE id = ?')->execute([$id]);
+        $path = dirname(__DIR__) . '/' . ltrim((string)$row['arquivo'], '/');
+        if (is_file($path)) @unlink($path);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** Cliente já comprou este produto único? */
+function cliente_possui_produto(int $clienteId, int $produtoId): bool {
+    if ($clienteId <= 0 || $produtoId <= 0) return false;
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT COUNT(*) FROM cliente_produtos WHERE cliente_id = ? AND produto_id = ?'
+        );
+        $st->execute([$clienteId, $produtoId]);
+        return intval($st->fetchColumn()) > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** Produtos únicos/pacotes que o cliente comprou. */
+function app_cliente_produtos(int $clienteId): array {
+    if ($clienteId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT cp.*, p.nome, p.slug, p.valor_centavos, p.tipo, p.descricao, p.recursos,
+                    f.pago_em
+             FROM cliente_produtos cp
+             INNER JOIN produtos p ON p.id = cp.produto_id
+             LEFT JOIN faturas f ON f.id = cp.fatura_id
+             WHERE cp.cliente_id = ?
+             ORDER BY cp.id DESC'
+        );
+        $st->execute([$clienteId]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
     }
 }
