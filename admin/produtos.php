@@ -182,7 +182,7 @@ if ($edit):
                         <option value="<?= e($k) ?>" <?= ($edit['ciclo'] ?? '') === $k ? 'selected' : '' ?>><?= e($m['label']) ?></option>
                     <?php endforeach; ?>
                 </select>
-                <p class="muted" style="margin-top:4px;font-size:.78rem;">Produto único usa ciclo “Único” (sem recorrência).</p>
+                <p class="muted" style="margin-top:4px;font-size:.78rem;">Produto único usa ciclo “Pagamento único”.</p>
             </div>
         </div>
         <div class="field-row">
@@ -211,7 +211,7 @@ if ($edit):
         ?>
         <?php if ($ehSingle): ?>
             <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:12px;padding:16px 18px;margin-top:18px;">
-                <h3 style="font-size:1rem;margin:0 0 6px;">Produto único / pacote — sem recorrência</h3>
+                <h3 style="font-size:1rem;margin:0 0 6px;">Produto único / pacote — pagamento único</h3>
                 <p class="muted" style="font-size:.85rem;margin:0;">
                     O cliente paga uma única vez. Após a confirmação do pagamento, os arquivos de entrega
                     ficam disponíveis na área do cliente. Não há cobranças recorrentes nem liberação de categorias.

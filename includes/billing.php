@@ -19,7 +19,7 @@ function billing_produto_tipos(): array {
 /** Ciclos de cobrança. */
 function billing_ciclos(): array {
     return [
-        'unico' => ['label' => 'Único (sem recorrência)', 'months' => 0],
+        'unico' => ['label' => 'Pagamento único', 'months' => 0],
         'mensal' => ['label' => 'Mensal', 'months' => 1],
         'trimestral' => ['label' => 'Trimestral', 'months' => 3],
         'semestral' => ['label' => 'Semestral', 'months' => 6],
