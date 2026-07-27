@@ -216,15 +216,21 @@ if ($tipo === '' && $edit === null):
                 <div class="conteudo-hub-count"><?= (int)($counts[$key] ?? 0) ?> item(ns)</div>
             </a>
         <?php endforeach; ?>
+        <?php if ($isDemo):
+            $prodCount = 0;
+            try {
+                $prodCount = (int)$pdo->query("SELECT COUNT(*) FROM produto_demonstrativos GROUP BY produto_id")->fetchColumn();
+            } catch (Throwable $e) {}
+        ?>
+            <a class="conteudo-hub-card" href="produtos.php">
+                <div class="conteudo-hub-icon">📦</div>
+                <h3>Produtos</h3>
+                <p>Produtos com pagamento único e demonstrativos em áudio.</p>
+                <div class="conteudo-hub-count"><?= $prodCount ?> item(ns)</div>
+            </a>
+        <?php endif; ?>
     </div>
 </div>
-<?php if ($isDemo): ?>
-<div class="card" style="margin-top:20px;">
-    <p class="muted" style="margin-bottom:12px;"><strong>Produtos avulsos / pacotes</strong></p>
-    <p class="muted" style="margin-bottom:16px;">Produtos com pagamento único e demonstrativos em áudio. Gerenciados separadamente.</p>
-    <a class="btn btn-secondary" href="produtos.php">Gerenciar produtos</a>
-</div>
-<?php endif; ?>
 <?php
 // ========== FORM ==========
 elseif ($edit !== null):
