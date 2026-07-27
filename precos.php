@@ -46,12 +46,12 @@ $base = app_base_path();
                         <?php if ($destaque): ?>
                             <div class="pricing-badge">Recomendado</div>
                         <?php endif; ?>
-                        <p class="pricing-type"><?= e($tipoLabel) ?> · <?= e($cicloLabel) ?></p>
+                        <p class="pricing-type"><?= e(($p['ciclo'] ?? '') === 'unico' ? 'Pagamento único' : 'Mensal') ?></p>
                         <h2 class="pricing-name"><?= e($p['nome']) ?></h2>
                         <div class="pricing-price">
                             <?= e(app_money_br(intval($p['valor_centavos']))) ?>
                             <?php if (($p['ciclo'] ?? '') !== 'unico'): ?>
-                                <span class="pricing-period">/ <?= e(str_replace(['Mensal', 'Trimestral', 'Semestral', 'Anual'], ['mês', 'trimestre', 'semestre', 'ano'], $cicloLabel)) ?></span>
+                                <span class="pricing-period">/mês</span>
                             <?php endif; ?>
                         </div>
                         <?php if (!empty($p['descricao'])): ?>
