@@ -216,14 +216,6 @@ if ($tipo === '' && $edit === null):
                 <div class="conteudo-hub-count"><?= (int)($counts[$key] ?? 0) ?> item(ns)</div>
             </a>
         <?php endforeach; ?>
-        <?php if ($isDemo): ?>
-            <a class="conteudo-hub-card" href="<?= e($script) ?>?tipo=produto">
-                <div class="conteudo-hub-icon">📦</div>
-                <h3>Produtos</h3>
-                <p>Produtos avulsos e pacotes com demonstrativos.</p>
-                <div class="conteudo-hub-count"><?= (int)($counts['produto'] ?? 0) ?> item(ns)</div>
-            </a>
-        <?php endif; ?>
     </div>
 </div>
 <?php
