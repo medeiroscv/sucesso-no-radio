@@ -148,12 +148,12 @@ function billing_aplicar_liberacao_produto(int $clienteId, int $produtoId, ?int 
         try {
             if ($faturaId) {
                 app_pdo()->prepare(
-                    'INSERT INTO cliente_produtos (cliente_id, produto_id, fatura_id, created_at) VALUES (?,?,?,NOW())
-                     ON CONFLICT (cliente_id, produto_id) DO UPDATE SET fatura_id = EXCLUDED.fatura_id'
+                    'INSERT INTO cliente_produtos (cliente_id, produto_id, fatura_id, liberado_em, created_at) VALUES (?,?,?,NOW(),NOW())
+                     ON CONFLICT (cliente_id, produto_id) DO UPDATE SET fatura_id = EXCLUDED.fatura_id, liberado_em = NOW()'
                 )->execute([$clienteId, $produtoId, $faturaId]);
             } else {
                 app_pdo()->prepare(
-                    'INSERT INTO cliente_produtos (cliente_id, produto_id, created_at) VALUES (?,?,NOW())
+                    'INSERT INTO cliente_produtos (cliente_id, produto_id, liberado_em, created_at) VALUES (?,?,NOW(),NOW())
                      ON CONFLICT (cliente_id, produto_id) DO NOTHING'
                 )->execute([$clienteId, $produtoId]);
             }

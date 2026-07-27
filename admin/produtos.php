@@ -107,6 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (function_exists('admin_salvar_produto_entregas')) {
                     admin_salvar_produto_entregas($id);
                 }
+                if (function_exists('admin_salvar_produto_demonstrativos')) {
+                    admin_salvar_produto_demonstrativos($id);
+                }
             }
             header('Location: produtos.php?id=' . $id . '&ok=1');
             exit;
@@ -215,6 +218,7 @@ if ($edit):
                 </p>
             </div>
             <?php admin_bloco_produto_entregas(intval($edit['id'] ?? 0)); ?>
+            <?php admin_bloco_produto_demonstrativos(intval($edit['id'] ?? 0)); ?>
         <?php else: ?>
             <h3 style="margin:22px 0 12px;font-size:1.05rem;">Cobrança recorrente (automática)</h3>
             <p class="muted" style="margin-bottom:12px;font-size:.85rem;">

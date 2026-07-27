@@ -373,6 +373,17 @@ function app_bootstrap_database(PDO $pdo): void {
     try { $pdo->exec("ALTER TABLE produto_entregas ADD COLUMN IF NOT EXISTS link_url VARCHAR(500) DEFAULT ''"); } catch (Throwable $e) {}
     try { $pdo->exec('ALTER TABLE produto_entregas ALTER COLUMN arquivo DROP NOT NULL'); } catch (Throwable $e) {}
 
+    // Demonstrativos em áudio para produtos avulsos/pacotes (público)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS produto_demonstrativos (
+        id SERIAL PRIMARY KEY,
+        produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+        titulo VARCHAR(200) DEFAULT '',
+        arquivo VARCHAR(500) NOT NULL,
+        ordem INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_prod_demo_produto ON produto_demonstrativos (produto_id, ordem, id)');
+
     // Produtos únicos/pacotes adquiridos pelo cliente
     $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_produtos (
         id SERIAL PRIMARY KEY,
@@ -383,6 +394,7 @@ function app_bootstrap_database(PDO $pdo): void {
         UNIQUE (cliente_id, produto_id)
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_cliente_produtos_cliente ON cliente_produtos (cliente_id, produto_id)');
+    try { $pdo->exec("ALTER TABLE cliente_produtos ADD COLUMN IF NOT EXISTS liberado_em TIMESTAMP DEFAULT NOW()"); } catch (Throwable $e) {}
 
     // Liberação por CATEGORIA (tipo) para o cliente — não por item
     $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_tipos (
@@ -1356,6 +1368,56 @@ function app_delete_produto_entrega(int $id): bool {
         return true;
     } catch (Throwable $e) {
         return false;
+    }
+}
+
+/** Demonstrativos públicos de um produto avulso/pacote. */
+function app_produto_demonstrativos(int $produtoId): array {
+    if ($produtoId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT * FROM produto_demonstrativos WHERE produto_id = ? ORDER BY ordem ASC, id ASC'
+        );
+        $st->execute([$produtoId]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_delete_produto_demonstrativo(int $id): bool {
+    if ($id <= 0) return false;
+    try {
+        $pdo = app_pdo();
+        $st = $pdo->prepare('SELECT arquivo FROM produto_demonstrativos WHERE id = ?');
+        $st->execute([$id]);
+        $row = $st->fetch();
+        if (!$row) return false;
+        $pdo->prepare('DELETE FROM produto_demonstrativos WHERE id = ?')->execute([$id]);
+        $path = dirname(__DIR__) . '/' . ltrim((string)$row['arquivo'], '/');
+        if (is_file($path)) @unlink($path);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** Detalhes da compra de um produto específico pelo cliente. */
+function app_cliente_produto_info(int $clienteId, int $produtoId): ?array {
+    if ($clienteId <= 0 || $produtoId <= 0) return null;
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT cp.*, p.nome AS produto_nome, p.slug, p.valor_centavos, p.tipo
+             FROM cliente_produtos cp
+             INNER JOIN produtos p ON p.id = cp.produto_id
+             WHERE cp.cliente_id = ? AND cp.produto_id = ?
+             LIMIT 1'
+        );
+        $st->execute([$clienteId, $produtoId]);
+        $r = $st->fetch();
+        return $r ?: null;
+    } catch (Throwable $e) {
+        return null;
     }
 }
 

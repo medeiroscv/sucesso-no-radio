@@ -18,7 +18,7 @@ if ($id <= 0) {
 }
 
 // Verifica se o cliente possui este produto
-$tem = cliente_possui_produto($cliId, $id);
+$tem = app_cliente_produto_info($cliId, $id);
 if (!$tem) {
     layout_header('Acesso negado', 'cliente');
     echo '<main><div class="container"><div class="page-title"><h1>Acesso negado</h1></div>';

@@ -91,6 +91,7 @@ function layout_header(string $title = '', string $active = ''): void {
             <a href="<?= e($home) ?>#informativos" class="<?= $active === 'informativo' ? 'active' : '' ?>">Informativos</a>
             <a href="<?= e($home) ?>#programetes" class="<?= $active === 'programete' ? 'active' : '' ?>">Programetes</a>
             <a href="<?= e(app_url('precos.php')) ?>" class="<?= $active === 'precos' ? 'active' : '' ?>">Preços</a>
+            <a href="<?= e(app_url('produtos.php')) ?>" class="<?= $active === 'produtos' ? 'active' : '' ?>">Produtos</a>
             <?php if ($formContatoAtivo): ?>
                 <a href="<?= e(app_url('contato.php')) ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
             <?php endif; ?>
@@ -124,6 +125,7 @@ function layout_footer(): void {
             <strong>Navegação</strong>
             <p><a href="<?= e($home) ?>">Início</a></p>
             <p><a href="<?= e(app_url('precos.php')) ?>">Preços</a></p>
+            <p><a href="<?= e(app_url('produtos.php')) ?>">Produtos</a></p>
             <?php if ($formContatoAtivo): ?><p><a href="<?= e(app_url('contato.php')) ?>">Contato</a></p><?php endif; ?>
             <?php if ($clienteLogado): ?>
                 <p><a href="<?= e(cliente_home_url()) ?>">Minha área</a></p>

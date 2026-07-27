@@ -747,3 +747,111 @@ function admin_bloco_produto_entregas(int $produtoId): void {
     </script>
     <?php
 }
+
+/** Grava demonstrativos de áudio de um produto avulso/pacote. */
+function admin_salvar_produto_demonstrativos(int $produtoId): void {
+    if ($produtoId <= 0) return;
+    $pdo = app_pdo();
+
+    $del = $_POST['prod_demo_del'] ?? [];
+    if (is_array($del)) {
+        foreach ($del as $did) {
+            app_delete_produto_demonstrativo(intval($did));
+        }
+    }
+
+    $titExist = $_POST['prod_demo_titulo_existente'] ?? [];
+    if (is_array($titExist)) {
+        $st = $pdo->prepare('UPDATE produto_demonstrativos SET titulo = ? WHERE id = ? AND produto_id = ?');
+        foreach ($titExist as $did => $tit) {
+            $st->execute([trim((string)$tit), intval($did), $produtoId]);
+        }
+    }
+
+    $ordSt = $pdo->prepare('SELECT COALESCE(MAX(ordem), 0) FROM produto_demonstrativos WHERE produto_id = ?');
+    $ordSt->execute([$produtoId]);
+    $ordem = intval($ordSt->fetchColumn());
+
+    $files = $_FILES['prod_demo_arquivos'] ?? [];
+    if (!empty($files['name']) && is_array($files['name'])) {
+        $dir = dirname(__DIR__) . '/uploads/produtos_demo';
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $novosTits = $_POST['prod_demo_titulos'] ?? [];
+        if (!is_array($novosTits)) $novosTits = [];
+        $ins = $pdo->prepare(
+            'INSERT INTO produto_demonstrativos (produto_id, titulo, arquivo, ordem, created_at) VALUES (?,?,?,?,NOW())'
+        );
+        foreach ($files['name'] as $i => $origName) {
+            if (empty($files['tmp_name'][$i]) || !is_uploaded_file($files['tmp_name'][$i])) continue;
+            if (($files['error'][$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
+            $ext = strtolower(pathinfo((string)$origName, PATHINFO_EXTENSION));
+            $extOk = ['mp3', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'aac'];
+            if (!in_array($ext, $extOk, true)) continue;
+            $fname = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $dest = $dir . '/' . $fname;
+            if (!@move_uploaded_file($files['tmp_name'][$i], $dest)) continue;
+            $ordem++;
+            $tit = trim((string)($novosTits[$i] ?? ''));
+            if ($tit === '') $tit = 'Demonstrativo ' . $ordem;
+            $ins->execute([$produtoId, $tit, 'uploads/produtos_demo/' . $fname, $ordem]);
+        }
+    }
+}
+
+function admin_bloco_produto_demonstrativos(int $produtoId): void {
+    $demos = app_produto_demonstrativos($produtoId);
+    ?>
+    <div class="field" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+        <label style="font-size:1rem;color:var(--text);">Demonstrativos públicos (áudio)</label>
+        <p class="muted" style="margin:6px 0 12px;">
+            Estes áudios aparecem na <strong>página pública do produto</strong> para o cliente ouvir antes de comprar.
+        </p>
+
+        <?php if ($demos): ?>
+            <div style="display:grid;gap:10px;margin-bottom:14px;">
+                <?php foreach ($demos as $d): ?>
+                    <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+                        <div>
+                            <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;">
+                            <audio controls preload="none" style="width:100%;max-width:420px;">
+                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                            </audio>
+                        </div>
+                        <label class="muted" style="font-size:.82rem;white-space:nowrap;">
+                            <input type="checkbox" name="prod_demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+
+        <div id="prodDemoSlots" style="display:grid;gap:10px;"></div>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" class="btn btn-secondary btn-small" onclick="addProdDemoSlot()">+ Adicionar demonstrativo</button>
+        </div>
+    </div>
+    <script>
+    (function () {
+        var idx = 0;
+        window.addProdDemoSlot = function () {
+            var box = document.getElementById('prodDemoSlots');
+            if (!box) return;
+            var i = idx++;
+            var row = document.createElement('div');
+            row.className = 'prod-demo-slot';
+            row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;';
+            row.innerHTML =
+                '<div class="field" style="margin:0"><label>Título</label>' +
+                '<input name="prod_demo_titulos[' + i + ']" placeholder="Ex.: Trecho 1, Amostra"></div>' +
+                '<div class="field" style="margin:0"><label>Arquivo de áudio</label>' +
+                '<input type="file" name="prod_demo_arquivos[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg"></div>' +
+                '<button type="button" class="btn btn-danger btn-small" onclick="this.closest(\'.prod-demo-slot\').remove()">Remover</button>';
+            box.appendChild(row);
+        };
+        if (document.getElementById('prodDemoSlots') && !document.getElementById('prodDemoSlots').children.length) {
+            addProdDemoSlot();
+        }
+    })();
+    </script>
+    <?php
+}
