@@ -8,6 +8,7 @@ $porTipo = [
     'semanal' => [],
     'informativo' => [],
     'programete' => [],
+    'produto' => [],
 ];
 $banners = [];
 $tiposMeta = app_conteudo_tipos();
@@ -35,7 +36,6 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
     $msg = $p['whatsapp_msg'] ?: ('Olá! Quero contratar: ' . $p['titulo']);
     $detalhe = ($base === '' ? '' : $base) . '/programa.php?slug=' . rawurlencode($p['slug']);
     $demos = app_demonstrativos('conteudo', intval($p['id']));
-    // demos legados (antes da unificação)
     if (!$demos && $tipo === 'programete') {
         $demos = app_demonstrativos('programete', intval($p['id']));
     }
@@ -58,7 +58,7 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                 <?php if (!empty($p['insercoes'])): ?><span class="chip"><?= e($p['insercoes']) ?></span><?php endif; ?>
             </div>
             <p class="card-desc"><?= e($p['resumo'] ?: mb_strimwidth(strip_tags($p['descricao'] ?? ''), 0, 120, '…')) ?></p>
-            <?php if ($demos && $tipo === 'programete'): ?>
+            <?php if ($demos): ?>
                 <div style="display:grid;gap:8px;margin:4px 0 8px;">
                     <?php foreach ($demos as $d): ?>
                         <div>
@@ -67,67 +67,16 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                                 <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
                             </audio>
                         </div>
-    <?php endforeach; ?>
-
-    <?php
-    // Produtos avulsos/pacotes com demonstrativos — mesmo padrao dos cards
-    if (function_exists('billing_produtos_lista')) {
-        require_once __DIR__ . '/includes/billing.php';
-        $todos = array_map('billing_produto_normalize_row', billing_produtos_lista(true, true));
-        $produtosHome = array_filter($todos, function ($p) {
-            return in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true)
-                && ($p['ciclo'] ?? '') === 'unico'
-                && count(app_produto_demonstrativos(intval($p['id']))) > 0;
-        });
-    } else {
-        $produtosHome = [];
-    }
-    if ($produtosHome):
-    ?>
-    <section class="section container">
-        <div class="section-head">
-            <h2>Produtos</h2>
-            <p>Pacotes e coleções com pagamento único. Ouça as amostras e adquira.</p>
-        </div>
-        <div class="grid-cards">
-            <?php foreach ($produtosHome as $p):
-                $demos = app_produto_demonstrativos(intval($p['id']));
-            ?>
-                <article class="card">
-                    <div class="card-body">
-                        <h3><?= e($p['nome']) ?></h3>
-                        <div class="card-meta">
-                            <span class="chip"><?= e(app_money_br(intval($p['valor_centavos']))) ?></span>
-                            <span class="chip">pagamento único</span>
-                        </div>
-                        <p class="card-desc"><?= e(mb_strimwidth(strip_tags($p['descricao'] ?? ''), 0, 120, '…')) ?></p>
-                        <?php if ($demos): ?>
-                            <div style="display:grid;gap:8px;margin:4px 0 8px;">
-                                <?php foreach ($demos as $d): ?>
-                                    <div>
-                                        <div style="font-size:.8rem;font-weight:700;margin-bottom:4px;color:var(--muted);"><?= e($d['titulo'] ?: 'Amostra') ?></div>
-                                        <audio controls preload="none" style="width:100%;height:36px;">
-                                            <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
-                                        </audio>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                        <div class="card-actions">
-                            <a class="btn btn-primary btn-small" href="<?= e($prefix . '/cliente/contratar.php?produto=' . rawurlencode((string)$p['slug'])) ?>">Comprar</a>
-                            <a class="btn btn-ghost btn-small" href="<?= e($prefix . '/produtos.php') ?>">Ver todos</a>
-                        </div>
-                    </div>
-                </article>
-            <?php endforeach; ?>
-        </div>
-    </section>
-    <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
             <?php endif; ?>
             <div class="card-actions">
-                <a class="btn btn-ghost btn-small" href="<?= e($detalhe) ?>">Detalhes</a>
-                <a class="btn btn-wa btn-small" href="<?= e(wa_link($msg)) ?>" target="_blank">Contratar</a>
+                <?php if ($tipo === 'produto'): ?>
+                    <a class="btn btn-primary btn-small" href="<?= e(($base === '' ? '' : $base) . '/cliente/contratar.php?produto=' . rawurlencode($p['slug'])) ?>">Comprar</a>
+                <?php else: ?>
+                    <a class="btn btn-ghost btn-small" href="<?= e($detalhe) ?>">Detalhes</a>
+                    <a class="btn btn-wa btn-small" href="<?= e(wa_link($msg)) ?>" target="_blank">Contratar</a>
+                <?php endif; ?>
             </div>
         </div>
     </article>
@@ -192,6 +141,7 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
         'semanal' => ['id' => 'semanais', 'sub' => 'Conteúdos semanais e de fim de semana.'],
         'informativo' => ['id' => 'informativos', 'sub' => 'Jornalismo, boletins e notícias para a emissora.'],
         'programete' => ['id' => 'programetes', 'sub' => 'Pacotes de dicas e inserções rápidas.'],
+        'produto' => ['id' => 'produtos', 'sub' => 'Produtos avulsos e pacotes com pagamento único.'],
     ];
     foreach ($secoes as $tipoKey => $sec):
         $itens = $porTipo[$tipoKey] ?? [];
@@ -203,7 +153,7 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
             <p><?= e($sec['sub']) ?></p>
         </div>
         <?php if (!$itens): ?>
-            <div class="empty">Nenhum item cadastrado ainda. Acesse o <a href="<?= e($prefix . '/admin/conteudos.php?tipo=' . rawurlencode($tipoKey)) ?>">admin</a> e adicione conteúdos.</div>
+            <div class="empty">Nenhum item cadastrado ainda. Acesse o <a href="<?= e($prefix . '/admin/demonstrativos.php?tipo=' . rawurlencode($tipoKey)) ?>">admin</a> e adicione conteúdos.</div>
         <?php else: ?>
             <div class="grid-cards">
                 <?php foreach ($itens as $p) {
@@ -213,60 +163,6 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
         <?php endif; ?>
     </section>
     <?php endforeach; ?>
-
-    <?php
-    if (function_exists('billing_produtos_lista')) {
-        require_once __DIR__ . '/includes/billing.php';
-        $todos = array_map('billing_produto_normalize_row', billing_produtos_lista(true, true));
-        $produtosHome = array_filter($todos, function ($p) {
-            return in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true)
-                && ($p['ciclo'] ?? '') === 'unico'
-                && count(app_produto_demonstrativos(intval($p['id']))) > 0;
-        });
-    } else {
-        $produtosHome = [];
-    }
-    if ($produtosHome):
-    ?>
-    <section class="section container">
-        <div class="section-head">
-            <h2>Produtos</h2>
-            <p>Pacotes e coleções com pagamento único. Ouça as amostras e adquira.</p>
-        </div>
-        <div class="grid-cards">
-            <?php foreach ($produtosHome as $p):
-                $demos = app_produto_demonstrativos(intval($p['id']));
-            ?>
-                <article class="card">
-                    <div class="card-body">
-                        <h3><?= e($p['nome']) ?></h3>
-                        <div class="card-meta">
-                            <span class="chip"><?= e(app_money_br(intval($p['valor_centavos']))) ?></span>
-                            <span class="chip">pagamento único</span>
-                        </div>
-                        <p class="card-desc"><?= e(mb_strimwidth(strip_tags($p['descricao'] ?? ''), 0, 120, '…')) ?></p>
-                        <?php if ($demos): ?>
-                            <div style="display:grid;gap:8px;margin:4px 0 8px;">
-                                <?php foreach ($demos as $d): ?>
-                                    <div>
-                                        <div style="font-size:.8rem;font-weight:700;margin-bottom:4px;color:var(--muted);"><?= e($d['titulo'] ?: 'Amostra') ?></div>
-                                        <audio controls preload="none" style="width:100%;height:36px;">
-                                            <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
-                                        </audio>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                        <div class="card-actions">
-                            <a class="btn btn-primary btn-small" href="<?= e($prefix . '/cliente/contratar.php?produto=' . rawurlencode((string)$p['slug'])) ?>">Comprar</a>
-                            <a class="btn btn-ghost btn-small" href="<?= e($prefix . '/produtos.php') ?>">Ver todos</a>
-                        </div>
-                    </div>
-                </article>
-            <?php endforeach; ?>
-        </div>
-    </section>
-    <?php endif; ?>
 
     <section class="section container">
         <div class="destaque">

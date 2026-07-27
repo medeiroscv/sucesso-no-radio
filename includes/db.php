@@ -497,6 +497,12 @@ function app_conteudo_tipos(): array {
             'desc' => 'Inserções rápidas, dicas e vinhetas',
             'dias_default' => '',
         ],
+        'produto' => [
+            'label' => 'Produtos',
+            'icon' => '📦',
+            'desc' => 'Produtos avulsos e pacotes com demonstrativos',
+            'dias_default' => '',
+        ],
     ];
 }
 
