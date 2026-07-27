@@ -54,25 +54,35 @@ cliente_header($title, 'produtos');
     </div>
 <?php else: ?>
     <div class="cliente-list">
-        <?php foreach ($entregas as $d): ?>
+        <?php foreach ($entregas as $d):
+            $temArquivo = !empty($d['arquivo']);
+            $temLink = !empty($d['link_url']);
+        ?>
             <div class="cliente-list-item" style="cursor:default;">
                 <div>
                     <strong><?= e($d['titulo'] ?: 'Arquivo') ?></strong>
                 </div>
                 <div class="cliente-list-meta">
-                    <a class="btn btn-primary btn-small" href="<?= e(app_url($d['arquivo'])) ?>" download>
-                        Baixar
-                    </a>
-                    <?php if (preg_match('/\.(mp3|m4a|wav|ogg)$/i', (string)$d['arquivo'])): ?>
-                        <button class="btn btn-ghost btn-small" type="button"
-                                onclick="var a=this.nextElementSibling;if(a){a.style.display=a.style.display==='none'?'block':'none';}this.textContent=this.textContent==='Ouvir'?'Fechar':'Ouvir';">
-                            Ouvir
-                        </button>
-                        <div style="display:none;grid-column:1/-1;padding:12px 0 6px;">
-                            <audio controls preload="none" style="width:100%;max-width:600px;">
-                                <source src="<?= e(app_url($d['arquivo'])) ?>" type="audio/mpeg">
-                            </audio>
-                        </div>
+                    <?php if ($temArquivo): ?>
+                        <a class="btn btn-primary btn-small" href="<?= e(app_url($d['arquivo'])) ?>" download>
+                            Baixar
+                        </a>
+                        <?php if (preg_match('/\.(mp3|m4a|wav|ogg)$/i', (string)$d['arquivo'])): ?>
+                            <button class="btn btn-ghost btn-small" type="button"
+                                    onclick="var a=this.nextElementSibling;if(a){a.style.display=a.style.display==='none'?'block':'none';}this.textContent=this.textContent==='Ouvir'?'Fechar':'Ouvir';">
+                                Ouvir
+                            </button>
+                            <div style="display:none;grid-column:1/-1;padding:12px 0 6px;">
+                                <audio controls preload="none" style="width:100%;max-width:600px;">
+                                    <source src="<?= e(app_url($d['arquivo'])) ?>" type="audio/mpeg">
+                                </audio>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    <?php if ($temLink): ?>
+                        <a class="btn btn-secondary btn-small" href="<?= e($d['link_url']) ?>" target="_blank" rel="noopener">
+                            Abrir link
+                        </a>
                     <?php endif; ?>
                 </div>
             </div>

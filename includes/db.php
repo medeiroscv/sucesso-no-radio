@@ -363,11 +363,15 @@ function app_bootstrap_database(PDO $pdo): void {
         id SERIAL PRIMARY KEY,
         produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
         titulo VARCHAR(200) DEFAULT '',
-        arquivo VARCHAR(500) NOT NULL,
+        arquivo VARCHAR(500) DEFAULT NULL,
+        link_url VARCHAR(500) DEFAULT '',
         ordem INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produto_entregas_produto ON produto_entregas (produto_id, ordem, id)');
+    // Migração: adiciona link_url se não existir (versões antigas)
+    try { $pdo->exec("ALTER TABLE produto_entregas ADD COLUMN IF NOT EXISTS link_url VARCHAR(500) DEFAULT ''"); } catch (Throwable $e) {}
+    try { $pdo->exec('ALTER TABLE produto_entregas ALTER COLUMN arquivo DROP NOT NULL'); } catch (Throwable $e) {}
 
     // Produtos únicos/pacotes adquiridos pelo cliente
     $pdo->exec("CREATE TABLE IF NOT EXISTS cliente_produtos (
@@ -418,7 +422,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'billing_cron_token' => '',
         'precos_titulo' => 'Planos e preços',
         'precos_intro' => 'Escolha o plano ideal para a sua rádio. Valores e condições sob consulta também pelo WhatsApp.',
-        'db_version' => '12',
+        'db_version' => '13',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -429,7 +433,7 @@ function app_bootstrap_database(PDO $pdo): void {
             $pdo->prepare(
                 "INSERT INTO configuracoes (chave, valor, updated_at) VALUES ('db_version', ?, NOW())
                  ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()"
-            )->execute(['11']);
+            )->execute([$defaults['db_version']]);
             continue;
         }
         $st->execute([$k, $v]);
