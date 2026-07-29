@@ -36,6 +36,8 @@ a { color: inherit; text-decoration: none; }
 .btn-small { padding: 6px 10px; font-size: .8rem; }
 table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td:first-child { min-width: 200px; }
+td:last-child { white-space: nowrap; vertical-align: middle; }
 th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
 .field { margin-bottom: 12px; }
 .field label { display: block; font-weight: 700; font-size: .82rem; margin-bottom: 5px; color: var(--muted); }

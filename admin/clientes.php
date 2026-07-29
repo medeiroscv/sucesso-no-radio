@@ -260,9 +260,7 @@ if ($edit !== null):
     <table>
         <thead>
             <tr>
-                <th>Nome</th>
-                <th>E-mail</th>
-                <th>WhatsApp</th>
+                <th>Cliente</th>
                 <th>Rádio</th>
                 <th>Conteúdos</th>
                 <th>Produtos</th>
@@ -276,9 +274,11 @@ if ($edit !== null):
             $lib = !empty($c['acesso_total']) ? 'Todas as categorias' : ((int)($qtdLib[intval($c['id'])] ?? 0) . ' categoria(s)');
         ?>
             <tr>
-                <td><strong><?= e($c['nome']) ?></strong></td>
-                <td><?= e($c['email']) ?></td>
-                <td><?= e($c['whatsapp'] ?: '—') ?></td>
+                <td>
+                    <strong><?= e($c['nome']) ?></strong><br>
+                    <span class="muted" style="font-size:.82rem;"><?= e($c['email']) ?></span>
+                    <?php if ($c['whatsapp']): ?><br><span class="muted" style="font-size:.82rem;">📱 <?= e($c['whatsapp']) ?></span><?php endif; ?>
+                </td>
                 <td><?= e($c['radio'] ?: '—') ?></td>
                 <td><?= e($lib) ?></td>
                 <td><?= (int)($qtdProd[intval($c['id'])] ?? 0) ?></td>
@@ -294,7 +294,7 @@ if ($edit !== null):
             </tr>
         <?php endforeach; ?>
         <?php if (!$lista): ?>
-            <tr><td colspan="8" class="muted">Nenhum cliente ainda. Clique em <strong>+ Novo cliente</strong>.</td></tr>
+            <tr><td colspan="7" class="muted">Nenhum cliente ainda. Clique em <strong>+ Novo cliente</strong>.</td></tr>
         <?php endif; ?>
         </tbody>
     </table>
