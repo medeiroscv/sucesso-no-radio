@@ -14,6 +14,7 @@ function admin_header(string $title, string $active = ''): void {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title) ?> · Admin</title>
     <link rel="stylesheet" href="../assets/css/admin.css">
+    <?php $fav = app_setting('site_favicon'); if ($fav): ?><link rel="icon" href="../<?= e($fav) ?>" type="image/png"><?php endif; ?>
     <?= app_css_cores() ?>
 </head>
 <body>
