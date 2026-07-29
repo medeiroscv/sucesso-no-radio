@@ -437,6 +437,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'db_version' => '13',
         'footer_text' => 'Conteudo gerenciado pelo painel administrativo.',
         'logo_size' => '64',
+        'site_url' => '',
         // Cores do sistema (vazio = usar padrão do CSS)
         'color_bg' => '',
         'color_card' => '',
@@ -1286,6 +1287,20 @@ function app_url(string $path = ''): string {
     $base = app_base_path();
     $path = ltrim($path, '/');
     return ($base === '' ? '' : $base) . ($path !== '' ? '/' . $path : '/');
+}
+
+/** URL absoluta do site (com domínio). Usa o valor configurado em site_url ou constrói a partir de $_SERVER. */
+function app_site_url(string $path = ''): string {
+    $configured = app_setting('site_url');
+    if ($configured !== '') {
+        $base = rtrim($configured, '/');
+    } else {
+        if (!isset($_SERVER['HTTP_HOST'])) return app_url($path);
+        $scheme = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? 'https' : 'http';
+        $base = $scheme . '://' . $_SERVER['HTTP_HOST'] . app_base_path();
+    }
+    $path = ltrim($path, '/');
+    return $base . ($path !== '' ? '/' . $path : '/');
 }
 
 /** URL da home da área do cliente (index.php explícito). */

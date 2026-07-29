@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($secoes[$secPost])) {
         $err = 'Seção inválida.';
     } elseif ($secPost === 'site') {
-        $keys = ['site_nome', 'site_slogan', 'whatsapp', 'telefone', 'email', 'sobre', 'footer_text'];
+        $keys = ['site_nome', 'site_slogan', 'whatsapp', 'telefone', 'email', 'sobre', 'footer_text', 'site_url'];
         foreach ($keys as $k) {
             app_setting_set($k, trim((string)($_POST[$k] ?? '')));
         }
@@ -217,6 +217,7 @@ elseif ($sec === 'site'):
         'site_logo' => app_setting('site_logo'),
         'site_favicon' => app_setting('site_favicon'),
         'logo_size' => app_setting('logo_size', '64'),
+        'site_url' => app_setting('site_url'),
     ];
 ?>
 <div class="actions" style="margin-bottom:12px;">
@@ -254,6 +255,8 @@ elseif ($sec === 'site'):
         </div>
 
         <div class="field"><label>Tamanho da logomarca no site (px)</label><input name="logo_size" value="<?= e($vals['logo_size']) ?>" style="width:100px;" min="24" max="300"> <span class="muted">altura em pixels — largura ajusta automaticamente (proporcional)</span></div>
+
+        <div class="field"><label>URL do site (domínio completo)</label><input name="site_url" value="<?= e($vals['site_url']) ?>" placeholder="https://meusite.com.br" style="width:100%;max-width:400px;"> <span class="muted">Usado em links absolutos e webhooks. Ex.: https://sucessonoradio.com.br</span></div>
 
         <h3 style="margin:20px 0 14px;">Contato exibido no site</h3>
         <div class="field"><label>WhatsApp (somente números, com DDI 55)</label><input name="whatsapp" value="<?= e($vals['whatsapp']) ?>" placeholder="5561999999999"></div>
@@ -345,10 +348,7 @@ elseif ($sec === 'formulario_texto'):
 <?php
 // ========== FINANCEIRO / ASAAS ==========
 elseif ($sec === 'financeiro'):
-    $webhook = (isset($_SERVER['HTTP_HOST'])
-        ? (((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? 'https' : 'http')
-          . '://' . $_SERVER['HTTP_HOST']
-        : '') . app_url('api/asaas-webhook.php');
+    $webhook = app_site_url('api/asaas-webhook.php');
     $hasKey = asaas_configured();
     $hasWh = asaas_webhook_token() !== '';
 ?>
