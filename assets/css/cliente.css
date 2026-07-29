@@ -281,7 +281,7 @@ a.cliente-list-item:hover { border-color: #22c55e; }
   flex-direction: column;
 }
 .cliente-main .card-cover {
-  aspect-ratio: 4/5;
+  aspect-ratio: 1080/700;
   width: 100%;
   object-fit: cover;
   background: #0f172a;

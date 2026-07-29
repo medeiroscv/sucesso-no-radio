@@ -368,7 +368,7 @@ a.cliente-list-item:hover { border-color: var(--accent); }
 }
 .card:hover { transform: translateY(-3px); border-color: #334155; }
 .card-cover {
-  aspect-ratio: 4/5; background: #0f172a;
+  aspect-ratio: 1080/700; background: #0f172a;
   object-fit: cover; width: 100%;
 }
 .card-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
