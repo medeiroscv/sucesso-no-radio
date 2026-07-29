@@ -178,13 +178,11 @@ th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-s
 /* Demonstrativos - grid de cards */
 .demo-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
-@media (max-width: 1200px) { .demo-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 800px) { .demo-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 500px) { .demo-grid { grid-template-columns: 1fr; } }
+.demo-grid { align-items: stretch; }
 .demo-card {
   min-width: 0;
   background: #0f172a;
