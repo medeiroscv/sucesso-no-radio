@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($secoes[$secPost])) {
         $err = 'Seção inválida.';
     } elseif ($secPost === 'site') {
-        $keys = ['site_nome', 'site_slogan', 'whatsapp', 'telefone', 'email', 'sobre'];
+        $keys = ['site_nome', 'site_slogan', 'whatsapp', 'telefone', 'email', 'sobre', 'footer_text'];
         foreach ($keys as $k) {
             app_setting_set($k, trim((string)($_POST[$k] ?? '')));
         }
@@ -196,6 +196,7 @@ elseif ($sec === 'site'):
         'telefone' => app_setting('telefone'),
         'email' => app_setting('email'),
         'sobre' => app_setting('sobre'),
+        'footer_text' => app_setting('footer_text'),
         'site_logo' => app_setting('site_logo'),
         'site_favicon' => app_setting('site_favicon'),
     ];
@@ -241,6 +242,9 @@ elseif ($sec === 'site'):
             <div class="field"><label>E-mail</label><input name="email" value="<?= e($vals['email']) ?>"></div>
         </div>
         <div class="field"><label>Texto “Sobre”</label><textarea name="sobre" rows="4"><?= e($vals['sobre']) ?></textarea></div>
+
+        <h3 style="margin:20px 0 14px;">Rodap\u00e9</h3>
+        <div class="field"><label>Texto do Rodap\u00e9 (exibido ap\u00f3s o ano e nome do site)</label><input name="footer_text" value="<?= e($vals['footer_text']) ?>" placeholder="Conte\u00fado gerenciado pelo painel administrativo."></div>
 
         <button class="btn btn-primary" type="submit">Salvar</button>
     </form>

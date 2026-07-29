@@ -139,8 +139,8 @@ function layout_footer(): void {
             <?php if (!empty($s['telefone'])): ?><p>Tel: <?= e($s['telefone']) ?></p><?php endif; ?>
         </div>
     </div>
-    <div class="container" style="margin-top:22px;opacity:.7;">
-        © <?= date('Y') ?> <?= e($nome) ?>. Conteúdo gerenciado pelo painel administrativo.
+    <div class="container" style="margin-top:22px;opacity:.7;text-align:center;">
+        © <?= date('Y') ?> <?= e($nome) ?>. <?= e($s['footer_text'] ?? 'Conteúdo gerenciado pelo painel administrativo.') ?>
     </div>
 </footer>
 </body>

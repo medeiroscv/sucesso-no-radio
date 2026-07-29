@@ -85,26 +85,9 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
 ?>
 <main>
     <section class="hero container">
-        <div class="hero-grid">
-            <div>
-                <h1><?= e($s['site_slogan'] ?? 'Tudo que sua rádio precisa em um só lugar') ?></h1>
-                <p><?= e($s['sobre'] ?? 'Diários, semanais, informativos e programetes profissionais para a sua grade.') ?></p>
-                <div class="hero-actions">
-                    <a class="btn btn-primary" href="#diarios">Demonstrativos</a>
-                    <a class="btn btn-ghost" href="<?= e($prefix . '/cliente/login.php') ?>">Área do cliente</a>
-                    <a class="btn btn-wa" href="<?= e(wa_link('Olá! Quero conhecer os planos da ' . ($s['site_nome'] ?? 'Sucesso no Rádio'))) ?>" target="_blank" rel="noopener">Falar no WhatsApp</a>
-                </div>
-            </div>
-            <div class="hero-card">
-                <h3>Para rádios e web rádios</h3>
-                <p style="color:var(--muted);font-size:.95rem;">Conteúdo pronto para ir ao ar, com blocos e duração definidos.</p>
-                <ul>
-                    <li>Diários</li>
-                    <li>Semanais</li>
-                    <li>Informativos</li>
-                    <li>Programetes</li>
-                </ul>
-            </div>
+        <div style="max-width:720px;margin:0 auto;text-align:center;">
+            <h1><?= e($s['site_slogan'] ?? 'Tudo que sua rádio precisa em um só lugar') ?></h1>
+            <p style="font-size:1.1rem;"><?= e($s['sobre'] ?? 'Diários, semanais, informativos e programetes profissionais para a sua grade.') ?></p>
         </div>
     </section>
 
