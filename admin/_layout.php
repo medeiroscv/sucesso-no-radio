@@ -467,8 +467,9 @@ function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
                     </div>
                 <?php endforeach; ?>
             </div>
-            <div id="demoDelInputs"></div>
         <?php endif; ?>
+
+        <div id="demoDelInputs"></div>
 
         <div id="demoSlots"></div>
         <div class="actions" style="margin-top:10px;">
@@ -477,15 +478,14 @@ function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
     </div>
     <script>
     function marcarExcluir(btn, id) {
-        var card = btn.closest('.demo-card');
-        if (card) card.style.opacity = '.4';
         var h = document.createElement('input');
         h.type = 'hidden';
         h.name = 'demo_del[]';
         h.value = id;
-        document.getElementById('demoDelInputs').appendChild(h);
-        btn.textContent = 'Removido';
-        btn.disabled = true;
+        var box = document.getElementById('demoDelInputs');
+        if (box) box.appendChild(h);
+        var card = btn.closest('.demo-card');
+        if (card) card.remove();
     }
     (function () {
         var idx = 0;
