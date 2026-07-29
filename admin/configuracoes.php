@@ -98,11 +98,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sec = 'financeiro';
     } elseif ($secPost === 'cores') {
         if (!empty($_POST['restaurar_cores'])) {
-            $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary'];
+            $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary','color_header','color_footer'];
             foreach ($cores as $k) app_setting_set($k, '');
             $ok = 'Cores restauradas para o padrão.';
         } else {
-            $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary'];
+            $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary','color_header','color_footer'];
             foreach ($cores as $k) {
                 $v = trim((string)($_POST[$k] ?? ''));
                 app_setting_set($k, $v);
@@ -449,7 +449,7 @@ elseif ($sec === 'financeiro'):
 <?php
 // ========== CORES DO SISTEMA ==========
 elseif ($sec === 'cores'):
-$colorKeys = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary'];
+$colorKeys = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary','color_header','color_footer'];
 $colorLabels = [
     'color_bg' => 'Fundo da página',
     'color_card' => 'Fundo dos cards',
@@ -461,6 +461,8 @@ $colorLabels = [
     'color_warn' => 'Alerta (amarelo)',
     'color_sidebar' => 'Sidebar admin',
     'color_primary' => 'Primária (azul)',
+    'color_header' => 'Fundo do topo',
+    'color_footer' => 'Fundo do rodapé',
 ];
 ?>
 <div class="actions" style="margin-bottom:12px;">

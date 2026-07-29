@@ -32,7 +32,7 @@ img { max-width: 100%; display: block; }
   top: 0;
   z-index: 50;
   backdrop-filter: blur(12px);
-  background: var(--bg);
+  background: var(--header-bg, var(--bg));
   border-bottom: 1px solid var(--line);
 }
 .header-inner {
@@ -400,6 +400,7 @@ a.cliente-list-item:hover { border-color: var(--accent); }
   border-top: 1px solid var(--line);
   margin-top: 40px; padding: 28px 0 40px;
   color: var(--muted); font-size: .9rem;
+  background: var(--footer-bg, var(--bg));
 }
 .footer-grid {
   display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px;

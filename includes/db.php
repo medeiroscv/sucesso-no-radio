@@ -448,6 +448,8 @@ function app_bootstrap_database(PDO $pdo): void {
         'color_warn' => '',
         'color_sidebar' => '',
         'color_primary' => '',
+        'color_header' => '',
+        'color_footer' => '',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -1196,6 +1198,8 @@ function app_css_cores(): string {
         'color_warn'    => '--warn',
         'color_sidebar' => '--sidebar',
         'color_primary' => '--primary',
+        'color_header'  => '--header-bg',
+        'color_footer'  => '--footer-bg',
     ];
     $vars = [];
     foreach ($map as $key => $cssVar) {
