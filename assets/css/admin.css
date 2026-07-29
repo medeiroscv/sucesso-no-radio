@@ -157,6 +157,14 @@ th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-s
   width: 100% !important;
   box-sizing: border-box;
 }
+.item-card .item-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
 .item-card .item-footer input[type="checkbox"] {
   width: auto !important;
   padding: 0;
@@ -166,14 +174,47 @@ th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-s
   vertical-align: middle;
   margin-right: 6px;
 }
-.item-card audio {
+
+/* Demonstrativos - grid de cards */
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1200px) { .demo-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 800px) { .demo-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 500px) { .demo-grid { grid-template-columns: 1fr; } }
+.demo-card {
+  background: #0f172a;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.demo-card input[type="text"],
+.demo-card input:not([type]) {
+  width: 100%;
+  box-sizing: border-box;
+}
+.demo-card audio {
+  width: 100%;
   display: block;
 }
-.item-card .item-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding-top: 2px;
+.demo-card .demo-remove {
+  display: block;
+  margin: 4px auto 0;
+  background: none;
+  border: none;
+  color: #f87171;
+  font-size: .78rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background .15s;
+}
+.demo-card .demo-remove:hover {
+  background: rgba(239,68,68,.15);
 }

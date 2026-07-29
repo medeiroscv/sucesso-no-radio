@@ -456,46 +456,57 @@ function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
         <p class="muted" style="margin:6px 0 12px;">Envie um ou mais áudios de demonstração. Use o botão <strong>+</strong> para adicionar outro arquivo.</p>
 
         <?php if ($demos): ?>
-            <div style="display:grid;gap:10px;margin-bottom:14px;">
+            <div class="demo-grid" id="demoGrid">
                 <?php foreach ($demos as $d): ?>
-                    <div class="item-card">
-                        <input name="demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título do áudio">
+                    <div class="demo-card">
+                        <input name="demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título">
                         <audio controls preload="none">
                             <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
                         </audio>
-                        <div class="item-footer">
-                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;">
-                                <input type="checkbox" name="demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
-                            </label>
-                        </div>
+                        <button type="button" class="demo-remove" onclick="marcarExcluir(this, <?= intval($d['id']) ?>)">Excluir</button>
                     </div>
                 <?php endforeach; ?>
             </div>
+            <div id="demoDelInputs"></div>
         <?php endif; ?>
 
-        <div id="demoSlots" style="display:grid;gap:10px;"></div>
+        <div id="demoSlots"></div>
         <div class="actions" style="margin-top:10px;">
             <button type="button" class="btn btn-secondary btn-small" id="btnAddDemo" onclick="addDemoSlot()">+ Adicionar áudio</button>
         </div>
     </div>
     <script>
+    function marcarExcluir(btn, id) {
+        var card = btn.closest('.demo-card');
+        if (card) card.style.opacity = '.4';
+        var h = document.createElement('input');
+        h.type = 'hidden';
+        h.name = 'demo_del[]';
+        h.value = id;
+        document.getElementById('demoDelInputs').appendChild(h);
+        btn.textContent = 'Removido';
+        btn.disabled = true;
+    }
     (function () {
         var idx = 0;
         window.addDemoSlot = function () {
-            var box = document.getElementById('demoSlots');
-            if (!box) return;
+            var grid = document.getElementById('demoGrid');
+            if (!grid) {
+                grid = document.createElement('div');
+                grid.id = 'demoGrid';
+                grid.className = 'demo-grid';
+                document.getElementById('demoSlots').appendChild(grid);
+            }
             var i = idx++;
-            var row = document.createElement('div');
-            row.className = 'item-card';
-            row.style.cssText = 'margin-bottom:8px;';
-            row.innerHTML =
-                '<input name="demo_titulos[' + i + ']" placeholder="T\u00edtulo do \u00e1udio">' +
-                '<div><label class="muted" style="font-size:.75rem;">Arquivo MP3</label>' +
-                '<input type="file" name="demos[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg"></div>' +
-                '<div class="item-footer"><button type="button" class="btn btn-danger btn-small" onclick="this.closest(\'.item-card\').remove()">Remover</button></div>';
-            box.appendChild(row);
+            var card = document.createElement('div');
+            card.className = 'demo-card';
+            card.innerHTML =
+                '<input name="demo_titulos[' + i + ']" placeholder="T\u00edtulo">' +
+                '<div><label class="muted" style="font-size:.72rem;">Arquivo MP3</label>' +
+                '<input type="file" name="demos[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg" style="font-size:.78rem;"></div>' +
+                '<button type="button" class="demo-remove" onclick="this.closest(\'.demo-card\').remove()">Remover</button>';
+            grid.appendChild(card);
         };
-        // Um campo já aberto ao carregar o formulário
         if (document.getElementById('demoSlots') && !document.getElementById('demoSlots').children.length) {
             addDemoSlot();
         }
