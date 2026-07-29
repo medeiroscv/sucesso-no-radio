@@ -24,6 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($keys as $k) {
             app_setting_set($k, trim((string)($_POST[$k] ?? '')));
         }
+        // Logo size (must be numeric, min 24, max 300)
+        $logoSize = trim((string)($_POST['logo_size'] ?? '64'));
+        app_setting_set('logo_size', ctype_digit($logoSize) ? min(300, max(24, (int)$logoSize)) : '64');
         // Logo
         $logoAtual = trim((string)($_POST['site_logo_atual'] ?? ''));
         if (!empty($_POST['remover_logo'])) {
@@ -199,6 +202,7 @@ elseif ($sec === 'site'):
         'footer_text' => app_setting('footer_text'),
         'site_logo' => app_setting('site_logo'),
         'site_favicon' => app_setting('site_favicon'),
+        'logo_size' => app_setting('logo_size', '64'),
     ];
 ?>
 <div class="actions" style="margin-bottom:12px;">
@@ -219,7 +223,7 @@ elseif ($sec === 'site'):
                 <label>Logomarca do site</label>
                 <p class="muted" style="margin:4px 0 8px;">PNG/JPG — redimensionada (máx. 480×160), salva em PNG leve.</p>
                 <?php if ($vals['site_logo']): ?>
-                    <p style="margin-bottom:8px;"><img src="../<?= e($vals['site_logo']) ?>" alt="Logo" style="max-height:64px;max-width:240px;background:#0f172a;padding:8px;border-radius:8px;"></p>
+                    <p style="margin-bottom:8px;"><img src="../<?= e($vals['site_logo']) ?>" alt="Logo" style="height:<?= (int)($vals['logo_size'] ?? 64) ?>px;width:auto;max-width:320px;background:#0f172a;padding:8px;border-radius:8px;"></p>
                     <label class="muted" style="font-weight:600;"><input type="checkbox" name="remover_logo" value="1"> Remover logo atual</label>
                 <?php endif; ?>
                 <input type="file" name="site_logo" accept="image/*" style="margin-top:8px;">
@@ -234,6 +238,8 @@ elseif ($sec === 'site'):
                 <input type="file" name="site_favicon" accept="image/*" style="margin-top:8px;">
             </div>
         </div>
+
+        <div class="field"><label>Tamanho da logomarca no site (px)</label><input name="logo_size" value="<?= e($vals['logo_size']) ?>" style="width:100px;" min="24" max="300"> <span class="muted">altura em pixels — largura ajusta automaticamente (proporcional)</span></div>
 
         <h3 style="margin:20px 0 14px;">Contato exibido no site</h3>
         <div class="field"><label>WhatsApp (somente números, com DDI 55)</label><input name="whatsapp" value="<?= e($vals['whatsapp']) ?>" placeholder="5561999999999"></div>

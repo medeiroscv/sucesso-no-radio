@@ -436,6 +436,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'precos_intro' => 'Escolha o plano ideal para a sua rádio. Valores e condições sob consulta também pelo WhatsApp.',
         'db_version' => '13',
         'footer_text' => 'Conteudo gerenciado pelo painel administrativo.',
+        'logo_size' => '64',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())

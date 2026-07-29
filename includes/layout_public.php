@@ -64,7 +64,7 @@ function layout_header(string $title = '', string $active = ''): void {
             <div class="header-top-spacer" aria-hidden="true"></div>
             <a class="brand" href="<?= e($home) ?>">
                 <?php if ($logo): ?>
-                    <img class="brand-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>">
+                    <img class="brand-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>" style="height:<?= (int)($s['logo_size'] ?? 64) ?>px;">
                 <?php else: ?>
                     <span class="brand-badge">🎙</span>
                     <span class="brand-text"><?= e($nome) ?></span>
@@ -114,7 +114,7 @@ function layout_footer(): void {
     <div class="container footer-grid">
         <div>
             <?php if ($logo): ?>
-                <img class="footer-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>">
+                <img class="footer-logo" src="<?= e($logo) ?>" alt="<?= e($nome) ?>" style="height:<?= (int)($s['logo_size'] ?? 64) ?>px;">
             <?php else: ?>
                 <strong><?= e($nome) ?></strong>
             <?php endif; ?>

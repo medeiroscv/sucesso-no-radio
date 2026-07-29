@@ -76,10 +76,8 @@ img { max-width: 100%; display: block; }
 }
 .brand-logo {
   display: block;
-  max-height: 52px;
-  max-width: min(240px, 42vw);
+  height: 64px;
   width: auto;
-  height: auto;
   object-fit: contain;
 }
 .header-account {
@@ -147,8 +145,7 @@ img { max-width: 100%; display: block; }
 
 .footer-logo {
   display: block;
-  max-height: 40px;
-  max-width: 180px;
+  height: 40px;
   width: auto;
   margin-bottom: 10px;
   object-fit: contain;
