@@ -85,9 +85,9 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
 ?>
 <main>
     <section class="hero container">
-        <div style="max-width:720px;margin:0 auto;text-align:center;">
+        <div style="max-width:720px;margin:0 auto;text-align:center;display:grid;justify-items:center;">
             <h1><?= e($s['site_slogan'] ?? 'Tudo que sua rádio precisa em um só lugar') ?></h1>
-            <p style="font-size:1.1rem;"><?= e($s['sobre'] ?? 'Diários, semanais, informativos e programetes profissionais para a sua grade.') ?></p>
+            <p style="font-size:1.1rem;text-align:center;"><?= e($s['sobre'] ?? 'Diários, semanais, informativos e programetes profissionais para a sua grade.') ?></p>
         </div>
     </section>
 
