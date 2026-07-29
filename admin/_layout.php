@@ -458,16 +458,16 @@ function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
         <?php if ($demos): ?>
             <div style="display:grid;gap:10px;margin-bottom:14px;">
                 <?php foreach ($demos as $d): ?>
-                    <div style="display:flex;flex-direction:column;gap:8px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
-                        <div>
-                            <input name="demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título do áudio" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;box-sizing:border-box;">
-                            <audio controls preload="none" style="width:100%;max-width:420px;">
-                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
-                            </audio>
+                    <div class="item-card">
+                        <input name="demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título do áudio">
+                        <audio controls preload="none">
+                            <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                        </audio>
+                        <div class="item-footer">
+                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;">
+                                <input type="checkbox" name="demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                            </label>
                         </div>
-                        <label class="muted" style="font-size:.82rem;white-space:nowrap;align-self:flex-end;">
-                            <input type="checkbox" name="demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
-                        </label>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -486,14 +486,13 @@ function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
             if (!box) return;
             var i = idx++;
             var row = document.createElement('div');
-            row.className = 'demo-slot';
-            row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;';
+            row.className = 'item-card';
+            row.style.cssText = 'margin-bottom:8px;';
             row.innerHTML =
-                '<div class="field" style="margin:0"><label>Título do áudio</label>' +
-                '<input name="demo_titulos[' + i + ']" placeholder="Ex.: Bloco 1, Vinheta, Amostra"></div>' +
-                '<div class="field" style="margin:0"><label>Arquivo MP3</label>' +
+                '<input name="demo_titulos[' + i + ']" placeholder="T\u00edtulo do \u00e1udio">' +
+                '<div><label class="muted" style="font-size:.75rem;">Arquivo MP3</label>' +
                 '<input type="file" name="demos[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg"></div>' +
-                '<button type="button" class="btn btn-danger btn-small" onclick="this.closest(\'.demo-slot\').remove()">Remover</button>';
+                '<div class="item-footer"><button type="button" class="btn btn-danger btn-small" onclick="this.closest(\'.item-card\').remove()">Remover</button></div>';
             box.appendChild(row);
         };
         // Um campo já aberto ao carregar o formulário
@@ -563,19 +562,17 @@ function admin_bloco_entregas(int $conteudoId): void {
         <?php if ($itens): ?>
             <div style="display:grid;gap:10px;margin-bottom:14px;">
                 <?php foreach ($itens as $d): ?>
-                    <div style="display:flex;flex-direction:column;gap:8px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
-                        <div>
-                            <input name="entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;box-sizing:border-box;">
-                            <audio controls preload="none" style="width:100%;max-width:420px;">
-                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
-                            </audio>
-                        </div>
-                        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+                    <div class="item-card">
+                        <input name="entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título">
+                        <audio controls preload="none">
+                            <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                        </audio>
+                        <div class="item-footer">
                             <div>
                                 <label class="muted" style="font-size:.75rem;">Data ref.</label>
-                                <input type="date" name="entrega_data_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['data_ref'] ?? '') ?>" style="border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;box-sizing:border-box;">
+                                <input type="date" name="entrega_data_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['data_ref'] ?? '') ?>">
                             </div>
-                            <label class="muted" style="font-size:.82rem;white-space:nowrap;">
+                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;">
                                 <input type="checkbox" name="entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
                             </label>
                         </div>
@@ -693,20 +690,20 @@ function admin_bloco_produto_entregas(int $produtoId): void {
                     $temArquivo = !empty($d['arquivo']);
                     $temLink = !empty($d['link_url']);
                 ?>
-                    <div style="display:flex;flex-direction:column;gap:8px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
-                        <div>
-                            <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;box-sizing:border-box;">
-                            <?php if ($temArquivo): ?>
-                                <audio controls preload="none" style="width:100%;max-width:420px;margin-bottom:6px;">
-                                    <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
-                                </audio>
-                                <div class="muted" style="font-size:.8rem;">Arquivo: <?= htmlspecialchars(basename((string)$d['arquivo'])) ?></div>
-                            <?php endif; ?>
-                            <input name="prod_entrega_link_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['link_url'] ?? '') ?>" placeholder="Link externo (opcional)" style="width:100%;margin-top:6px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;font-size:.85rem;box-sizing:border-box;">
+                    <div class="item-card">
+                        <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item">
+                        <?php if ($temArquivo): ?>
+                            <audio controls preload="none">
+                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                            </audio>
+                            <div class="muted" style="font-size:.8rem;">Arquivo: <?= htmlspecialchars(basename((string)$d['arquivo'])) ?></div>
+                        <?php endif; ?>
+                        <input name="prod_entrega_link_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['link_url'] ?? '') ?>" placeholder="Link externo (opcional)" style="margin-top:2px;">
+                        <div class="item-footer">
+                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;">
+                                <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                            </label>
                         </div>
-                        <label class="muted" style="font-size:.82rem;white-space:nowrap;align-self:flex-end;">
-                            <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
-                        </label>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -812,16 +809,16 @@ function admin_bloco_produto_demonstrativos(int $produtoId): void {
         <?php if ($demos): ?>
             <div style="display:grid;gap:10px;margin-bottom:14px;">
                 <?php foreach ($demos as $d): ?>
-                    <div style="display:flex;flex-direction:column;gap:8px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
-                        <div>
-                            <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="width:100%;margin-bottom:8px;border:1px solid var(--line);background:#111827;color:var(--text);border-radius:8px;padding:8px 10px;box-sizing:border-box;">
-                            <audio controls preload="none" style="width:100%;max-width:420px;">
-                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
-                            </audio>
+                    <div class="item-card">
+                        <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título">
+                        <audio controls preload="none">
+                            <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                        </audio>
+                        <div class="item-footer">
+                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;">
+                                <input type="checkbox" name="prod_demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                            </label>
                         </div>
-                        <label class="muted" style="font-size:.82rem;white-space:nowrap;align-self:flex-end;">
-                            <input type="checkbox" name="prod_demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
-                        </label>
                     </div>
                 <?php endforeach; ?>
             </div>

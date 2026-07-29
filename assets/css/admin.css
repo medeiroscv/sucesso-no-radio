@@ -137,3 +137,30 @@ th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-s
   color: var(--accent);
   margin-top: 4px;
 }
+
+/* Itens de áudio/entrega no formulário */
+.item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #0f172a;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+.item-card input,
+.item-card audio {
+  width: 100% !important;
+  box-sizing: border-box;
+}
+.item-card audio {
+  display: block;
+}
+.item-card .item-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}

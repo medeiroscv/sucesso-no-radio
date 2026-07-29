@@ -350,9 +350,9 @@ a.cliente-list-item:hover { border-color: var(--accent); }
 
 /* Sections */
 .section { padding: 48px 0; }
-.section-head { margin-bottom: 22px; }
+.section-head { margin-bottom: 22px; text-align: center; }
 .section-head h2 { font-size: 1.7rem; margin-bottom: 6px; }
-.section-head p { color: var(--muted); }
+.section-head p { color: var(--muted); text-align: center; }
 
 /* Cards */
 .grid-cards {
