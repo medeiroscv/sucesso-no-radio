@@ -437,6 +437,17 @@ function app_bootstrap_database(PDO $pdo): void {
         'db_version' => '13',
         'footer_text' => 'Conteudo gerenciado pelo painel administrativo.',
         'logo_size' => '64',
+        // Cores do sistema (vazio = usar padrão do CSS)
+        'color_bg' => '',
+        'color_card' => '',
+        'color_text' => '',
+        'color_muted' => '',
+        'color_accent' => '',
+        'color_line' => '',
+        'color_danger' => '',
+        'color_warn' => '',
+        'color_sidebar' => '',
+        'color_primary' => '',
     ];
     $st = $pdo->prepare(
         "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, ?, NOW())
@@ -1172,6 +1183,31 @@ function app_setting_set(string $chave, string $valor): void {
     $st->execute([$chave, $valor]);
 }
 
+/** Retorna string com regras CSS :root a partir das cores salvas. */
+function app_css_cores(): string {
+    $map = [
+        'color_bg'      => '--bg',
+        'color_card'    => '--card',
+        'color_text'    => '--text',
+        'color_muted'   => '--muted',
+        'color_accent'  => '--accent',
+        'color_line'    => '--line',
+        'color_danger'  => '--danger',
+        'color_warn'    => '--warn',
+        'color_sidebar' => '--sidebar',
+        'color_primary' => '--primary',
+    ];
+    $vars = [];
+    foreach ($map as $key => $cssVar) {
+        $v = app_setting($key);
+        if ($v !== '') {
+            $vars[] = "  {$cssVar}: {$v};";
+        }
+    }
+    if (!$vars) return '';
+    return "<style>:root{\n" . implode("\n", $vars) . "\n}</style>";
+}
+
 /** Seções do hub de Configurações. */
 function app_config_secoes(): array {
     return [
@@ -1179,6 +1215,11 @@ function app_config_secoes(): array {
             'label' => 'Configurações do site',
             'icon' => '🌐',
             'desc' => 'Nome, slogan, logo, favicon, WhatsApp e textos gerais',
+        ],
+        'cores' => [
+            'label' => 'Cores do sistema',
+            'icon' => '🎨',
+            'desc' => 'Personalize a paleta de cores do site, admin e área do cliente',
         ],
         'formulario_contato' => [
             'label' => 'Formulário de contato',

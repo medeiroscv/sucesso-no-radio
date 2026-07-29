@@ -56,6 +56,7 @@ function layout_header(string $title = '', string $active = ''): void {
         <link rel="apple-touch-icon" href="<?= e($favicon) ?>">
     <?php endif; ?>
     <link rel="stylesheet" href="<?= e($css) ?>">
+    <?= app_css_cores() ?>
 </head>
 <body>
 <header class="site-header">

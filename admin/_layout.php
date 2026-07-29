@@ -14,6 +14,7 @@ function admin_header(string $title, string $active = ''): void {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title) ?> · Admin</title>
     <link rel="stylesheet" href="../assets/css/admin.css">
+    <?= app_css_cores() ?>
 </head>
 <body>
 <div class="admin-shell">

@@ -96,6 +96,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $ok = 'Configurações financeiras (Asaas) salvas.';
         $sec = 'financeiro';
+    } elseif ($secPost === 'cores') {
+        if (!empty($_POST['restaurar_cores'])) {
+            $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary'];
+            foreach ($cores as $k) app_setting_set($k, '');
+            $ok = 'Cores restauradas para o padr\u00e3o.';
+        } else {
+            $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary'];
+            foreach ($cores as $k) {
+                $v = trim((string)($_POST[$k] ?? ''));
+                app_setting_set($k, $v);
+            }
+            $ok = 'Cores salvas.';
+        }
+        $sec = 'cores';
     } elseif ($secPost === 'atualizacao') {
         $sec = 'atualizacao';
         $action = trim((string)($_POST['action'] ?? 'save'));
@@ -433,7 +447,49 @@ elseif ($sec === 'financeiro'):
     </form>
 </div>
 <?php
-// ========== ATUALIZAÇÃO DO SITE ==========
+// ========== CORES DO SISTEMA ==========
+elseif ($sec === 'cores'):
+$colorKeys = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary'];
+$colorLabels = [
+    'color_bg' => 'Fundo da p\u00e1gina',
+    'color_card' => 'Fundo dos cards',
+    'color_text' => 'Cor do texto',
+    'color_muted' => 'Texto secund\u00e1rio',
+    'color_accent' => 'Cor de destaque (verde)',
+    'color_line' => 'Cor da borda/linha',
+    'color_danger' => 'Perigo/erro (vermelho)',
+    'color_warn' => 'Alerta (amarelo)',
+    'color_sidebar' => 'Sidebar admin',
+    'color_primary' => 'Prim\u00e1ria (azul)',
+];
+?>
+<div class="actions" style="margin-bottom:12px;">
+    <a class="btn btn-secondary btn-small" href="configuracoes.php">\u2190 Configura\u00e7\u00f5es</a>
+</div>
+<div class="card">
+    <form method="post">
+        <input type="hidden" name="sec" value="cores">
+        <h3 style="margin-bottom:14px;">Paleta de cores</h3>
+        <p class="muted" style="margin-bottom:16px;">As altera\u00e7\u00f5es s\u00e3o aplicadas automaticamente no site p\u00fablico, \u00e1rea do cliente e painel administrativo.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;">
+<?php foreach ($colorKeys as $k): $val = app_setting($k); ?>
+            <div>
+                <label style="display:block;font-weight:700;font-size:.82rem;color:var(--muted);margin-bottom:6px;"><?= e($colorLabels[$k]) ?></label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="color" value="<?= e($val ?: '#000000') ?>" style="width:44px;height:36px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:0;padding:2px;" oninput="var t=this.nextElementSibling;t.value=this.value;t.style.backgroundColor=this.value;t.nextElementSibling.style.background=this.value">
+                    <input type="text" name="<?= e($k) ?>" value="<?= e($val) ?>" placeholder="#hex" style="flex:1;border:1px solid var(--line);background:#0f172a;color:var(--text);border-radius:8px;padding:8px 10px;font-family:monospace;font-size:.85rem;" maxlength="7" oninput="this.previousElementSibling.value=this.value;this.style.backgroundColor=this.value;this.nextElementSibling.style.background=this.value">
+                    <span style="width:28px;height:28px;border-radius:6px;border:1px solid var(--line);background:<?= e($val ?: '#000000') ?>;flex-shrink:0;"></span>
+                </div>
+            </div>
+<?php endforeach; ?>
+        </div>
+        <div class="actions" style="margin-top:18px;gap:12px;">
+            <button class="btn btn-primary" type="submit">Salvar cores</button>
+            <button class="btn btn-secondary" type="submit" name="restaurar_cores" value="1" onclick="return confirm('Restaurar cores padr\u00e3o? Isso limpa todas as cores personalizadas.');">Restaurar padr\u00f5es</button>
+        </div>
+    </form>
+</div>
+<?php
 elseif ($sec === 'atualizacao'):
     $local = app_update_local_version();
     $meta = app_update_meta_read();
