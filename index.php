@@ -75,7 +75,7 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                     <a class="btn btn-primary btn-small" href="<?= e(($base === '' ? '' : $base) . '/cliente/contratar.php?produto=' . rawurlencode($p['slug'])) ?>">Comprar</a>
                 <?php else: ?>
                     <a class="btn btn-ghost btn-small" href="<?= e($detalhe) ?>">Detalhes</a>
-                    <a class="btn btn-wa btn-small" href="<?= e(wa_link($msg)) ?>" target="_blank">Contratar</a>
+                    <a class="btn btn-primary btn-small" href="<?= e(($base === '' ? '' : $base) . '/precos.php') ?>">Comprar</a>
                 <?php endif; ?>
             </div>
         </div>
@@ -106,7 +106,7 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                         <?php if ($b['link']): ?>
                             <a class="btn btn-primary" href="<?= e($b['link']) ?>" target="_blank" rel="noopener"><?= e($b['botao_texto'] ?: 'Saiba mais') ?></a>
                         <?php else: ?>
-                            <a class="btn btn-wa" href="<?= e(wa_link('Olá! Vi o destaque: ' . ($b['titulo'] ?: ''))) ?>" target="_blank"><?= e($b['botao_texto'] ?: 'Contratar') ?></a>
+                            <a class="btn btn-primary" href="<?= e(($base === '' ? '' : $base) . '/precos.php') ?>"><?= e($b['botao_texto'] ?: 'Comprar') ?></a>
                         <?php endif; ?>
                     </div>
                 </div>

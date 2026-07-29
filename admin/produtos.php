@@ -195,7 +195,7 @@ if ($edit):
             <textarea name="recursos" rows="5"><?= e($edit['recursos'] ?? '') ?></textarea>
         </div>
         <div class="field-row">
-            <div class="field"><label>Texto do botão</label><input name="botao_texto" value="<?= e($edit['botao_texto'] ?? 'Contratar') ?>"></div>
+            <div class="field"><label>Texto do botão</label><input name="botao_texto" value="<?= e($edit['botao_texto'] ?? 'Comprar') ?>"></div>
             <div class="field"><label>Mensagem WhatsApp (contratar)</label><input name="whatsapp_msg" value="<?= e($edit['whatsapp_msg'] ?? '') ?>" placeholder="Quero o plano X"></div>
         </div>
         <div class="field">

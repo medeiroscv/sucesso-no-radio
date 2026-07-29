@@ -83,7 +83,7 @@ if (!$demos && $tipo === 'programete') {
             </div>
             <?php endif; ?>
             <div class="hero-actions">
-                <a class="btn btn-wa" href="<?= e(wa_link($msg)) ?>" target="_blank" rel="noopener">Contratar no WhatsApp</a>
+                <a class="btn btn-primary" href="<?= e(($base === '' ? '' : $base) . '/precos.php') ?>">Comprar</a>
                 <a class="btn btn-ghost" href="<?= e($base === '' ? '/' : $base . '/') ?>">Ver catálogo</a>
             </div>
         </div>

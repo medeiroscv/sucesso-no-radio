@@ -239,7 +239,7 @@ function app_bootstrap_database(PDO $pdo): void {
         cobranca_no_vencimento SMALLINT DEFAULT 1,
         cobranca_apos TEXT DEFAULT '[1,2,3]',
         emitir_auto SMALLINT DEFAULT 1,
-        botao_texto VARCHAR(80) DEFAULT 'Contratar',
+        botao_texto VARCHAR(80) DEFAULT 'Comprar',
         whatsapp_msg TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP NULL
