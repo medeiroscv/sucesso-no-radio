@@ -249,8 +249,8 @@ elseif ($sec === 'site'):
         </div>
         <div class="field"><label>Texto “Sobre”</label><textarea name="sobre" rows="4"><?= e($vals['sobre']) ?></textarea></div>
 
-        <h3 style="margin:20px 0 14px;">Rodap\u00e9</h3>
-        <div class="field"><label>Texto do Rodap\u00e9 (exibido ap\u00f3s o ano e nome do site)</label><input name="footer_text" value="<?= e($vals['footer_text']) ?>" placeholder="Conte\u00fado gerenciado pelo painel administrativo."></div>
+        <h3 style="margin:20px 0 14px;">Rodapé</h3>
+        <div class="field"><label>Texto do Rodapé (exibido após o ano e nome do site)</label><input name="footer_text" value="<?= e($vals['footer_text']) ?>" placeholder="Conteúdo gerenciado pelo painel administrativo."></div>
 
         <button class="btn btn-primary" type="submit">Salvar</button>
     </form>
