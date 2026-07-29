@@ -502,7 +502,7 @@ function admin_bloco_demonstrativos(string $tipo, int $conteudoId): void {
             var card = document.createElement('div');
             card.className = 'demo-card';
             card.innerHTML =
-                '<input name="demo_titulos[' + i + ']" placeholder="T\u00edtulo">' +
+                '<input name="demo_titulos[' + i + ']" placeholder="Título">' +
                 '<div><label class="muted" style="font-size:.72rem;">Arquivo MP3</label>' +
                 '<input type="file" name="demos[' + i + ']" accept="audio/mpeg,audio/mp3,audio/*,.mp3,.m4a,.wav,.ogg" style="font-size:.78rem;"></div>' +
                 '<button type="button" class="demo-remove" onclick="this.closest(\'.demo-card\').remove()">Remover</button>';
