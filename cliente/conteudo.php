@@ -57,13 +57,12 @@ cliente_header($item['titulo'], $tipo);
             $ncItens = nc_listar($ncFull);
         ?>
             <?php if ($ncRel !== ''): ?>
-            <p class="muted" style="font-size:.85rem;margin-bottom:8px;">
-                Pasta: <code><?= e($ncRel) ?></code>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
                 <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($item['id']))) ?>">← Raiz</a>
                 <?php $parent = dirname($ncRel); if ($parent !== '.' && $parent !== $ncRel): ?>
                     <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($item['id']) . '&nc_path=' . rawurlencode($parent))) ?>">← Pasta anterior</a>
                 <?php endif; ?>
-            </p>
+            </div>
             <?php endif; ?>
             <?php if (!$ncItens): ?>
                 <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>

@@ -80,9 +80,6 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
 <?php elseif ($browsingNc):
     // --- Navegador NC inline ---
     $ncItens = nc_listar($ncFull); ?>
-    <p class="muted" style="font-size:.85rem;margin-bottom:8px;">
-        Pasta: <code><?= e($ncRel ?: $ncRoot) ?></code>
-    </p>
     <?php if (!$ncItens): ?>
         <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>
     <?php else: ?>
