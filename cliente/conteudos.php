@@ -22,9 +22,9 @@ if ($tipo !== '') {
     $lista = $st->fetchAll() ?: [];
 }
 
-// --- Navegação NC inline (sem redirect, sem conteudo.php) ---
+// --- Navegação NC inline ---
 $ncItemId = intval($_GET['nc_item'] ?? 0);
-if (!$ncItemId && count($lista) === 1 && !empty($lista[0]['nc_folder']) && $ncOk) {
+if (!$ncItemId && count($lista) === 1 && !empty($lista[0]['nc_folder'])) {
     $ncItemId = intval($lista[0]['id']);
 }
 $ncItem = null;
@@ -41,9 +41,9 @@ if ($ncItemId) {
 $ncRel = trim((string)($_GET['nc_path'] ?? ''));
 $ncFull = $ncRel !== '' ? $ncRoot . '/' . $ncRel : $ncRoot;
 
-$browsingNc = $ncItem && $ncOk;
+$browsingNc = (bool)$ncItem;
 
-cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
+cliente_header($meta['label'], $tipo);
 ?>
 <p class="cliente-intro">
     <?= $browsingNc ? e($meta['label']) : e($meta['desc']) ?>
@@ -78,16 +78,17 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
     <div class="empty">Nenhum item cadastrado nesta categoria ainda.</div>
 
 <?php elseif ($browsingNc):
-    // --- Navegador NC inline ---
+    if (!$ncOk || empty($ncItem['nc_folder'])): ?>
+        <div class="empty" style="padding:24px;">Nextcloud não configurado.</div>
+    <?php else:
     $ncItens = nc_listar($ncFull);
-    // Remove a pasta raiz da listagem (compara path e nome)
     $ncRootNorm = rtrim(str_replace('\\', '/', $ncRoot), '/');
     $ncItens = array_values(array_filter($ncItens, function($i) use ($ncRootNorm) {
         if ($i['type'] !== 'folder') return true;
         $iPath = rtrim(str_replace('\\', '/', $i['path']), '/');
         return $iPath !== $ncRootNorm && basename($iPath) !== basename($ncRootNorm);
-    })); ?>
-    <?php if (!$ncItens): ?>
+    }));
+    if (!$ncItens): ?>
         <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>
     <?php else: ?>
         <div class="cliente-list">
@@ -95,7 +96,7 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
                 $subPath = $ncRel ? $ncRel . '/' . $ent['name'] : $ent['name'];
                 if ($ent['type'] === 'folder'): ?>
                     <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId . '&nc_path=' . rawurlencode($subPath))) ?>">
-                        <div><strong>📁 <?= e($ent['name']) ?></strong><div class="muted" style="font-size:.82rem;margin-top:2px;">Pasta</div></div>
+                        <div><strong>📁 <?= e($ent['name']) ?></strong></div>
                         <div class="cliente-list-meta"><span class="btn btn-ghost btn-small">Abrir</span></div>
                     </a>
                 <?php else:
@@ -137,9 +138,9 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+    <?php endif; ?>
 
 <?php elseif ($temAcesso && $ncOk):
-    // Lista simplificada de pastas (sem cards)
     $comNc = array_filter($lista, fn($p) => !empty($p['nc_folder']));
     if (!$comNc): ?>
         <div class="empty" style="padding:24px;">Nenhum arquivo disponível.</div>
