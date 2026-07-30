@@ -313,6 +313,7 @@ elseif ($edit !== null):
             </div>
             <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
         </div>
+        <?php endif; // !isDemo ?>
 
         <?php if ($isDemo): ?>
             <?php admin_bloco_demonstrativos('conteudo', intval($edit['id'] ?? 0)); ?>
