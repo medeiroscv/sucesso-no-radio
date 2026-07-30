@@ -493,6 +493,11 @@ function app_bootstrap_database(PDO $pdo): void {
          ON CONFLICT (chave) DO NOTHING"
     );
     foreach ($ncDefaults as $k) $stNc->execute([$k]);
+    // nc_show_meta default = '1'
+    $pdo->prepare(
+        "INSERT INTO site_settings (chave, valor, updated_at) VALUES ('nc_show_meta', '1', NOW())
+         ON CONFLICT (chave) DO NOTHING"
+    )->execute();
 
     // nc_pasta column for existing databases
     try {

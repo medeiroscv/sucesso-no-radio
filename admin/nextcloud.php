@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (trim((string)($_POST['nc_keep_pass'] ?? '')) === '') {
             app_setting_set('nc_pass', '');
         }
+        app_setting_set('nc_show_meta', !empty($_POST['nc_show_meta']) ? '1' : '0');
         $ok = 'Configurações Nextcloud salvas.';
     }
 }
@@ -35,6 +36,7 @@ $vals = [
 ];
 
 $ncOk = $vals['nc_server'] && $vals['nc_user'] && $vals['nc_pass'];
+$showMeta = app_setting('nc_show_meta', '1') === '1';
 
 $ncPath = trim((string)($_GET['nc'] ?? ''));
 $ncItens = $ncOk ? nc_listar($ncPath) : [];
@@ -67,6 +69,9 @@ admin_header('Nextcloud', 'nextcloud');
                 <input type="hidden" name="nc_keep_pass" value="1">
             </div>
         </div>
+        <div class="field" style="margin-top:10px;">
+            <label><input type="checkbox" name="nc_show_meta" value="1" <?= app_setting('nc_show_meta', '1') === '1' ? 'checked' : ' ' ?>> Mostrar tamanho e data dos arquivos</label>
+        </div>
         <div class="actions" style="margin-top:18px;gap:12px;">
             <button class="btn btn-primary" type="submit" name="action" value="save">Salvar</button>
             <button class="btn btn-secondary" type="submit" name="action" value="test" style="background:var(--accent);">Testar conexão</button>
@@ -93,15 +98,7 @@ admin_header('Nextcloud', 'nextcloud');
     </p>
     <?php if (!$ncItens): ?>
         <div class="empty">Pasta vazia ou sem arquivos.</div>
-    <?php else:
-        $temArquivos = false;
-        foreach ($ncItens as $item) { if ($item['type'] === 'file') { $temArquivos = true; break; } }
-    ?>
-        <?php if ($temArquivos): ?>
-        <div class="actions" style="margin-bottom:10px;">
-            <a class="btn btn-primary btn-small" href="nc-download.php?zip=<?= rawurlencode($ncPath) ?>">📦 Baixar todos (ZIP)</a>
-        </div>
-        <?php endif; ?>
+    <?php else: ?>
         <div style="display:grid;gap:4px;">
             <?php foreach ($ncItens as $item): ?>
                 <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:<?= $item['type'] === 'folder' ? 'rgba(34,197,94,.06)' : 'transparent' ?>;border:1px solid var(--line);">
@@ -113,8 +110,10 @@ admin_header('Nextcloud', 'nextcloud');
                             <strong><?= e($item['name']) ?></strong>
                         <?php endif; ?>
                     </span>
+                    <?php if ($showMeta): ?>
                     <span class="muted" style="font-size:.82rem;"><?= e($item['size_fmt']) ?></span>
                     <span class="muted" style="font-size:.78rem;"><?= e($item['mtime']) ?></span>
+                    <?php endif; ?>
                     <?php if ($item['type'] === 'file'): ?>
                         <a class="btn btn-primary btn-small" href="nc-download.php?path=<?= rawurlencode($item['path']) ?>">Download</a>
                     <?php endif; ?>

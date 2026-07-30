@@ -20,6 +20,7 @@ if ($usarNc) {
 }
 
 $temAcesso = cliente_pode_acessar_tipo($tipo, $cli);
+$showMeta = app_setting('nc_show_meta', '1') === '1';
 
 cliente_header($meta['label'], $tipo);
 ?>
@@ -58,15 +59,7 @@ cliente_header($meta['label'], $tipo);
         <?php endif; ?>
         <?php if (!$ncItens): ?>
             <div class="empty">Pasta vazia.</div>
-        <?php else:
-            $temArquivos = false;
-            foreach ($ncItens as $item) { if ($item['type'] === 'file') { $temArquivos = true; break; } }
-        ?>
-            <?php if ($temArquivos): ?>
-            <div class="actions" style="margin-bottom:10px;">
-                <a class="btn btn-primary btn-small" href="<?= e(app_url('cliente/nc-file.php?zip=' . rawurlencode($ncPath))) ?>">📦 Baixar todos (ZIP)</a>
-            </div>
-            <?php endif; ?>
+        <?php else: ?>
             <div class="cliente-list">
                 <?php foreach ($ncItens as $item): ?>
                     <?php if ($item['type'] === 'folder'): ?>
@@ -92,9 +85,11 @@ cliente_header($meta['label'], $tipo);
                                 <?php else: ?>
                                     <strong>📎 <?= e($item['name']) ?></strong>
                                 <?php endif; ?>
+                                <?php if ($showMeta): ?>
                                 <div class="muted" style="font-size:.82rem;margin-top:2px;">
                                     <?= e($item['size_fmt']) ?> · <?= e($item['mtime']) ?>
                                 </div>
+                                <?php endif; ?>
                                 <?php if (nc_is_audio($item['mimetype'])): ?>
                                     <audio controls preload="none" style="width:100%;margin-top:8px;max-width:480px;">
                                         <source src="<?= e(nc_download_url($item['path'])) ?>" type="audio/mpeg">

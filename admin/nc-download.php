@@ -3,9 +3,8 @@ require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/nextcloud.php';
 
 $path = trim((string)($_GET['path'] ?? ''));
-$modoZip = isset($_GET['zip']);
 
-if ($path === '' && !$modoZip) {
+if ($path === '') {
     http_response_code(400);
     exit('path missing');
 }
@@ -17,49 +16,6 @@ if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) {
 }
 
 $baseUrl = rtrim($cfg['server'], '/') . '/remote.php/dav/files/' . rawurlencode($cfg['user']);
-
-if ($modoZip) {
-    $folder = trim((string)($_GET['zip'] ?? ''));
-    $arquivos = nc_listar($folder);
-    $zip = new ZipArchive();
-    $tmp = tempnam(sys_get_temp_dir(), 'nc_') . '.zip';
-    if ($zip->open($tmp, ZipArchive::CREATE) !== true) {
-        http_response_code(500);
-        exit('Erro ao criar ZIP');
-    }
-    $adicionados = 0;
-    foreach ($arquivos as $item) {
-        if ($item['type'] !== 'file') continue;
-        $url = $baseUrl . '/' . implode('/', array_map('rawurlencode', explode('/', $item['path'])));
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_USERPWD => $cfg['user'] . ':' . $cfg['pass'],
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT => 60,
-        ]);
-        $conteudo = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($code >= 200 && $code < 400 && $conteudo !== false) {
-            $zip->addFromString($item['name'], $conteudo);
-            $adicionados++;
-        }
-    }
-    $zip->close();
-    if ($adicionados === 0) {
-        @unlink($tmp);
-        http_response_code(404);
-        exit('Nenhum arquivo encontrado para baixar.');
-    }
-    $nomeZip = $folder !== '' ? basename($folder) : 'Nextcloud';
-    header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="' . $nomeZip . '.zip"');
-    header('Content-Length: ' . filesize($tmp));
-    readfile($tmp);
-    @unlink($tmp);
-    exit;
-}
 
 $url = $baseUrl . '/' . implode('/', array_map('rawurlencode', explode('/', $path)));
 $ch = curl_init($url);
