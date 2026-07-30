@@ -96,12 +96,15 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
                     </a>
                 <?php else:
                     $isAudio = nc_is_audio($ent['mimetype']);
+                    $isTxt = $ent['mimetype'] === 'text/plain';
                     $dl = nc_download_url($ent['path']);
                 ?>
                     <div class="cliente-list-item cliente-list-item-static">
                         <div style="flex:1;min-width:0;">
                             <?php if ($isAudio): ?>
                                 <strong>🎵 <?= e($ent['name']) ?></strong>
+                            <?php elseif ($isTxt): ?>
+                                <strong>📄 <?= e($ent['name']) ?></strong>
                             <?php elseif (str_starts_with($ent['mimetype'], 'image/')): ?>
                                 <strong>🖼️ <?= e($ent['name']) ?></strong>
                             <?php elseif ($ent['mimetype'] === 'application/pdf'): ?>
@@ -114,14 +117,16 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
                                 <?= e($ent['size_fmt']) ?> · <?= e($ent['mtime']) ?>
                             </div>
                             <?php endif; ?>
-                            <?php if ($isAudio): ?>
-                                <audio controls preload="none" style="width:100%;margin-top:8px;max-width:520px;">
-                                    <source src="<?= e($dl) ?>" type="audio/mpeg">
-                                </audio>
-                            <?php endif; ?>
                         </div>
-                        <div class="cliente-list-meta">
-                            <a class="btn btn-primary btn-small" href="<?= e($dl) ?>"<?= $isAudio ? '' : ' download' ?>>Baixar</a>
+                        <div class="cliente-list-meta" style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <?php if ($isAudio): ?>
+                                <button class="btn btn-secondary btn-small" data-url="<?= e($dl) ?>" onclick="abrirPlayer(this.dataset.url)">Ouvir</button>
+                                <a class="btn btn-primary btn-small" href="<?= e($dl) ?>" download>Baixar</a>
+                            <?php elseif ($isTxt): ?>
+                                <button class="btn btn-primary btn-small" data-url="<?= e($dl) ?>" onclick="abrirTexto(this.dataset.url)">Ver</button>
+                            <?php else: ?>
+                                <a class="btn btn-primary btn-small" href="<?= e($dl) ?>" download>Baixar</a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -180,4 +185,42 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
+
+<!-- Modal para player e texto -->
+<div id="contentModal" class="modal-overlay" style="display:none;" onclick="closeModal(event)">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<style>
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;}
+.modal-card{background:var(--card);border-radius:12px;padding:24px;max-width:520px;width:90%;max-height:80vh;overflow:auto;position:relative;}
+.modal-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);line-height:1;}
+</style>
+
+<script>
+function abrirPlayer(url){
+  document.getElementById('modalBody').innerHTML='<audio controls autoplay style="width:100%;"><source src="'+url+'" type="audio/mpeg"></audio>';
+  document.getElementById('contentModal').style.display='flex';
+}
+function abrirTexto(url){
+  fetch(url).then(function(r){return r.text();}).then(function(t){
+    document.getElementById('modalBody').innerHTML='<pre style="white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow-y:auto;margin:0;">'+escHtml(t)+'</pre>';
+    document.getElementById('contentModal').style.display='flex';
+  }).catch(function(){
+    document.getElementById('modalBody').innerHTML='<p class="muted">Erro ao carregar o conteudo.</p>';
+    document.getElementById('contentModal').style.display='flex';
+  });
+}
+function closeModal(e){
+  if(e&&e.target!==e.currentTarget)return;
+  document.getElementById('contentModal').style.display='none';
+  document.getElementById('modalBody').innerHTML='';
+}
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
 <?php cliente_footer(); ?>
