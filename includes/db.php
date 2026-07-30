@@ -343,6 +343,7 @@ function app_bootstrap_database(PDO $pdo): void {
         updated_at TIMESTAMP NULL
     )");
     try { $pdo->exec("ALTER TABLE conteudos ADD COLUMN IF NOT EXISTS area VARCHAR(40) NOT NULL DEFAULT 'demonstrativo'"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE conteudos ADD COLUMN IF NOT EXISTS nc_folder VARCHAR(500) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
     $pdo->exec("UPDATE conteudos SET area = 'demonstrativo' WHERE area IS NULL OR area = ''");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_conteudos_tipo ON conteudos (area, tipo, ativo, ordem, id)');
 

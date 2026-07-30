@@ -5,6 +5,7 @@
  * - area=conteudo → produtos do cliente (liberação manual)
  */
 require_once __DIR__ . '/_layout.php';
+require_once __DIR__ . '/../includes/nextcloud.php';
 
 $area = defined('CATALOGO_AREA') ? CATALOGO_AREA : 'conteudo';
 if (!app_catalogo_area_valida($area)) {
@@ -76,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $destaque = !empty($_POST['destaque']) ? 1 : 0;
     $ativo = !empty($_POST['ativo']) ? 1 : 0;
     $whatsapp_msg = trim((string)($_POST['whatsapp_msg'] ?? ''));
+    $nc_folder = trim((string)($_POST['nc_folder'] ?? ''));
     $capaAtual = trim((string)($_POST['capa_atual'] ?? ''));
     $capaNova = admin_upload('capa', $isDemo ? 'programas' : 'conteudos');
     if ($capaNova !== '') {
@@ -90,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($titulo === '') {
         $err = 'Título obrigatório.';
         $tipo = $tipoPost;
-        $edit = compact('id', 'titulo', 'slug', 'resumo', 'descricao', 'capa', 'duracao', 'blocos', 'dias', 'insercoes', 'destaque', 'ativo', 'ordem', 'whatsapp_msg');
+        $edit = compact('id', 'titulo', 'slug', 'resumo', 'descricao', 'capa', 'duracao', 'blocos', 'dias', 'insercoes', 'destaque', 'ativo', 'ordem', 'whatsapp_msg', 'nc_folder');
         $edit['tipo'] = $tipoPost;
         $edit['area'] = $area;
     } else {
@@ -103,19 +105,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($id > 0) {
                 // garante que não troca de área
                 $pdo->prepare(
-                    'UPDATE conteudos SET area=?, tipo=?, titulo=?, slug=?, resumo=?, descricao=?, capa=?, duracao=?, blocos=?, dias=?, insercoes=?, destaque=?, ativo=?, ordem=?, whatsapp_msg=?, updated_at=NOW()
+                    'UPDATE conteudos SET area=?, tipo=?, titulo=?, slug=?, resumo=?, descricao=?, capa=?, duracao=?, blocos=?, dias=?, insercoes=?, destaque=?, ativo=?, ordem=?, whatsapp_msg=?, nc_folder=?, updated_at=NOW()
                      WHERE id=? AND area=?'
                 )->execute([
                     $area, $tipoPost, $titulo, $slug, $resumo, $descricao, $capa, $duracao, $blocos, $dias,
-                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $id, $area,
+                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $nc_folder, $id, $area,
                 ]);
             } else {
                 $pdo->prepare(
-                    'INSERT INTO conteudos (area,tipo,titulo,slug,resumo,descricao,capa,duracao,blocos,dias,insercoes,destaque,ativo,ordem,whatsapp_msg,created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
+                    'INSERT INTO conteudos (area,tipo,titulo,slug,resumo,descricao,capa,duracao,blocos,dias,insercoes,destaque,ativo,ordem,whatsapp_msg,nc_folder,created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
                 )->execute([
                     $area, $tipoPost, $titulo, $slug, $resumo, $descricao, $capa, $duracao, $blocos, $dias,
-                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg,
+                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $nc_folder,
                 ]);
                 $id = intval($pdo->lastInsertId());
             }
@@ -162,6 +164,7 @@ if (isset($_GET['id']) || isset($_GET['novo'])) {
             'ativo' => 1,
             'ordem' => 0,
             'whatsapp_msg' => '',
+            'nc_folder' => '',
         ];
         $tipo = $tipoNovo;
     }
@@ -299,10 +302,71 @@ elseif ($edit !== null):
             <div class="field"><label><input type="checkbox" name="destaque" value="1" <?= !empty($edit['destaque']) ? 'checked' : '' ?>> Destaque</label></div>
         </div>
 
+        <?php if (!$isDemo && nc_configurado()): ?>
+        <div id="block-entregas-nc" class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+            <label>Origem dos arquivos de entrega</label>
+            <p class="muted" style="margin:4px 0 8px;">Escolha de onde virão os arquivos para os clientes.</p>
+            <div style="display:flex;gap:20px;margin-bottom:10px;">
+                <label><input type="radio" name="origem_arquivos" value="upload" <?= empty($edit['nc_folder']) ? 'checked' : '' ?>> Upload manual</label>
+                <label><input type="radio" name="origem_arquivos" value="nc" <?= !empty($edit['nc_folder']) ? 'checked' : '' ?>> Pasta do Nextcloud</label>
+            </div>
+            <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
+
+            <?php if (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc'): ?>
+                <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;">
+                    <p style="margin-bottom:8px;">
+                        Pasta selecionada: <strong id="nc_selected_path"><?= e($edit['nc_folder'] ?: 'Nenhuma') ?></strong>
+                        <?php if (!empty($edit['nc_folder'])): ?>
+                            <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($edit['nc_folder']) ?>" style="margin-left:8px;">Alterar</a>
+                        <?php endif; ?>
+                    </p>
+                </div>
+            <?php endif; ?>
+
+            <?php
+            $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
+            if ($ncBrowse !== ''):
+                $ncPath = $ncBrowse;
+            ?>
+                <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:10px;max-height:400px;overflow-y:auto;">
+                    <p class="muted" style="margin-bottom:8px;font-size:.85rem;">Navegando: <code><?= e($ncPath ?: 'Raiz') ?></code></p>
+                    <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>">← Fechar navegação</a>
+                        <?php if ($ncPath !== ''): ?>
+                            <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=">← Raiz</a>
+                            <?php $parent = dirname($ncPath); if ($parent !== '.' && $parent !== $ncPath): ?>
+                                <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($parent) ?>">← Pasta anterior</a>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                    <?php $ncItens = nc_listar($ncPath); ?>
+                    <?php if (!$ncItens): ?>
+                        <div class="muted">Pasta vazia.</div>
+                    <?php else: ?>
+                        <div style="display:grid;gap:3px;">
+                            <?php foreach ($ncItens as $item): ?>
+                                <?php if ($item['type'] === 'folder'): ?>
+                                    <div style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;background:rgba(34,197,94,.06);border:1px solid var(--line);">
+                                        <span>📁 <?= e($item['name']) ?></span>
+                                        <span style="flex:1;"></span>
+                                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($item['path']) ?>">Abrir</a>
+                                        <a class="btn btn-primary btn-small" href="#"
+                                           onclick="var p=this.getAttribute('data-path');document.getElementById('nc_folder').value=p;document.getElementById('nc_selected_path').textContent=p;return false;" data-path="<?= e($item['path']) ?>">Selecionar</a>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
         <?php if ($isDemo): ?>
             <?php admin_bloco_demonstrativos('conteudo', intval($edit['id'] ?? 0)); ?>
             <p class="muted" style="margin-top:8px;">Áudios de demonstração — aparecem no site público.</p>
         <?php else: ?>
+            <div id="block-entregas-upload">
             <?php if (!empty($edit['id'])): ?>
                 <?php admin_bloco_entregas(intval($edit['id'])); ?>
             <?php else: ?>
@@ -310,6 +374,7 @@ elseif ($edit !== null):
                     <p class="muted">Salve o conteúdo primeiro para enviar <strong>arquivos de entrega</strong> (só clientes com liberação).</p>
                 </div>
             <?php endif; ?>
+            </div>
         <?php endif; ?>
 
         <div class="actions" style="margin-top:16px;">
@@ -318,6 +383,25 @@ elseif ($edit !== null):
         </div>
     </form>
 </div>
+<script>
+function toggleOrigem() {
+    var v = document.querySelector('input[name="origem_arquivos"]:checked');
+    if (!v) return;
+    var uploadBlock = document.getElementById('block-entregas-upload');
+    var ncBlock = document.getElementById('block-entregas-nc');
+    if (v.value === 'nc') {
+        if (uploadBlock) uploadBlock.style.display = 'none';
+        if (ncBlock) ncBlock.style.display = '';
+    } else {
+        if (uploadBlock) uploadBlock.style.display = '';
+        if (ncBlock) ncBlock.style.display = 'none';
+    }
+}
+document.addEventListener('change', function(e) {
+    if (e.target.name === 'origem_arquivos') toggleOrigem();
+});
+document.addEventListener('DOMContentLoaded', toggleOrigem);
+</script>
 <?php
 // ========== LISTA ==========
 else:
@@ -354,7 +438,7 @@ else:
         <?php foreach ($lista as $p): ?>
             <tr>
                 <td><?php if (!empty($p['capa'])): ?><img class="thumb" src="../<?= e($p['capa']) ?>" alt=""><?php else: ?>—<?php endif; ?></td>
-                <td><strong><?= e($p['titulo']) ?></strong><div class="muted"><?= e($p['slug']) ?></div></td>
+                <td><strong><?= e($p['titulo']) ?></strong><div class="muted"><?= e($p['slug']) ?><?= !empty($p['nc_folder']) ? ' · <span class="chip">☁️ NC</span>' : '' ?></div></td>
                 <td><?= e($tipo === 'programete' ? ($p['insercoes'] ?: '—') : ($p['duracao'] ?: '—')) ?></td>
                 <td><?= !empty($p['ativo']) ? '<span class="badge badge-ok">Ativo</span>' : '<span class="badge badge-off">Inativo</span>' ?></td>
                 <td class="actions">

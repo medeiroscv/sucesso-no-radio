@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/_layout.php';
+require_once __DIR__ . '/../includes/nextcloud.php';
 cliente_require_liberacao();
 
 $cli = cliente_atual();
 $id = intval($_GET['id'] ?? 0);
 $item = app_conteudo_by_id($id, true);
-// só área de produto (conteudo)
 if ($item && ($item['area'] ?? '') !== 'conteudo') {
     $item = null;
 }
@@ -23,6 +23,9 @@ $tipo = (string)$item['tipo'];
 $tipoLabel = $tipos[$tipo]['label'] ?? $tipo;
 $entregas = app_entregas($id, true);
 $capa = !empty($item['capa']) ? app_url(ltrim($item['capa'], '/')) : '';
+
+$usarNc = nc_configurado() && !empty($item['nc_folder']);
+$showMeta = app_setting('nc_show_meta', '1') === '1';
 
 cliente_header($item['titulo'], $tipo);
 ?>
@@ -46,8 +49,49 @@ cliente_header($item['titulo'], $tipo);
             <div style="color:var(--muted);white-space:pre-wrap;margin-bottom:18px;"><?= e($item['descricao']) ?></div>
         <?php endif; ?>
 
-        <h3 style="margin:18px 0 12px;font-size:1.15rem;">Arquivos de entrega</h3>
-        <?php if (!$entregas): ?>
+        <h3 style="margin:18px 0 12px;font-size:1.15rem;">Arquivos</h3>
+
+        <?php if ($usarNc):
+            $ncItens = nc_listar($item['nc_folder']);
+        ?>
+            <?php if (!$ncItens): ?>
+                <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>
+            <?php else: ?>
+                <div class="cliente-list">
+                    <?php foreach ($ncItens as $ent):
+                        $isAudio = nc_is_audio($ent['mimetype']);
+                        $dl = nc_download_url($ent['path']);
+                    ?>
+                        <div class="cliente-list-item cliente-list-item-static">
+                            <div style="flex:1;min-width:0;">
+                                <?php if ($isAudio): ?>
+                                    <strong>🎵 <?= e($ent['name']) ?></strong>
+                                <?php elseif (str_starts_with($ent['mimetype'], 'image/')): ?>
+                                    <strong>🖼️ <?= e($ent['name']) ?></strong>
+                                <?php elseif ($ent['mimetype'] === 'application/pdf'): ?>
+                                    <strong>📄 <?= e($ent['name']) ?></strong>
+                                <?php else: ?>
+                                    <strong>📎 <?= e($ent['name']) ?></strong>
+                                <?php endif; ?>
+                                <?php if ($showMeta): ?>
+                                <div class="muted" style="font-size:.82rem;margin-top:2px;">
+                                    <?= e($ent['size_fmt']) ?> · <?= e($ent['mtime']) ?>
+                                </div>
+                                <?php endif; ?>
+                                <?php if ($isAudio): ?>
+                                    <audio controls preload="none" style="width:100%;margin-top:8px;max-width:520px;">
+                                        <source src="<?= e($dl) ?>" type="audio/mpeg">
+                                    </audio>
+                                <?php endif; ?>
+                            </div>
+                            <div class="cliente-list-meta">
+                                <a class="btn btn-primary btn-small" href="<?= e($dl) ?>"<?= $isAudio ? '' : ' download' ?>>Baixar</a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        <?php elseif (!$entregas): ?>
             <div class="empty" style="padding:24px;">Nenhum arquivo de entrega publicado ainda para este conteúdo.</div>
         <?php else: ?>
             <div class="cliente-list">

@@ -12,15 +12,15 @@ if (!isset($tipos[$tipo])) {
 }
 $meta = $tipos[$tipo];
 
-$usarNc = nc_configurado() && cliente_pode_acessar_tipo($tipo, $cli);
-$ncItens = [];
-if ($usarNc) {
-    $ncPath = trim((string)($_GET['nc'] ?? ''));
-    $ncItens = nc_listar($ncPath);
-}
-
 $temAcesso = cliente_pode_acessar_tipo($tipo, $cli);
-$showMeta = app_setting('nc_show_meta', '1') === '1';
+$ncOk = nc_configurado();
+$pdo = app_pdo();
+$lista = [];
+if ($tipo !== '') {
+    $st = $pdo->prepare('SELECT * FROM conteudos WHERE tipo = ? AND area = ? ORDER BY ordem ASC, id DESC');
+    $st->execute([$tipo, 'conteudo']);
+    $lista = $st->fetchAll() ?: [];
+}
 
 cliente_header($meta['label'], $tipo);
 ?>
@@ -43,75 +43,17 @@ cliente_header($meta['label'], $tipo);
     <?php endforeach; ?>
 </div>
 
-<?php if ($usarNc): ?>
-    <div class="nc-browser">
-        <?php if (isset($_GET['nc'])): ?>
-            <p class="muted" style="margin-bottom:8px;font-size:.85rem;">Pasta: <code><?= e($ncPath) ?></code></p>
-            <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
-                <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>">← Raiz</a>
-                <?php
-                $parent = dirname($ncPath);
-                if ($parent !== '.' && $parent !== $ncPath):
-                ?>
-                    <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc=' . rawurlencode($parent))) ?>">← Pasta anterior</a>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
-        <?php if (!$ncItens): ?>
-            <div class="empty">Pasta vazia.</div>
-        <?php else: ?>
-            <div class="cliente-list">
-                <?php foreach ($ncItens as $item): ?>
-                    <?php if ($item['type'] === 'folder'): ?>
-                        <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc=' . rawurlencode($item['path']))) ?>">
-                            <div>
-                                <strong>📁 <?= e($item['name']) ?></strong>
-                                <div class="muted" style="font-size:.82rem;margin-top:2px;">Pasta</div>
-                            </div>
-                            <div class="cliente-list-meta">
-                                <span class="chip"><?= e($item['mtime']) ?></span>
-                                <span class="btn btn-ghost btn-small">Abrir</span>
-                            </div>
-                        </a>
-                    <?php else: ?>
-                        <div class="cliente-list-item cliente-list-item-static">
-                            <div style="flex:1;min-width:0;">
-                                <?php if (nc_is_audio($item['mimetype'])): ?>
-                                    <strong>🎵 <?= e($item['name']) ?></strong>
-                                <?php elseif (str_starts_with($item['mimetype'], 'image/')): ?>
-                                    <strong>🖼️ <?= e($item['name']) ?></strong>
-                                <?php elseif ($item['mimetype'] === 'application/pdf'): ?>
-                                    <strong>📄 <?= e($item['name']) ?></strong>
-                                <?php else: ?>
-                                    <strong>📎 <?= e($item['name']) ?></strong>
-                                <?php endif; ?>
-                                <?php if ($showMeta): ?>
-                                <div class="muted" style="font-size:.82rem;margin-top:2px;">
-                                    <?= e($item['size_fmt']) ?> · <?= e($item['mtime']) ?>
-                                </div>
-                                <?php endif; ?>
-                                <?php if (nc_is_audio($item['mimetype'])): ?>
-                                    <audio controls preload="none" style="width:100%;margin-top:8px;max-width:480px;">
-                                        <source src="<?= e(nc_download_url($item['path'])) ?>" type="audio/mpeg">
-                                    </audio>
-                                <?php endif; ?>
-                            </div>
-                            <div class="cliente-list-meta" style="align-self:center;">
-                                <a class="btn btn-primary btn-small" href="<?= e(nc_download_url($item['path'])) ?>"<?= nc_is_audio($item['mimetype']) ? '' : ' download' ?>>Download</a>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-    </div>
-<?php elseif (!$lista): ?>
+<?php if (!$lista): ?>
     <div class="empty">Nenhum item cadastrado nesta categoria ainda.</div>
 <?php else: ?>
     <div class="grid-cards">
         <?php foreach ($lista as $p):
             $capa = $p['capa'] ? app_url(ltrim($p['capa'], '/')) : '';
-            $nEnt = $temAcesso ? count(app_entregas(intval($p['id']), true)) : 0;
+            $usaNc = $ncOk && !empty($p['nc_folder']);
+            $nEnt = 0;
+            if ($temAcesso) {
+                $nEnt = $usaNc ? 0 : count(app_entregas(intval($p['id']), true));
+            }
         ?>
             <article class="card" style="<?= $temAcesso ? '' : 'opacity:.92;' ?>">
                 <?php if ($capa): ?>
@@ -127,7 +69,11 @@ cliente_header($meta['label'], $tipo);
                         <?php if (!empty($p['dias'])): ?><span class="chip"><?= e($p['dias']) ?></span><?php endif; ?>
                         <?php if (!empty($p['insercoes'])): ?><span class="chip"><?= e($p['insercoes']) ?></span><?php endif; ?>
                         <?php if ($temAcesso): ?>
-                            <span class="chip chip-soft"><?= $nEnt ?> arquivo(s)</span>
+                            <?php if ($usaNc): ?>
+                                <span class="chip chip-soft">☁️ Nextcloud</span>
+                            <?php else: ?>
+                                <span class="chip chip-soft"><?= $nEnt ?> arquivo(s)</span>
+                            <?php endif; ?>
                         <?php else: ?>
                             <span class="chip chip-soft">Somente nome</span>
                         <?php endif; ?>
