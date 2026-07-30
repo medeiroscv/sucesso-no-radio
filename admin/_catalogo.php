@@ -307,12 +307,12 @@ elseif ($edit !== null):
             <label>Origem dos arquivos de entrega</label>
             <p class="muted" style="margin:4px 0 8px;">Escolha de onde virão os arquivos para os clientes.</p>
             <div style="display:flex;gap:20px;margin-bottom:10px;">
-                <label><input type="radio" name="origem_arquivos" value="upload" <?= (empty($edit['nc_folder']) && ($_POST['origem_arquivos'] ?? '') !== 'nc') ? 'checked' : '' ?>> Upload manual</label>
-                <label><input type="radio" name="origem_arquivos" value="nc" <?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc') ? 'checked' : '' ?>> Pasta do Nextcloud</label>
+                <label><input type="radio" name="origem_arquivos" value="upload" <?= (empty($edit['nc_folder']) && ($_POST['origem_arquivos'] ?? '') !== 'nc' && empty($_GET['nc_browse'])) ? 'checked' : '' ?>> Upload manual</label>
+                <label><input type="radio" name="origem_arquivos" value="nc" <?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse'])) ? 'checked' : '' ?>> Pasta do Nextcloud</label>
             </div>
             <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
 
-            <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc') ? '' : 'none' ?>">
+            <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse'])) ? '' : 'none' ?>">
             <?php if (nc_configurado()):
                 $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
                 if ($ncBrowse !== ''):
