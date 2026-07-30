@@ -17,10 +17,16 @@ $ncOk = nc_configurado();
 $pdo = app_pdo();
 $lista = [];
 if ($tipo !== '') {
-    $st = $pdo->prepare('SELECT * FROM conteudos WHERE tipo = ? AND area = ? ORDER BY ordem ASC, id DESC');
-    $st->execute([$tipo, 'conteudo']);
+    $st = $pdo->prepare('SELECT * FROM conteudos WHERE tipo = ? ORDER BY ordem ASC, id DESC');
+    $st->execute([$tipo]);
     $lista = $st->fetchAll() ?: [];
 }
+
+// Redireciona direto para a pasta NC se houver exatamente 1 item vinculado
+if (count($lista) === 1 && !empty($lista[0]['nc_folder']) && $ncOk):
+    header('Location: ' . app_url('cliente/conteudo.php?id=' . intval($lista[0]['id'])));
+    exit;
+endif;
 
 cliente_header($meta['label'], $tipo);
 ?>
@@ -45,15 +51,25 @@ cliente_header($meta['label'], $tipo);
 
 <?php if (!$lista): ?>
     <div class="empty">Nenhum item cadastrado nesta categoria ainda.</div>
+<?php elseif ($temAcesso && $ncOk):
+    // Lista simplificada (sem cards) — cada item com nc_folder vira um link direto
+    $comNc = array_filter($lista, fn($p) => !empty($p['nc_folder']));
+    if (!$comNc): ?>
+        <div class="empty" style="padding:24px;">Nenhum arquivo disponível.</div>
+    <?php else: ?>
+        <div class="cliente-list">
+            <?php foreach ($comNc as $p): ?>
+                <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($p['id']))) ?>">
+                    <div><strong>📁 <?= e($p['titulo']) ?></strong><div class="muted" style="font-size:.82rem;margin-top:2px;"><?= e($p['nc_folder']) ?></div></div>
+                    <div class="cliente-list-meta"><span class="btn btn-primary btn-small">Acessar</span></div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 <?php else: ?>
     <div class="grid-cards">
         <?php foreach ($lista as $p):
             $capa = $p['capa'] ? app_url(ltrim($p['capa'], '/')) : '';
-            $usaNc = $ncOk && !empty($p['nc_folder']);
-            $nEnt = 0;
-            if ($temAcesso) {
-                $nEnt = $usaNc ? 0 : count(app_entregas(intval($p['id']), true));
-            }
         ?>
             <article class="card" style="<?= $temAcesso ? '' : 'opacity:.92;' ?>">
                 <?php if ($capa): ?>
@@ -68,15 +84,6 @@ cliente_header($meta['label'], $tipo);
                         <?php if (!empty($p['blocos'])): ?><span class="chip"><?= e($p['blocos']) ?></span><?php endif; ?>
                         <?php if (!empty($p['dias'])): ?><span class="chip"><?= e($p['dias']) ?></span><?php endif; ?>
                         <?php if (!empty($p['insercoes'])): ?><span class="chip"><?= e($p['insercoes']) ?></span><?php endif; ?>
-                        <?php if ($temAcesso): ?>
-                            <?php if ($usaNc): ?>
-                                <span class="chip chip-soft">☁️ Nextcloud</span>
-                            <?php else: ?>
-                                <span class="chip chip-soft"><?= $nEnt ?> arquivo(s)</span>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            <span class="chip chip-soft">Somente nome</span>
-                        <?php endif; ?>
                     </div>
                     <?php if ($temAcesso): ?>
                         <p class="card-desc"><?= e($p['resumo'] ?: mb_strimwidth(strip_tags($p['descricao'] ?? ''), 0, 140, '…')) ?></p>
