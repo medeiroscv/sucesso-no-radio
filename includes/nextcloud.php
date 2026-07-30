@@ -56,33 +56,33 @@ function nc_listar(string $path = ''): array {
     if ($code < 200 || $code >= 400) return [];
     if (!$xml) return [];
 
-    $xml = preg_replace('/(xmlns\s*=\s*"[^"]+")/', '', $xml);
-    $xml = preg_replace('/<(\\/?)[a-z]+:/i', '<$1', $xml);
-
-    $sxml = @simplexml_load_string($xml);
-    if (!$sxml) return [];
-
     $base = nc_base_webdav();
     $baseUrl = rtrim($base, '/') . '/';
 
     $itens = [];
-    foreach ($sxml->response ?? [] as $resp) {
-        $href = (string)$resp->href;
+    $blocos = preg_split('/<(?:d:)?response\s*>/i', $xml);
+    array_shift($blocos);
+
+    foreach ($blocos as $bloco) {
+        $end = strrpos($bloco, '</d:response>');
+        if ($end === false) $end = strrpos($bloco, '</response>');
+        if ($end === false) continue;
+        $bloco = substr($bloco, 0, $end);
+        if ($bloco === '') continue;
+
+        preg_match('/<(?:d:)?href[^>]*>(.*?)<\/(?:d:)?href>/is', $bloco, $m);
+        $href = trim($m[1] ?? '');
         if ($href === '') continue;
 
         $href = rawurldecode($href);
-
         $relPath = '';
-        $pos = strpos($href, $baseUrl);
-        if ($pos !== false) {
-            $relPath = substr($href, $pos + strlen($baseUrl));
+
+        $p = strpos($href, $baseUrl);
+        if ($p !== false) {
+            $relPath = substr($href, $p + strlen($baseUrl));
         } else {
-            $pos2 = strpos($href, '/remote.php/');
-            if ($pos2 !== false) {
-                $after = substr($href, $pos2 + 12);
-                $after = preg_replace('#^[^/]+/[^/]+/#', '', $after);
-                $relPath = $after;
-            }
+            preg_match('#/remote\.php/dav/files/[^/]+/(.*)$#', $href, $m2);
+            if (!empty($m2[1])) $relPath = $m2[1];
         }
 
         $relPath = rtrim($relPath, '/');
@@ -91,7 +91,7 @@ function nc_listar(string $path = ''): array {
         $name = basename($relPath);
         if ($name === '') continue;
 
-        $isCollection = !empty($resp->propstat->prop->resourcetype->collection);
+        $isCollection = preg_match('/<(?:d:)?collection\s*\/>/i', $bloco) === 1;
 
         $item = [
             'name' => $name,
@@ -104,15 +104,19 @@ function nc_listar(string $path = ''): array {
         ];
 
         if (!$isCollection) {
-            $size = (int)$resp->propstat->prop->getcontentlength;
+            preg_match('/<(?:d:)?getcontentlength[^>]*>(.*?)<\/(?:d:)?getcontentlength>/is', $bloco, $ms);
+            $size = (int)($ms[1] ?? 0);
             $item['size'] = $size;
-            $item['mimetype'] = (string)$resp->propstat->prop->getcontenttype;
             $item['size_fmt'] = $size > 1048576
                 ? round($size / 1048576, 1) . ' MB'
                 : ($size > 1024 ? round($size / 1024, 1) . ' KB' : $size . ' B');
+
+            preg_match('/<(?:d:)?getcontenttype[^>]*>(.*?)<\/(?:d:)?getcontenttype>/is', $bloco, $mm);
+            $item['mimetype'] = (string)($mm[1] ?? '');
         }
 
-        $mtime = (string)$resp->propstat->prop->getlastmodified;
+        preg_match('/<(?:d:)?getlastmodified[^>]*>(.*?)<\/(?:d:)?getlastmodified>/is', $bloco, $mt);
+        $mtime = (string)($mt[1] ?? '');
         if ($mtime !== '') {
             $item['mtime'] = date('d/m/Y H:i', strtotime($mtime));
         }
