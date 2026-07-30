@@ -143,6 +143,10 @@ if (isset($_GET['id']) || isset($_GET['novo'])) {
         $edit = $st->fetch() ?: null;
         if ($edit) {
             $tipo = (string)$edit['tipo'];
+            // nc_folder_set sobrescreve temporariamente (sem salvar no DB)
+            if (!empty($_GET['nc_folder_set'])) {
+                $edit['nc_folder'] = trim((string)($_GET['nc_folder_set']));
+            }
         }
     } else {
         $tipoNovo = ($tipo !== '' && isset($tipos[$tipo])) ? $tipo : (array_key_first($tipos) ?: 'diario');
@@ -307,12 +311,12 @@ elseif ($edit !== null):
             <label>Origem dos arquivos de entrega</label>
             <p class="muted" style="margin:4px 0 8px;">Escolha de onde virão os arquivos para os clientes.</p>
             <div style="display:flex;gap:20px;margin-bottom:10px;">
-                <label><input type="radio" name="origem_arquivos" value="upload" <?= (empty($edit['nc_folder']) && ($_POST['origem_arquivos'] ?? '') !== 'nc' && empty($_GET['nc_browse'])) ? 'checked' : '' ?>> Upload manual</label>
-                <label><input type="radio" name="origem_arquivos" value="nc" <?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse'])) ? 'checked' : '' ?>> Pasta do Nextcloud</label>
+                <label><input type="radio" name="origem_arquivos" value="upload" <?= (empty($edit['nc_folder']) && ($_POST['origem_arquivos'] ?? '') !== 'nc' && empty($_GET['nc_browse']) && empty($_GET['nc_folder_set'])) ? 'checked' : '' ?>> Upload manual</label>
+                <label><input type="radio" name="origem_arquivos" value="nc" <?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse']) || !empty($_GET['nc_folder_set'])) ? 'checked' : '' ?>> Pasta do Nextcloud</label>
             </div>
             <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
 
-            <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse'])) ? '' : 'none' ?>">
+            <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse']) || !empty($_GET['nc_folder_set'])) ? '' : 'none' ?>">
             <?php if (nc_configurado()):
                 $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
                 if ($ncBrowse !== ''):
@@ -339,8 +343,7 @@ elseif ($edit !== null):
                                         <span>📁 <?= e($item['name']) ?></span>
                                         <span style="flex:1;"></span>
                                         <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($item['path']) ?>">Abrir</a>
-                                        <a class="btn btn-primary btn-small" href="#"
-                                           onclick="var p=this.getAttribute('data-path');document.getElementById('nc_folder').value=p;document.getElementById('nc_selected_path').textContent=p;return false;" data-path="<?= e($item['path']) ?>">Selecionar</a>
+                                        <a class="btn btn-primary btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_folder_set=<?= rawurlencode($item['path']) ?>">Selecionar</a>
                                     </div>
                                 <?php endif; ?>
                             <?php endforeach; ?>
