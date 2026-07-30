@@ -142,3 +142,8 @@ function nc_categoria_com_pasta(string $tipo): string {
         return '';
     }
 }
+
+function nc_configurado(): bool {
+    $cfg = nc_config();
+    return $cfg['server'] !== '' && $cfg['user'] !== '' && $cfg['pass'] !== '';
+}

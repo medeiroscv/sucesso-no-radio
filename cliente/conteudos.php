@@ -11,19 +11,15 @@ if (!isset($tipos[$tipo])) {
     $tipo = 'diario';
 }
 $meta = $tipos[$tipo];
-$temAcesso = cliente_pode_acessar_tipo($tipo, $cli);
 
-$ncPasta = nc_categoria_com_pasta($tipo);
+$usarNc = nc_configurado() && cliente_pode_acessar_tipo($tipo, $cli);
 $ncItens = [];
-if ($ncPasta !== '') {
-    $sub = trim((string)($_GET['nc'] ?? ''));
-    $ncPath = $sub !== '' ? $ncPasta . '/' . $sub : $ncPasta;
-    $ncParent = $sub !== '' ? dirname($ncPath) : '';
-    if ($ncParent === $ncPasta) $ncParent = $ncPasta;
-    if ($temAcesso) {
-        $ncItens = nc_listar($ncPath);
-    }
+if ($usarNc) {
+    $ncPath = trim((string)($_GET['nc'] ?? ''));
+    $ncItens = nc_listar($ncPath);
 }
+
+$temAcesso = cliente_pode_acessar_tipo($tipo, $cli);
 
 cliente_header($meta['label'], $tipo);
 ?>
@@ -31,7 +27,7 @@ cliente_header($meta['label'], $tipo);
     <?= e($meta['desc']) ?>
     <?php if (!$temAcesso): ?>
         <br><span class="chip" style="margin-top:8px;display:inline-block;background:rgba(251,191,36,.15);color:#fbbf24;border-color:rgba(251,191,36,.35);">
-            Categoria sem liberacao — voce ve os nomes, mas nao os arquivos
+            Categoria sem liberação — você vê os nomes, mas não os arquivos
         </span>
     <?php endif; ?>
 </p>
@@ -46,13 +42,13 @@ cliente_header($meta['label'], $tipo);
     <?php endforeach; ?>
 </div>
 
-<?php if ($ncPasta !== ''): ?>
+<?php if ($usarNc): ?>
     <div class="nc-browser">
         <?php if (isset($_GET['nc'])): ?>
             <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>" style="margin-bottom:12px;display:inline-flex;">← Voltar</a>
         <?php endif; ?>
         <?php if (!$ncItens): ?>
-            <div class="empty">Pasta vazia ou inacessivel no Nextcloud.</div>
+            <div class="empty">Pasta vazia.</div>
         <?php else: ?>
             <div class="cliente-list">
                 <?php foreach ($ncItens as $item): ?>
@@ -130,7 +126,7 @@ cliente_header($meta['label'], $tipo);
                             <a class="btn btn-primary btn-small" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($p['id']))) ?>">Acessar</a>
                         </div>
                     <?php else: ?>
-                        <p class="card-desc muted">Conteudo bloqueado. Solicite a liberacao desta categoria a equipe.</p>
+                        <p class="card-desc muted">Conteúdo bloqueado. Solicite a liberação desta categoria à equipe.</p>
                         <div class="card-actions">
                             <span class="btn btn-ghost btn-small" style="opacity:.6;cursor:not-allowed;">Bloqueado</span>
                         </div>

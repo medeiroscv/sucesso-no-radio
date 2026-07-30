@@ -6,7 +6,6 @@ $pdo = app_pdo();
 $err = '';
 $ok = '';
 
-// ---- POST ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim((string)($_POST['action'] ?? ''));
     if ($action === 'test') {
@@ -25,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (trim((string)($_POST['nc_keep_pass'] ?? '')) === '') {
             app_setting_set('nc_pass', '');
         }
-        $ok = 'Configuracoes Nextcloud salvas.';
+        $ok = 'Configurações Nextcloud salvas.';
     }
 }
 
@@ -35,17 +34,19 @@ $vals = [
     'nc_pass' => app_setting('nc_pass'),
 ];
 
+$ncOk = $vals['nc_server'] && $vals['nc_user'] && $vals['nc_pass'];
+
+$ncPath = trim((string)($_GET['nc'] ?? ''));
+$ncItens = $ncOk ? nc_listar($ncPath) : [];
+
 admin_header('Nextcloud', 'nextcloud');
 ?>
-<div class="actions" style="margin-bottom:12px;">
-    <a class="btn btn-secondary btn-small" href="categorias.php">Gerenciar categorias</a>
-</div>
 <div class="card">
     <form method="post">
         <h3 style="margin-bottom:14px;">Conexão Nextcloud</h3>
         <p class="muted" style="margin-bottom:16px;">
-            Configure o servidor Nextcloud para vincular pastas às categorias de conteúdo.
-            Os arquivos serão listados diretamente na área do cliente.
+            Configure o servidor Nextcloud. Tudo que estiver na raiz do usuário será exibido
+            automaticamente na área do cliente.
         </p>
         <div class="field"><label>URL do servidor</label><input name="nc_server" value="<?= e($vals['nc_server']) ?>" placeholder="https://nextcloud.meudominio.com" style="width:100%;max-width:450px;"></div>
         <div class="field-row">
@@ -62,29 +63,35 @@ admin_header('Nextcloud', 'nextcloud');
     </form>
 </div>
 
-<?php if ($vals['nc_server'] && $vals['nc_user'] && $vals['nc_pass']): ?>
+<?php if ($ncOk): ?>
 <div class="card" style="margin-top:18px;">
-    <h3 style="margin-bottom:10px;">Pastas das categorias</h3>
+    <h3 style="margin-bottom:10px;">Arquivos no Nextcloud</h3>
     <p class="muted" style="margin-bottom:14px;">
-        Edite cada <a href="categorias.php">categoria</a> e preencha o campo "Pasta Nextcloud"
-        com o caminho da pasta dentro do Nextcloud (ex.: <code>Conteudos/Noticiarios</code>).
-        O cliente verá o conteúdo dessa pasta ao acessar a categoria.
+        Esta é a raiz do seu Nextcloud. Tudo aqui será exibido para os clientes na área de Conteúdos.
+        <?php if ($ncPath): ?>
+            <br><a class="btn btn-ghost btn-small" href="nextcloud.php" style="margin-top:6px;">← Raiz</a>
+        <?php endif; ?>
     </p>
-    <table>
-        <thead><tr><th>Categoria</th><th>Pasta Nextcloud</th><th></th></tr></thead>
-        <tbody>
-        <?php
-        $cats = $pdo->query("SELECT id, nome, tipo, nc_pasta FROM categorias ORDER BY ordem, nome")->fetchAll();
-        foreach ($cats as $cat):
-        ?>
-            <tr>
-                <td><strong><?= e($cat['nome']) ?></strong> <span class="muted">(<?= e($cat['tipo']) ?>)</span></td>
-                <td><?= $cat['nc_pasta'] ? '<code>' . e($cat['nc_pasta']) . '</code>' : '<span class="muted">—</span>' ?></td>
-                <td><a class="btn btn-secondary btn-small" href="categorias.php?id=<?= intval($cat['id']) ?>">Editar</a></td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    <?php if (!$ncItens): ?>
+        <div class="empty">Pasta vazia ou sem arquivos.</div>
+    <?php else: ?>
+        <div style="display:grid;gap:4px;">
+            <?php foreach ($ncItens as $item): ?>
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:<?= $item['type'] === 'folder' ? 'rgba(34,197,94,.06)' : 'transparent' ?>;border:1px solid var(--line);">
+                    <span style="font-size:1.2rem;"><?= $item['type'] === 'folder' ? '📁' : (str_starts_with($item['mimetype'] ?? '', 'audio/') ? '🎵' : '📄') ?></span>
+                    <span style="flex:1;">
+                        <?php if ($item['type'] === 'folder'): ?>
+                            <a href="nextcloud.php?nc=<?= rawurlencode($item['path']) ?>" style="color:var(--text);text-decoration:none;"><strong><?= e($item['name']) ?></strong></a>
+                        <?php else: ?>
+                            <strong><?= e($item['name']) ?></strong>
+                        <?php endif; ?>
+                    </span>
+                    <span class="muted" style="font-size:.82rem;"><?= e($item['size_fmt']) ?></span>
+                    <span class="muted" style="font-size:.78rem;"><?= e($item['mtime']) ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 <?php admin_footer(); ?>
