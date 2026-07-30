@@ -56,25 +56,14 @@ cliente_header($meta['label'], $tipo);
     <?php endif; ?>
 </p>
 
-<div class="actions">
-    <?php if ($browsingNc): ?>
-        <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>">← <?= e($meta['label']) ?></a>
-        <?php if ($ncRel !== ''): ?>
-            <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId)) ?>">← Raiz</a>
-            <?php $parent = dirname($ncRel); if ($parent !== '.' && $parent !== $ncRel): ?>
-                <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId . '&nc_path=' . rawurlencode($parent))) ?>">← Pasta anterior</a>
-            <?php endif; ?>
-        <?php endif; ?>
-    <?php else: ?>
-        <?php foreach ($tipos as $key => $m):
-            $okTipo = cliente_pode_acessar_tipo($key, $cli);
-        ?>
-            <a class="btn btn-small <?= $key === $tipo ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($key))) ?>">
-                <?= $m['icon'] ?> <?= e($m['label']) ?><?= $okTipo ? '' : ' 🔒' ?>
-            </a>
-        <?php endforeach; ?>
+<?php if ($browsingNc && $ncRel !== ''): ?>
+<div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap;">
+    <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId)) ?>">← Raiz</a>
+    <?php $parent = dirname($ncRel); if ($parent !== '.' && $parent !== $ncRel): ?>
+        <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId . '&nc_path=' . rawurlencode($parent))) ?>">← Pasta anterior</a>
     <?php endif; ?>
 </div>
+<?php endif; ?>
 
 <?php if (!$lista): ?>
     <div class="empty">Nenhum item cadastrado nesta categoria ainda.</div>
