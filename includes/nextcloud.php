@@ -19,7 +19,7 @@ function nc_curl_init(string $path, string $method = 'PROPFIND') {
     if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) return null;
     $base = nc_base_webdav();
     $path = ltrim($path, '/');
-    $parts = explode('/', $path);
+    $parts = $path !== '' ? explode('/', $path) : [];
     $parts = array_map('rawurlencode', $parts);
     $pathEnc = implode('/', $parts);
     $url = $pathEnc !== '' ? $base . '/' . $pathEnc . '/' : $base . '/';
@@ -55,9 +55,7 @@ function nc_listar(string $path = ''): array {
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
     curl_close($ch);
-    if ($err) return [];
-    if ($code < 200 || $code >= 400) return [];
-    if (!$xml) return [];
+    if ($err || $code < 200 || $code >= 400 || !$xml) return [];
 
     $base = nc_base_webdav();
     $baseUrl = rtrim($base, '/') . '/';
@@ -78,8 +76,8 @@ function nc_listar(string $path = ''): array {
         if ($href === '') continue;
 
         $href = rawurldecode($href);
-        $relPath = '';
 
+        $relPath = '';
         $p = strpos($href, $baseUrl);
         if ($p !== false) {
             $relPath = substr($href, $p + strlen($baseUrl));
@@ -92,7 +90,13 @@ function nc_listar(string $path = ''): array {
         if ($relPath === '') continue;
 
         $name = basename($relPath);
-        if ($name === '') continue;
+        if ($name === '' || $name === '.') continue;
+
+        // Skip the current folder itself (PROPFIND returns it as first entry)
+        if ($path !== '' && ($relPath === $path || $name === basename($path))) continue;
+
+        // Skip entries whose path doesn't start with the requested folder
+        if ($path !== '' && !str_starts_with($relPath, $path . '/')) continue;
 
         $isCollection = preg_match('/<(?:d:)?collection\s*\/>/i', $bloco) === 1;
 
