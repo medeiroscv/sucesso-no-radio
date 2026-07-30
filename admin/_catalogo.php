@@ -302,17 +302,19 @@ elseif ($edit !== null):
             <div class="field"><label><input type="checkbox" name="destaque" value="1" <?= !empty($edit['destaque']) ? 'checked' : '' ?>> Destaque</label></div>
         </div>
 
-        <?php if (!$isDemo && nc_configurado()): ?>
-        <div id="block-entregas-nc" class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+        <?php if (!$isDemo && $areaMeta['active'] === 'conteudo'): ?>
+        <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
             <label>Origem dos arquivos de entrega</label>
             <p class="muted" style="margin:4px 0 8px;">Escolha de onde virão os arquivos para os clientes.</p>
             <div style="display:flex;gap:20px;margin-bottom:10px;">
-                <label><input type="radio" name="origem_arquivos" value="upload" <?= empty($edit['nc_folder']) ? 'checked' : '' ?>> Upload manual</label>
-                <label><input type="radio" name="origem_arquivos" value="nc" <?= !empty($edit['nc_folder']) ? 'checked' : '' ?>> Pasta do Nextcloud</label>
+                <label><input type="radio" name="origem_arquivos" value="upload" <?= (empty($edit['nc_folder']) && ($_POST['origem_arquivos'] ?? '') !== 'nc') ? 'checked' : '' ?>> Upload manual</label>
+                <label><input type="radio" name="origem_arquivos" value="nc" <?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc') ? 'checked' : '' ?><?= nc_configurado() ? '' : ' disabled' ?>> Pasta do Nextcloud<?= nc_configurado() ? '' : ' (Configure o Nextcloud primeiro)' ?></label>
             </div>
             <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
 
-            <?php if (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc'): ?>
+            <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc') ? '' : 'none' ?>">
+            <?php if (nc_configurado()):
+                if (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc'): ?>
                 <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;">
                     <p style="margin-bottom:8px;">
                         Pasta selecionada: <strong id="nc_selected_path"><?= e($edit['nc_folder'] ?: 'Nenhuma') ?></strong>
@@ -321,13 +323,11 @@ elseif ($edit !== null):
                         <?php endif; ?>
                     </p>
                 </div>
-            <?php endif; ?>
+                <?php endif;
 
-            <?php
-            $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
-            if ($ncBrowse !== ''):
-                $ncPath = $ncBrowse;
-            ?>
+                $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
+                if ($ncBrowse !== ''):
+                    $ncPath = $ncBrowse; ?>
                 <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:10px;max-height:400px;overflow-y:auto;">
                     <p class="muted" style="margin-bottom:8px;font-size:.85rem;">Navegando: <code><?= e($ncPath ?: 'Raiz') ?></code></p>
                     <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
@@ -358,9 +358,11 @@ elseif ($edit !== null):
                         </div>
                     <?php endif; ?>
                 </div>
-            <?php endif; ?>
+                <?php endif; // nc_browse
+            endif; // nc_configurado ?>
+            </div>
         </div>
-        <?php endif; ?>
+        <?php endif; // !$isDemo && conteudo ?>
 
         <?php if ($isDemo): ?>
             <?php admin_bloco_demonstrativos('conteudo', intval($edit['id'] ?? 0)); ?>
@@ -389,13 +391,8 @@ function toggleOrigem() {
     if (!v) return;
     var uploadBlock = document.getElementById('block-entregas-upload');
     var ncBlock = document.getElementById('block-entregas-nc');
-    if (v.value === 'nc') {
-        if (uploadBlock) uploadBlock.style.display = 'none';
-        if (ncBlock) ncBlock.style.display = '';
-    } else {
-        if (uploadBlock) uploadBlock.style.display = '';
-        if (ncBlock) ncBlock.style.display = 'none';
-    }
+    if (ncBlock) ncBlock.style.display = v.value === 'nc' ? '' : 'none';
+    if (uploadBlock) uploadBlock.style.display = v.value === 'upload' ? '' : 'none';
 }
 document.addEventListener('change', function(e) {
     if (e.target.name === 'origem_arquivos') toggleOrigem();
