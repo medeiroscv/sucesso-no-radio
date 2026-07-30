@@ -149,8 +149,8 @@ if ($atraso):
         <span style="font-size:.78rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;"><?= e($m['label']) ?></span>
     </div>
     <p style="font-size:1.35rem;font-weight:800;margin:8px 0;"><?= e(app_money_br(intval($ver['valor_centavos']))) ?></p>
-    <p class="muted">Vencimento da fatura: <?= e(date('d/m/Y', strtotime($ver['vencimento']))) ?>
-        <?php if (!empty($ver['pago_em'])): ?> · Pago em <?= e(date('d/m/Y H:i', strtotime($ver['pago_em']))) ?><?php endif; ?>
+    <p class="muted">Vencimento da fatura: <?= e(app_fmt_date($ver['vencimento'])) ?>
+        <?php if (!empty($ver['pago_em'])): ?> · Pago em <?= e(app_fmt_date($ver['pago_em'])) ?><?php endif; ?>
     </p>
     <?php if ($podePagar && (string)$ver['vencimento'] < date('Y-m-d')): ?>
         <p class="muted" style="margin-top:6px;font-size:.85rem;color:#fbbf24;">
@@ -245,7 +245,7 @@ if ($atraso):
                 <div>
                     <strong><?= e($f['descricao'] ?: 'Fatura') ?></strong>
                     <div class="muted" style="font-size:.88rem;margin-top:4px;">
-                        Venc. <?= e(date('d/m/Y', strtotime($f['vencimento']))) ?>
+                        Venc. <?= e(app_fmt_date($f['vencimento'])) ?>
                         <?= $temMeio ? ' · Pix/boleto prontos' : ' · gerar meios ao abrir' ?>
                     </div>
                 </div>
@@ -280,7 +280,7 @@ if ($atraso):
                 <a class="cliente-list-item" href="<?= e(app_url('cliente/financeiro.php?id=' . intval($f['id']))) ?>">
                     <div>
                         <strong><?= e($f['descricao'] ?: 'Fatura #' . $f['id']) ?></strong>
-                        <div class="muted" style="font-size:.85rem;margin-top:4px;">Venc. <?= e(date('d/m/Y', strtotime($f['vencimento']))) ?></div>
+                        <div class="muted" style="font-size:.85rem;margin-top:4px;">Venc. <?= e(app_fmt_date($f['vencimento'])) ?></div>
                     </div>
                     <div class="cliente-list-meta">
                         <span><?= e(app_money_br(intval($f['valor_centavos']))) ?></span>

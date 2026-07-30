@@ -52,7 +52,7 @@ cliente_header($item['titulo'], $tipo);
         <?php else: ?>
             <div class="cliente-list">
                 <?php foreach ($entregas as $ent):
-                    $data = $ent['data_ref'] ?: substr((string)$ent['created_at'], 0, 10);
+                    $data = $ent['data_ref'] ? app_fmt_date($ent['data_ref']) : app_fmt_date($ent['created_at']);
                     $dl = app_url('cliente/download.php?id=' . intval($ent['id']));
                 ?>
                     <div class="cliente-list-item cliente-list-item-static">

@@ -622,7 +622,7 @@ function app_update_hub_status(): string {
     $short = $local['short'] !== '' ? $local['short'] : '—';
     $meta = app_update_meta_read();
     if (!empty($meta['last_apply_ok']) && !empty($meta['last_apply_at'])) {
-        $when = date('d/m H:i', strtotime((string)$meta['last_apply_at']));
+        $when = app_fmt_date($meta['last_apply_at']);
         return 'OK · ' . $short . ' · ' . $when;
     }
     if (app_update_token_saved()) {

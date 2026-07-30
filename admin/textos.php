@@ -161,8 +161,8 @@ admin_flash($ok, $err);
         <span style="font-size:.78rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($meta['color']) ?>;background:<?= e($meta['bg']) ?>;">
             <?= e($meta['label']) ?>
         </span>
-        <span class="muted"><?= e(substr((string)$ver['created_at'], 0, 16)) ?>
-            <?php if (!empty($ver['updated_at'])): ?> · atualizado <?= e(substr((string)$ver['updated_at'], 0, 16)) ?><?php endif; ?>
+        <span class="muted"><?= e(app_fmt_date($ver['created_at'])) ?>
+            <?php if (!empty($ver['updated_at'])): ?> · atualizado <?= e(app_fmt_date($ver['updated_at'])) ?><?php endif; ?>
         </span>
     </div>
 
@@ -283,7 +283,7 @@ admin_flash($ok, $err);
             $destaque = in_array($st, ['pendente', 'corrigido'], true);
         ?>
             <tr style="<?= $destaque ? 'background:rgba(34,197,94,.06)' : '' ?>">
-                <td class="muted"><?= e(substr((string)$c['created_at'], 0, 16)) ?></td>
+                <td class="muted"><?= e(app_fmt_date($c['created_at'])) ?></td>
                 <td>
                     <span style="font-size:.72rem;font-weight:800;padding:3px 8px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;white-space:nowrap;">
                         <?= e($m['label']) ?>

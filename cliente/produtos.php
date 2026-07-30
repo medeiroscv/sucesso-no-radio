@@ -29,9 +29,9 @@ cliente_header('Meus Produtos', 'produtos');
                     <strong><?= e($p['produto_nome']) ?></strong>
                     <div class="muted" style="font-size:.88rem;margin-top:4px;">
                         <?php if ($qtd > 0): ?>
-                            <?= $qtd ?> arquivo(s) disponível(is) · liberado em <?= e(substr((string)($p['liberado_em'] ?? ''), 0, 10)) ?>
+                            <?= $qtd ?> arquivo(s) disponível(is) · liberado em <?= e(app_fmt_date($p['liberado_em'] ?? null)) ?>
                         <?php else: ?>
-                            Aguardando arquivos de entrega · liberado em <?= e(substr((string)($p['liberado_em'] ?? ''), 0, 10)) ?>
+                            Aguardando arquivos de entrega · liberado em <?= e(app_fmt_date($p['liberado_em'] ?? null)) ?>
                         <?php endif; ?>
                     </div>
                 </div>

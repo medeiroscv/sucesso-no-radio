@@ -216,7 +216,7 @@ if ($edit !== null):
                             <div>
                                 <strong><?= e($cp['produto_nome']) ?></strong>
                                 <span class="muted" style="font-size:.85rem;margin-left:10px;">
-                                    liberado em <?= e(substr((string)($cp['liberado_em'] ?? ''), 0, 10)) ?>
+                                    liberado em <?= e(app_fmt_date($cp['liberado_em'] ?? null)) ?>
                                 </span>
                             </div>
                             <a class="btn btn-ghost btn-small" href="../cliente/produto.php?id=<?= intval($cp['produto_id']) ?>" target="_blank" rel="noopener">
@@ -283,7 +283,7 @@ if ($edit !== null):
                 <td><?= e($lib) ?></td>
                 <td><?= (int)($qtdProd[intval($c['id'])] ?? 0) ?></td>
                 <td><?= !empty($c['ativo']) ? '<span class="badge badge-ok">Ativo</span>' : '<span class="badge badge-off">Inativo</span>' ?></td>
-                <td class="muted"><?= $c['last_login'] ? e(substr((string)$c['last_login'], 0, 16)) : '—' ?></td>
+                <td class="muted"><?= e(app_fmt_date($c['last_login'])) ?></td>
                 <td class="actions">
                     <a class="btn btn-primary btn-small" href="impersonate-cliente.php?id=<?= intval($c['id']) ?>" target="_blank" rel="noopener" title="Entrar na área do cliente como este usuário">
                         Acessar como

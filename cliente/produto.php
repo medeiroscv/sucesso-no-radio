@@ -38,7 +38,7 @@ if (!$prod) {
 
 $prod = billing_produto_normalize_row($prod);
 $entregas = app_produto_entregas($id);
-$liberadoEm = substr((string)($tem['liberado_em'] ?? ''), 0, 10);
+$liberadoEm = app_fmt_date($tem['liberado_em'] ?? null);
 
 $title = 'Meu produto: ' . ($prod['nome'] ?? 'Produto');
 // Override do header — queremos título diferente

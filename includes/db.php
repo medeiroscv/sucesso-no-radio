@@ -1308,6 +1308,17 @@ function cliente_home_url(): string {
     return app_url('cliente/index.php');
 }
 
+/** Formata data no padrão brasileiro. Aceita Y-m-d, Y-m-d H:i:s ou ISO 8601. */
+function app_fmt_date(?string $data): string {
+    if (empty($data)) return '—';
+    $ts = strtotime($data);
+    if (!$ts) return '—';
+    if (strlen(trim($data)) > 10) {
+        return date('d/m/Y H:i', $ts);
+    }
+    return date('d/m/Y', $ts);
+}
+
 /**
  * Status do fluxo de texto → gravação.
  * pendente → (admin) precisa_correcao → (cliente) corrigido → (admin) entregue

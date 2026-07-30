@@ -55,7 +55,7 @@ admin_header('Contatos', 'contatos');
         <a class="btn btn-danger btn-small" href="contatos.php?del=<?= intval($ver['id']) ?>" onclick="return confirm('Excluir este envio?')">Excluir</a>
     </div>
     <h3 style="margin-bottom:12px;"><?= e($ver['nome'] ?: 'Sem nome') ?></h3>
-    <p class="muted" style="margin-bottom:10px;"><?= e(substr((string)$ver['created_at'], 0, 16)) ?></p>
+    <p class="muted" style="margin-bottom:10px;"><?= e(app_fmt_date($ver['created_at'])) ?></p>
     <div style="display:grid;gap:6px;margin-bottom:14px;font-size:.92rem;">
         <?php if (!empty($ver['email'])): ?><div><strong>E-mail:</strong> <a href="mailto:<?= e($ver['email']) ?>"><?= e($ver['email']) ?></a></div><?php endif; ?>
         <?php if (!empty($ver['telefone'])): ?><div><strong>Telefone:</strong> <?= e($ver['telefone']) ?></div><?php endif; ?>
@@ -82,7 +82,7 @@ admin_header('Contatos', 'contatos');
         <tbody>
         <?php foreach ($lista as $c): ?>
             <tr style="<?= empty($c['lido']) ? 'background:rgba(34,197,94,.06)' : '' ?>">
-                <td class="muted"><?= e(substr((string)$c['created_at'], 0, 16)) ?></td>
+                <td class="muted"><?= e(app_fmt_date($c['created_at'])) ?></td>
                 <td><strong><?= e($c['nome']) ?></strong></td>
                 <td>
                     <?= e($c['whatsapp'] ?: $c['telefone'] ?: $c['email']) ?>

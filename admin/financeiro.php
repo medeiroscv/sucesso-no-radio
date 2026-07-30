@@ -213,7 +213,7 @@ if ($edit):
         <p style="margin-top:10px;">
             <strong><?= e($edit['descricao']) ?></strong> ·
             <?= e(app_money_br(intval($edit['valor_centavos']))) ?> ·
-            venc. <?= e($edit['vencimento']) ?>
+            venc. <?= e(app_fmt_date($edit['vencimento'])) ?>
         </p>
         <p class="muted" style="margin-top:8px;font-size:.85rem;">Faturas pagas não permitem editar valor (crie uma nova se precisar).</p>
     <?php endif; ?>
@@ -286,7 +286,7 @@ else:
                 <td><?= e($f['cliente_nome']) ?></td>
                 <td><?= e($f['descricao']) ?></td>
                 <td><?= e(app_money_br(intval($f['valor_centavos']))) ?></td>
-                <td><?= e($f['vencimento']) ?></td>
+                <td><?= e(app_fmt_date($f['vencimento'])) ?></td>
                 <td><span style="font-size:.72rem;font-weight:800;padding:3px 8px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;"><?= e($m['label']) ?></span></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="financeiro.php?id=<?= intval($f['id']) ?>">Abrir</a>

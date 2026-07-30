@@ -617,7 +617,7 @@ elseif ($sec === 'atualizacao'):
                 <span class="k">Última atualização</span>
                 <span class="v">
                     <?php if ($lastApplyAt !== ''): ?>
-                        <?= e(date('d/m/Y H:i:s', strtotime($lastApplyAt))) ?>
+                        <?= e(app_fmt_date($lastApplyAt)) ?>
                         <?php if ($lastApplyOk === true): ?>
                             <span class="badge badge-ok">ok</span>
                         <?php elseif ($lastApplyOk === false): ?>
@@ -638,7 +638,7 @@ elseif ($sec === 'atualizacao'):
             <div class="update-status-row">
                 <span class="k">Último teste GitHub</span>
                 <span class="v">
-                    <?= e(date('d/m/Y H:i', strtotime((string)$meta['last_test_at']))) ?>
+                    <?= e(app_fmt_date($meta['last_test_at'] ?? null)) ?>
                     <?php if (!empty($meta['last_test_ok'])): ?>
                         <span class="badge badge-ok">ok</span>
                     <?php endif; ?>

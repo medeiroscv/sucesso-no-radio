@@ -129,7 +129,7 @@ endif;
         <div class="cliente-list">
             <?php foreach ($recentes as $r):
                 $tipoLabel = $tipos[$r['tipo']]['label'] ?? $r['tipo'];
-                $data = $r['data_ref'] ?: substr((string)$r['created_at'], 0, 10);
+                $data = $r['data_ref'] ? app_fmt_date($r['data_ref']) : app_fmt_date($r['created_at']);
             ?>
                 <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($r['conteudo_id']))) ?>">
                     <div>
@@ -166,7 +166,7 @@ if ($meusProdutos):
                 <div>
                     <strong><?= e($p['produto_nome']) ?></strong>
                     <div class="muted" style="font-size:.88rem;margin-top:4px;">
-                        <?= $qtd ?> arquivo(s) · liberado em <?= e(substr((string)($p['liberado_em'] ?? ''), 0, 10)) ?>
+                        <?= $qtd ?> arquivo(s) · liberado em <?= e(app_fmt_date($p['liberado_em'] ?? null)) ?>
                     </div>
                 </div>
                 <div class="cliente-list-meta">

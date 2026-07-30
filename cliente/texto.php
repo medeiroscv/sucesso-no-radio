@@ -196,8 +196,8 @@ elseif ($editando):
 <div class="form-card" style="max-width:800px;margin-bottom:28px;">
     <h3 style="margin:0 0 8px;"><?= e($editando['titulo'] ?: ('Texto #' . intval($editando['id']))) ?></h3>
     <p class="muted" style="margin-bottom:12px;font-size:.88rem;">
-        Enviado em <?= e(substr((string)$editando['created_at'], 0, 16)) ?>
-        <?php if (!empty($editando['updated_at'])): ?> · atualizado <?= e(substr((string)$editando['updated_at'], 0, 16)) ?><?php endif; ?>
+        Enviado em <?= e(app_fmt_date($editando['created_at'])) ?>
+        <?php if (!empty($editando['updated_at'])): ?> · atualizado <?= e(app_fmt_date($editando['updated_at'])) ?><?php endif; ?>
     </p>
 
     <?php if (!empty($editando['observacao_admin'])): ?>
@@ -272,7 +272,7 @@ else:
                 <div>
                     <strong><?= e($t['titulo'] ?: ('Texto #' . intval($t['id']))) ?></strong>
                     <div class="muted" style="font-size:.85rem;margin-top:4px;">
-                        <?= e(substr((string)$t['created_at'], 0, 16)) ?>
+                        <?= e(app_fmt_date($t['created_at'])) ?>
                         · <?= e(mb_strimwidth($t['texto'] ?? '', 0, 60, '…')) ?>
                     </div>
                 </div>

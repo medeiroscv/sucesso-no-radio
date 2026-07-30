@@ -242,7 +242,7 @@ admin_flash($ok, $err);
                 <td>#<?= intval($f['id']) ?></td>
                 <td><?= e($f['descricao']) ?></td>
                 <td><?= e(app_money_br(intval($f['valor_centavos']))) ?></td>
-                <td><?= e($f['vencimento']) ?></td>
+                <td><?= e(app_fmt_date($f['vencimento'])) ?></td>
                 <td><span style="font-size:.72rem;font-weight:800;padding:3px 8px;border-radius:999px;color:<?= e($fm['color']) ?>;background:<?= e($fm['bg']) ?>;"><?= e($fm['label']) ?></span></td>
                 <td><a class="btn btn-secondary btn-small" href="financeiro.php?id=<?= intval($f['id']) ?>">Abrir</a></td>
             </tr>
@@ -320,7 +320,7 @@ admin_flash($ok, $err);
                 <td><?= e($a['cliente_nome']) ?></td>
                 <td><?= e($a['produto_nome']) ?></td>
                 <td><?= e(app_money_br(intval($a['valor_centavos']))) ?></td>
-                <td><?= e($a['proximo_vencimento']) ?></td>
+                <td><?= e(app_fmt_date($a['proximo_vencimento'])) ?></td>
                 <td><span style="font-size:.72rem;font-weight:800;padding:3px 8px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;"><?= e($m['label']) ?></span></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="assinaturas.php?id=<?= intval($a['id']) ?>">Abrir</a>
