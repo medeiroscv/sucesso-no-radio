@@ -22,16 +22,31 @@ if ($tipo !== '') {
     $lista = $st->fetchAll() ?: [];
 }
 
-// Redireciona direto para a pasta NC se houver exatamente 1 item vinculado
-if (count($lista) === 1 && !empty($lista[0]['nc_folder']) && $ncOk):
-    header('Location: ' . app_url('cliente/conteudo.php?id=' . intval($lista[0]['id'])));
-    exit;
-endif;
+// --- Navegação NC inline (sem redirect, sem conteudo.php) ---
+$ncItemId = intval($_GET['nc_item'] ?? 0);
+if (!$ncItemId && count($lista) === 1 && !empty($lista[0]['nc_folder']) && $ncOk) {
+    $ncItemId = intval($lista[0]['id']);
+}
+$ncItem = null;
+$ncRoot = '';
+if ($ncItemId) {
+    foreach ($lista as $p) {
+        if (intval($p['id']) === $ncItemId && !empty($p['nc_folder'])) {
+            $ncItem = $p;
+            $ncRoot = $p['nc_folder'];
+            break;
+        }
+    }
+}
+$ncRel = trim((string)($_GET['nc_path'] ?? ''));
+$ncFull = $ncRel !== '' ? $ncRoot . '/' . $ncRel : $ncRoot;
 
-cliente_header($meta['label'], $tipo);
+$browsingNc = $ncItem && $ncOk;
+
+cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
 ?>
 <p class="cliente-intro">
-    <?= e($meta['desc']) ?>
+    <?= $browsingNc ? e($meta['label']) : e($meta['desc']) ?>
     <?php if (!$temAcesso): ?>
         <br><span class="chip" style="margin-top:8px;display:inline-block;background:rgba(251,191,36,.15);color:#fbbf24;border-color:rgba(251,191,36,.35);">
             Categoria sem liberação — você vê os nomes, mas não os arquivos
@@ -40,32 +55,96 @@ cliente_header($meta['label'], $tipo);
 </p>
 
 <div class="actions">
-    <?php foreach ($tipos as $key => $m):
-        $okTipo = cliente_pode_acessar_tipo($key, $cli);
-    ?>
-        <a class="btn btn-small <?= $key === $tipo ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($key))) ?>">
-            <?= $m['icon'] ?> <?= e($m['label']) ?><?= $okTipo ? '' : ' 🔒' ?>
-        </a>
-    <?php endforeach; ?>
+    <?php if ($browsingNc): ?>
+        <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>">← <?= e($meta['label']) ?></a>
+        <?php if ($ncRel !== ''): ?>
+            <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId)) ?>">← Raiz</a>
+            <?php $parent = dirname($ncRel); if ($parent !== '.' && $parent !== $ncRel): ?>
+                <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId . '&nc_path=' . rawurlencode($parent))) ?>">← Pasta anterior</a>
+            <?php endif; ?>
+        <?php endif; ?>
+    <?php else: ?>
+        <?php foreach ($tipos as $key => $m):
+            $okTipo = cliente_pode_acessar_tipo($key, $cli);
+        ?>
+            <a class="btn btn-small <?= $key === $tipo ? 'btn-primary' : 'btn-ghost' ?>" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($key))) ?>">
+                <?= $m['icon'] ?> <?= e($m['label']) ?><?= $okTipo ? '' : ' 🔒' ?>
+            </a>
+        <?php endforeach; ?>
+    <?php endif; ?>
 </div>
 
 <?php if (!$lista): ?>
     <div class="empty">Nenhum item cadastrado nesta categoria ainda.</div>
+
+<?php elseif ($browsingNc):
+    // --- Navegador NC inline ---
+    $ncItens = nc_listar($ncFull); ?>
+    <p class="muted" style="font-size:.85rem;margin-bottom:8px;">
+        Pasta: <code><?= e($ncRel ?: $ncRoot) ?></code>
+    </p>
+    <?php if (!$ncItens): ?>
+        <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>
+    <?php else: ?>
+        <div class="cliente-list">
+            <?php foreach ($ncItens as $ent):
+                $subPath = $ncRel ? $ncRel . '/' . $ent['name'] : $ent['name'];
+                if ($ent['type'] === 'folder'): ?>
+                    <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . $ncItemId . '&nc_path=' . rawurlencode($subPath))) ?>">
+                        <div><strong>📁 <?= e($ent['name']) ?></strong><div class="muted" style="font-size:.82rem;margin-top:2px;">Pasta</div></div>
+                        <div class="cliente-list-meta"><span class="btn btn-ghost btn-small">Abrir</span></div>
+                    </a>
+                <?php else:
+                    $isAudio = nc_is_audio($ent['mimetype']);
+                    $dl = nc_download_url($ent['path']);
+                ?>
+                    <div class="cliente-list-item cliente-list-item-static">
+                        <div style="flex:1;min-width:0;">
+                            <?php if ($isAudio): ?>
+                                <strong>🎵 <?= e($ent['name']) ?></strong>
+                            <?php elseif (str_starts_with($ent['mimetype'], 'image/')): ?>
+                                <strong>🖼️ <?= e($ent['name']) ?></strong>
+                            <?php elseif ($ent['mimetype'] === 'application/pdf'): ?>
+                                <strong>📄 <?= e($ent['name']) ?></strong>
+                            <?php else: ?>
+                                <strong>📎 <?= e($ent['name']) ?></strong>
+                            <?php endif; ?>
+                            <?php if (app_setting('nc_show_meta', '1') === '1'): ?>
+                            <div class="muted" style="font-size:.82rem;margin-top:2px;">
+                                <?= e($ent['size_fmt']) ?> · <?= e($ent['mtime']) ?>
+                            </div>
+                            <?php endif; ?>
+                            <?php if ($isAudio): ?>
+                                <audio controls preload="none" style="width:100%;margin-top:8px;max-width:520px;">
+                                    <source src="<?= e($dl) ?>" type="audio/mpeg">
+                                </audio>
+                            <?php endif; ?>
+                        </div>
+                        <div class="cliente-list-meta">
+                            <a class="btn btn-primary btn-small" href="<?= e($dl) ?>"<?= $isAudio ? '' : ' download' ?>>Baixar</a>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
 <?php elseif ($temAcesso && $ncOk):
-    // Lista simplificada (sem cards) — cada item com nc_folder vira um link direto
+    // Lista simplificada de pastas (sem cards)
     $comNc = array_filter($lista, fn($p) => !empty($p['nc_folder']));
     if (!$comNc): ?>
         <div class="empty" style="padding:24px;">Nenhum arquivo disponível.</div>
     <?php else: ?>
         <div class="cliente-list">
             <?php foreach ($comNc as $p): ?>
-                <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($p['id']))) ?>">
-                    <div><strong>📁 <?= e($p['titulo']) ?></strong><div class="muted" style="font-size:.82rem;margin-top:2px;"><?= e($p['nc_folder']) ?></div></div>
+                <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc_item=' . intval($p['id']))) ?>">
+                    <div><strong>📁 <?= e($p['titulo']) ?></strong></div>
                     <div class="cliente-list-meta"><span class="btn btn-primary btn-small">Acessar</span></div>
                 </a>
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+
 <?php else: ?>
     <div class="grid-cards">
         <?php foreach ($lista as $p):
