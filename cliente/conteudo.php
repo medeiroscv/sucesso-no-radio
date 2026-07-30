@@ -52,42 +52,60 @@ cliente_header($item['titulo'], $tipo);
         <h3 style="margin:18px 0 12px;font-size:1.15rem;">Arquivos</h3>
 
         <?php if ($usarNc):
-            $ncItens = nc_listar($item['nc_folder']);
+            $ncRel = trim((string)($_GET['nc_path'] ?? ''));
+            $ncFull = $ncRel !== '' ? $item['nc_folder'] . '/' . $ncRel : $item['nc_folder'];
+            $ncItens = nc_listar($ncFull);
         ?>
+            <?php if ($ncRel !== ''): ?>
+            <p class="muted" style="font-size:.85rem;margin-bottom:8px;">
+                Pasta: <code><?= e($ncRel) ?></code>
+                <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($item['id']))) ?>">← Raiz</a>
+                <?php $parent = dirname($ncRel); if ($parent !== '.' && $parent !== $ncRel): ?>
+                    <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($item['id']) . '&nc_path=' . rawurlencode($parent))) ?>">← Pasta anterior</a>
+                <?php endif; ?>
+            </p>
+            <?php endif; ?>
             <?php if (!$ncItens): ?>
                 <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>
             <?php else: ?>
                 <div class="cliente-list">
                     <?php foreach ($ncItens as $ent):
-                        $isAudio = nc_is_audio($ent['mimetype']);
-                        $dl = nc_download_url($ent['path']);
-                    ?>
-                        <div class="cliente-list-item cliente-list-item-static">
-                            <div style="flex:1;min-width:0;">
-                                <?php if ($isAudio): ?>
-                                    <strong>🎵 <?= e($ent['name']) ?></strong>
-                                <?php elseif (str_starts_with($ent['mimetype'], 'image/')): ?>
-                                    <strong>🖼️ <?= e($ent['name']) ?></strong>
-                                <?php elseif ($ent['mimetype'] === 'application/pdf'): ?>
-                                    <strong>📄 <?= e($ent['name']) ?></strong>
-                                <?php else: ?>
-                                    <strong>📎 <?= e($ent['name']) ?></strong>
-                                <?php endif; ?>
-                                <?php if ($showMeta): ?>
-                                <div class="muted" style="font-size:.82rem;margin-top:2px;">
-                                    <?= e($ent['size_fmt']) ?> · <?= e($ent['mtime']) ?>
+                        if ($ent['type'] === 'folder'): ?>
+                            <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($item['id']) . '&nc_path=' . rawurlencode($ncRel ? $ncRel . '/' . $ent['name'] : $ent['name']))) ?>">
+                                <div><strong>📁 <?= e($ent['name']) ?></strong><div class="muted" style="font-size:.82rem;margin-top:2px;">Pasta</div></div>
+                                <div class="cliente-list-meta"><span class="btn btn-ghost btn-small">Abrir</span></div>
+                            </a>
+                        <?php else:
+                            $isAudio = nc_is_audio($ent['mimetype']);
+                            $dl = nc_download_url($ent['path']);
+                        ?>
+                            <div class="cliente-list-item cliente-list-item-static">
+                                <div style="flex:1;min-width:0;">
+                                    <?php if ($isAudio): ?>
+                                        <strong>🎵 <?= e($ent['name']) ?></strong>
+                                    <?php elseif (str_starts_with($ent['mimetype'], 'image/')): ?>
+                                        <strong>🖼️ <?= e($ent['name']) ?></strong>
+                                    <?php elseif ($ent['mimetype'] === 'application/pdf'): ?>
+                                        <strong>📄 <?= e($ent['name']) ?></strong>
+                                    <?php else: ?>
+                                        <strong>📎 <?= e($ent['name']) ?></strong>
+                                    <?php endif; ?>
+                                    <?php if ($showMeta): ?>
+                                    <div class="muted" style="font-size:.82rem;margin-top:2px;">
+                                        <?= e($ent['size_fmt']) ?> · <?= e($ent['mtime']) ?>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if ($isAudio): ?>
+                                        <audio controls preload="none" style="width:100%;margin-top:8px;max-width:520px;">
+                                            <source src="<?= e($dl) ?>" type="audio/mpeg">
+                                        </audio>
+                                    <?php endif; ?>
                                 </div>
-                                <?php endif; ?>
-                                <?php if ($isAudio): ?>
-                                    <audio controls preload="none" style="width:100%;margin-top:8px;max-width:520px;">
-                                        <source src="<?= e($dl) ?>" type="audio/mpeg">
-                                    </audio>
-                                <?php endif; ?>
+                                <div class="cliente-list-meta">
+                                    <a class="btn btn-primary btn-small" href="<?= e($dl) ?>"<?= $isAudio ? '' : ' download' ?>>Baixar</a>
+                                </div>
                             </div>
-                            <div class="cliente-list-meta">
-                                <a class="btn btn-primary btn-small" href="<?= e($dl) ?>"<?= $isAudio ? '' : ' download' ?>>Baixar</a>
-                            </div>
-                        </div>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>

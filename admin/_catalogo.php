@@ -319,6 +319,10 @@ elseif ($edit !== null):
             <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse']) || !empty($_GET['nc_folder_set'])) ? '' : 'none' ?>">
             <?php if (nc_configurado()):
                 $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
+                // Se nc_folder vazio e não veio de nc_folder_set, já abre navegação na raiz
+                if ($ncBrowse === '' && empty($edit['nc_folder']) && empty($_GET['nc_folder_set'])) {
+                    $ncBrowse = '_root_';
+                }
                 if ($ncBrowse !== ''):
                     $ncPath = $ncBrowse === '_root_' ? '' : $ncBrowse; ?>
                 <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:400px;overflow-y:auto;">
