@@ -303,15 +303,60 @@ elseif ($edit !== null):
         </div>
 
         <?php if (!$isDemo): ?>
-        <div class="field" style="margin-top:14px;padding-top:14px;border:2px solid red;border-radius:8px;padding:12px;">
-            <p><strong>DEBUG:</strong> isDemo=<?= $isDemo ? 'true' : 'false' ?></p>
+        <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
             <label>Origem dos arquivos de entrega</label>
             <p class="muted" style="margin:4px 0 8px;">Escolha de onde virão os arquivos para os clientes.</p>
             <div style="display:flex;gap:20px;margin-bottom:10px;">
-                <label><input type="radio" name="origem_arquivos" value="upload" checked> Upload manual</label>
-                <label><input type="radio" name="origem_arquivos" value="nc"> Pasta do Nextcloud</label>
+                <label><input type="radio" name="origem_arquivos" value="upload" <?= (empty($edit['nc_folder']) && ($_POST['origem_arquivos'] ?? '') !== 'nc') ? 'checked' : '' ?>> Upload manual</label>
+                <label><input type="radio" name="origem_arquivos" value="nc" <?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc') ? 'checked' : '' ?>> Pasta do Nextcloud</label>
             </div>
             <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
+
+            <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc') ? '' : 'none' ?>">
+            <?php if (nc_configurado()):
+                $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
+                if ($ncBrowse !== ''):
+                    $ncPath = $ncBrowse; ?>
+                <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:400px;overflow-y:auto;">
+                    <p class="muted" style="margin-bottom:8px;font-size:.85rem;">Navegando: <code><?= e($ncPath ?: 'Raiz') ?></code></p>
+                    <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>">← Fechar navegação</a>
+                        <?php if ($ncPath !== ''): ?>
+                            <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=">← Raiz</a>
+                            <?php $parent = dirname($ncPath); if ($parent !== '.' && $parent !== $ncPath): ?>
+                                <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($parent) ?>">← Pasta anterior</a>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                    <?php $ncItens = nc_listar($ncPath); ?>
+                    <?php if (!$ncItens): ?>
+                        <div class="muted">Pasta vazia.</div>
+                    <?php else: ?>
+                        <div style="display:grid;gap:3px;">
+                            <?php foreach ($ncItens as $item): ?>
+                                <?php if ($item['type'] === 'folder'): ?>
+                                    <div style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;background:rgba(34,197,94,.06);border:1px solid var(--line);">
+                                        <span>📁 <?= e($item['name']) ?></span>
+                                        <span style="flex:1;"></span>
+                                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($item['path']) ?>">Abrir</a>
+                                        <a class="btn btn-primary btn-small" href="#"
+                                           onclick="var p=this.getAttribute('data-path');document.getElementById('nc_folder').value=p;document.getElementById('nc_selected_path').textContent=p;return false;" data-path="<?= e($item['path']) ?>">Selecionar</a>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <?php else: // no nc_browse ?>
+                    <p style="margin-bottom:8px;">
+                        Pasta selecionada: <strong id="nc_selected_path"><?= e($edit['nc_folder'] ?: 'Nenhuma') ?></strong>
+                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($edit['nc_folder'] ?: '') ?>" style="margin-left:8px;"><?= empty($edit['nc_folder']) ? 'Escolher pasta' : 'Alterar' ?></a>
+                    </p>
+                <?php endif; // nc_browse
+            else: // nc_configurado false ?>
+                <p class="muted">Configure o Nextcloud em <a href="nextcloud.php">Admin > Nextcloud</a> para vincular pastas.</p>
+            <?php endif; // nc_configurado ?>
+            </div>
         </div>
         <?php endif; // !isDemo ?>
 
