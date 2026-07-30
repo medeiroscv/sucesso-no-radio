@@ -23,9 +23,11 @@ if ($tipo !== '') {
 }
 
 // --- Navegação NC inline ---
+$comNc = array_filter($lista, fn($p) => !empty($p['nc_folder']));
 $ncItemId = intval($_GET['nc_item'] ?? 0);
-if (!$ncItemId && count($lista) === 1 && !empty($lista[0]['nc_folder'])) {
-    $ncItemId = intval($lista[0]['id']);
+if (!$ncItemId && count($comNc) === 1) {
+    $item = reset($comNc);
+    $ncItemId = intval($item['id']);
 }
 $ncItem = null;
 $ncRoot = '';
@@ -141,7 +143,6 @@ cliente_header($meta['label'], $tipo);
     <?php endif; ?>
 
 <?php elseif ($temAcesso && $ncOk):
-    $comNc = array_filter($lista, fn($p) => !empty($p['nc_folder']));
     if (!$comNc): ?>
         <div class="empty" style="padding:24px;">Nenhum arquivo disponível.</div>
     <?php else: ?>
