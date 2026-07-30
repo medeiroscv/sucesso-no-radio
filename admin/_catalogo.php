@@ -316,13 +316,13 @@ elseif ($edit !== null):
             <?php if (nc_configurado()):
                 $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
                 if ($ncBrowse !== ''):
-                    $ncPath = $ncBrowse; ?>
+                    $ncPath = $ncBrowse === '_root_' ? '' : $ncBrowse; ?>
                 <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:400px;overflow-y:auto;">
                     <p class="muted" style="margin-bottom:8px;font-size:.85rem;">Navegando: <code><?= e($ncPath ?: 'Raiz') ?></code></p>
                     <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
                         <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>">← Fechar navegação</a>
                         <?php if ($ncPath !== ''): ?>
-                            <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=">← Raiz</a>
+                            <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=_root_">← Raiz</a>
                             <?php $parent = dirname($ncPath); if ($parent !== '.' && $parent !== $ncPath): ?>
                                 <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($parent) ?>">← Pasta anterior</a>
                             <?php endif; ?>
@@ -350,7 +350,7 @@ elseif ($edit !== null):
                 <?php else: // no nc_browse ?>
                     <p style="margin-bottom:8px;">
                         Pasta selecionada: <strong id="nc_selected_path"><?= e($edit['nc_folder'] ?: 'Nenhuma') ?></strong>
-                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($edit['nc_folder'] ?: '') ?>" style="margin-left:8px;"><?= empty($edit['nc_folder']) ? 'Escolher pasta' : 'Alterar' ?></a>
+                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($edit['nc_folder'] ?: '_root_') ?>" style="margin-left:8px;"><?= empty($edit['nc_folder']) ? 'Escolher pasta' : 'Alterar' ?></a>
                     </p>
                 <?php endif; // nc_browse
             else: // nc_configurado false ?>
