@@ -14,12 +14,14 @@ function nc_base_webdav(): string {
     return rtrim($cfg['server'], '/') . '/remote.php/dav/files/' . rawurlencode($cfg['user']);
 }
 
-function nc_curl_init(string $path, string $method = 'PROPFIND'): ?CurlHandle {
+function nc_curl_init(string $path, string $method = 'PROPFIND') {
     $cfg = nc_config();
     if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) return null;
     $base = nc_base_webdav();
-    $url = $base . '/' . ltrim($path, '/');
+    $path = ltrim($path, '/');
+    $url = $base . ($path !== '' ? '/' . $path : '/');
     $ch = curl_init($url);
+    if (!$ch) return null;
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_USERPWD => $cfg['user'] . ':' . $cfg['pass'],
@@ -28,17 +30,17 @@ function nc_curl_init(string $path, string $method = 'PROPFIND'): ?CurlHandle {
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_TIMEOUT => 15,
     ]);
-    return $ch ?: null;
+    return $ch;
 }
 
 function nc_test(): array {
     $ch = nc_curl_init('');
-    if (!$ch) return ['ok' => false, 'msg' => 'Configuracao incompleta. Preencha servidor, usuario e senha.'];
+    if (!$ch) return ['ok' => false, 'msg' => 'Configuracao incompleta.'];
     curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
     curl_close($ch);
-    if ($code === 401) return ['ok' => false, 'msg' => 'Falha de autenticacao (HTTP 401). Verifique usuario/senha.'];
+    if ($code === 401) return ['ok' => false, 'msg' => 'Falha de autenticacao (HTTP 401).'];
     if ($code >= 200 && $code < 400) return ['ok' => true, 'msg' => 'Conexao OK (HTTP ' . $code . ')'];
     return ['ok' => false, 'msg' => 'Erro HTTP ' . $code . ($err ? ' — ' . $err : '')];
 }
@@ -48,63 +50,72 @@ function nc_listar(string $path = ''): array {
     if (!$ch) return [];
     $xml = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
     curl_close($ch);
-    if ($code < 200 || $code >= 400 || !$xml) return [];
+    if ($err) return [];
+    if ($code < 200 || $code >= 400) return [];
+    if (!$xml) return [];
 
-    $doc = new DOMDocument();
-    $ok = @$doc->loadXML($xml);
-    if (!$ok) return [];
+    $xml = preg_replace('/(xmlns\s*=\s*"[^"]+")/', '', $xml);
+    $xml = preg_replace('/<(\\/?)[a-z]+:/i', '<$1', $xml);
 
-    $itens = [];
-    $xpath = new DOMXPath($doc);
-    $xpath->registerNamespace('d', 'DAV:');
-    $xpath->registerNamespace('s', 'http://owncloud.org/ns');
+    $sxml = @simplexml_load_string($xml);
+    if (!$sxml) return [];
 
     $base = nc_base_webdav();
-    $prefixLen = strlen(rtrim($base, '/')) + 1;
+    $baseUrlLen = strlen(rtrim($base, '/')) + 1;
 
-    foreach ($xpath->query('//d:response') ?: [] as $resp) {
-        $hrefNode = $xpath->query('.//d:href', $resp)->item(0);
-        if (!$hrefNode) continue;
-        $href = rawurldecode($hrefNode->textContent);
-        $relPath = substr($href, $prefixLen);
+    $itens = [];
+    foreach ($sxml->response ?? [] as $resp) {
+        $href = (string)$resp->href;
+        if ($href === '') continue;
+
+        $href = rawurldecode($href);
+        $pos = strpos($href, '/remote.php/');
+        if ($pos !== false) {
+            $relPath = substr($href, $pos + strlen('/remote.php/'));
+        } else {
+            $pos2 = strrpos($href, '/files/');
+            if ($pos2 !== false) {
+                $relPath = substr($href, $pos2 + strlen('/files/'));
+                $relPath = preg_replace('#^[^/]+/#', '', $relPath);
+            } else {
+                $relPath = ltrim($href, '/');
+            }
+        }
         $relPath = rtrim($relPath, '/');
 
-        if ($relPath === '' || $relPath === basename(rtrim($path, '/'))) continue;
-
-        $isCollection = $xpath->query('.//d:collection', $resp)->length > 0;
-        $getetag = $xpath->query('.//d:getetag', $resp)->item(0);
-        $etag = $getetag ? trim($getetag->textContent, '"') : '';
+        if ($relPath === '') continue;
 
         $name = basename($relPath);
-        if ($name === '' || $name === $path) continue;
+        if ($name === '') continue;
+
+        $isCollection = !empty($resp->propstat->prop->resourcetype->collection);
+
+        if (!$isCollection && empty((string)$resp->propstat->prop->getcontenttype)) continue;
 
         $item = [
             'name' => $name,
             'path' => $relPath,
             'type' => $isCollection ? 'folder' : 'file',
-            'etag' => $etag,
+            'size' => 0,
+            'mimetype' => '',
+            'size_fmt' => '',
+            'mtime' => '',
         ];
 
         if (!$isCollection) {
-            $sizeNode = $xpath->query('.//d:getcontentlength', $resp)->item(0);
-            $item['size'] = $sizeNode ? (int)$sizeNode->textContent : 0;
-            $mimeNode = $xpath->query('.//d:getcontenttype', $resp)->item(0);
-            $item['mimetype'] = $mimeNode ? $mimeNode->textContent : '';
-            $item['size_fmt'] = $item['size'] > 1048576
-                ? round($item['size'] / 1048576, 1) . ' MB'
-                : ($item['size'] > 1024 ? round($item['size'] / 1024, 1) . ' KB' : $item['size'] . ' B');
-        } else {
-            $item['size'] = 0;
-            $item['mimetype'] = '';
-            $item['size_fmt'] = '';
+            $size = (int)$resp->propstat->prop->getcontentlength;
+            $item['size'] = $size;
+            $item['mimetype'] = (string)$resp->propstat->prop->getcontenttype;
+            $item['size_fmt'] = $size > 1048576
+                ? round($size / 1048576, 1) . ' MB'
+                : ($size > 1024 ? round($size / 1024, 1) . ' KB' : $size . ' B');
         }
 
-        $mtimeNode = $xpath->query('.//d:getlastmodified', $resp)->item(0);
-        if ($mtimeNode) {
-            $item['mtime'] = date('d/m/Y H:i', strtotime($mtimeNode->textContent));
-        } else {
-            $item['mtime'] = '';
+        $mtime = (string)$resp->propstat->prop->getlastmodified;
+        if ($mtime !== '') {
+            $item['mtime'] = date('d/m/Y H:i', strtotime($mtime));
         }
 
         $itens[] = $item;
@@ -122,25 +133,10 @@ function nc_is_audio(string $mime): bool {
     return str_starts_with($mime, 'audio/');
 }
 
-function nc_pode_visualizar(string $mime): bool {
-    return nc_is_audio($mime) || str_starts_with($mime, 'image/') || $mime === 'application/pdf';
-}
-
 function nc_download_url(string $path): string {
     $cfg = nc_config();
     if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) return '';
     return app_url('cliente/nc-file.php?path=' . rawurlencode($path));
-}
-
-function nc_categoria_com_pasta(string $tipo): string {
-    try {
-        $v = app_pdo()->query(
-            "SELECT nc_pasta FROM categorias WHERE tipo = " . app_pdo()->quote($tipo) . " AND ativo = 1 LIMIT 1"
-        )->fetchColumn();
-        return (string)($v ?: '');
-    } catch (Throwable $e) {
-        return '';
-    }
 }
 
 function nc_configurado(): bool {
