@@ -78,9 +78,17 @@ admin_header('Nextcloud', 'nextcloud');
 <div class="card" style="margin-top:18px;">
     <h3 style="margin-bottom:10px;">Arquivos no Nextcloud</h3>
     <p class="muted" style="margin-bottom:14px;">
-        Esta é a raiz do seu Nextcloud. Tudo aqui será exibido para os clientes na área de Conteúdos.
         <?php if ($ncPath): ?>
+            Pasta: <code><?= e($ncPath) ?></code>
             <br><a class="btn btn-ghost btn-small" href="nextcloud.php" style="margin-top:6px;">← Raiz</a>
+            <?php
+            $parent = dirname($ncPath);
+            if ($parent !== '.' && $parent !== $ncPath):
+            ?>
+                <a class="btn btn-ghost btn-small" href="nextcloud.php?nc=<?= rawurlencode($parent) ?>" style="margin-top:6px;">← Pasta anterior</a>
+            <?php endif; ?>
+        <?php else: ?>
+            Esta é a raiz do seu Nextcloud. Tudo aqui será exibido para os clientes na área de Conteúdos.
         <?php endif; ?>
     </p>
     <?php if (!$ncItens): ?>

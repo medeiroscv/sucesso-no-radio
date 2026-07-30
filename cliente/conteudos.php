@@ -45,7 +45,16 @@ cliente_header($meta['label'], $tipo);
 <?php if ($usarNc): ?>
     <div class="nc-browser">
         <?php if (isset($_GET['nc'])): ?>
-            <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>" style="margin-bottom:12px;display:inline-flex;">← Voltar</a>
+            <p class="muted" style="margin-bottom:8px;font-size:.85rem;">Pasta: <code><?= e($ncPath) ?></code></p>
+            <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>">← Raiz</a>
+                <?php
+                $parent = dirname($ncPath);
+                if ($parent !== '.' && $parent !== $ncPath):
+                ?>
+                    <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc=' . rawurlencode($parent))) ?>">← Pasta anterior</a>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
         <?php if (!$ncItens): ?>
             <div class="empty">Pasta vazia.</div>
