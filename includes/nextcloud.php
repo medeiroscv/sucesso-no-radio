@@ -63,7 +63,7 @@ function nc_listar(string $path = ''): array {
     if (!$sxml) return [];
 
     $base = nc_base_webdav();
-    $baseUrlLen = strlen(rtrim($base, '/')) + 1;
+    $baseUrl = rtrim($base, '/') . '/';
 
     $itens = [];
     foreach ($sxml->response ?? [] as $resp) {
@@ -71,28 +71,27 @@ function nc_listar(string $path = ''): array {
         if ($href === '') continue;
 
         $href = rawurldecode($href);
-        $pos = strpos($href, '/remote.php/');
+
+        $relPath = '';
+        $pos = strpos($href, $baseUrl);
         if ($pos !== false) {
-            $relPath = substr($href, $pos + strlen('/remote.php/'));
+            $relPath = substr($href, $pos + strlen($baseUrl));
         } else {
-            $pos2 = strrpos($href, '/files/');
+            $pos2 = strpos($href, '/remote.php/');
             if ($pos2 !== false) {
-                $relPath = substr($href, $pos2 + strlen('/files/'));
-                $relPath = preg_replace('#^[^/]+/#', '', $relPath);
-            } else {
-                $relPath = ltrim($href, '/');
+                $after = substr($href, $pos2 + 12);
+                $after = preg_replace('#^[^/]+/[^/]+/#', '', $after);
+                $relPath = $after;
             }
         }
-        $relPath = rtrim($relPath, '/');
 
+        $relPath = rtrim($relPath, '/');
         if ($relPath === '') continue;
 
         $name = basename($relPath);
         if ($name === '') continue;
 
         $isCollection = !empty($resp->propstat->prop->resourcetype->collection);
-
-        if (!$isCollection && empty((string)$resp->propstat->prop->getcontenttype)) continue;
 
         $item = [
             'name' => $name,
