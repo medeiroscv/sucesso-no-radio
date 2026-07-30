@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_layout.php';
+require_once __DIR__ . '/../includes/nextcloud.php';
 cliente_require_liberacao();
 
 $cli = cliente_atual();
@@ -10,8 +11,19 @@ if (!isset($tipos[$tipo])) {
     $tipo = 'diario';
 }
 $meta = $tipos[$tipo];
-$lista = cliente_conteudos_por_tipo($cliId, $tipo, $cli);
 $temAcesso = cliente_pode_acessar_tipo($tipo, $cli);
+
+$ncPasta = nc_categoria_com_pasta($tipo);
+$ncItens = [];
+if ($ncPasta !== '') {
+    $sub = trim((string)($_GET['nc'] ?? ''));
+    $ncPath = $sub !== '' ? $ncPasta . '/' . $sub : $ncPasta;
+    $ncParent = $sub !== '' ? dirname($ncPath) : '';
+    if ($ncParent === $ncPasta) $ncParent = $ncPasta;
+    if ($temAcesso) {
+        $ncItens = nc_listar($ncPath);
+    }
+}
 
 cliente_header($meta['label'], $tipo);
 ?>
@@ -19,7 +31,7 @@ cliente_header($meta['label'], $tipo);
     <?= e($meta['desc']) ?>
     <?php if (!$temAcesso): ?>
         <br><span class="chip" style="margin-top:8px;display:inline-block;background:rgba(251,191,36,.15);color:#fbbf24;border-color:rgba(251,191,36,.35);">
-            Categoria sem liberação — você vê os nomes, mas não os arquivos
+            Categoria sem liberacao — voce ve os nomes, mas nao os arquivos
         </span>
     <?php endif; ?>
 </p>
@@ -34,7 +46,58 @@ cliente_header($meta['label'], $tipo);
     <?php endforeach; ?>
 </div>
 
-<?php if (!$lista): ?>
+<?php if ($ncPasta !== ''): ?>
+    <div class="nc-browser">
+        <?php if (isset($_GET['nc'])): ?>
+            <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo))) ?>" style="margin-bottom:12px;display:inline-flex;">← Voltar</a>
+        <?php endif; ?>
+        <?php if (!$ncItens): ?>
+            <div class="empty">Pasta vazia ou inacessivel no Nextcloud.</div>
+        <?php else: ?>
+            <div class="cliente-list">
+                <?php foreach ($ncItens as $item): ?>
+                    <?php if ($item['type'] === 'folder'): ?>
+                        <a class="cliente-list-item" href="<?= e(app_url('cliente/conteudos.php?tipo=' . rawurlencode($tipo) . '&nc=' . rawurlencode($item['path']))) ?>">
+                            <div>
+                                <strong>📁 <?= e($item['name']) ?></strong>
+                                <div class="muted" style="font-size:.82rem;margin-top:2px;">Pasta</div>
+                            </div>
+                            <div class="cliente-list-meta">
+                                <span class="chip"><?= e($item['mtime']) ?></span>
+                                <span class="btn btn-ghost btn-small">Abrir</span>
+                            </div>
+                        </a>
+                    <?php else: ?>
+                        <div class="cliente-list-item cliente-list-item-static">
+                            <div style="flex:1;min-width:0;">
+                                <?php if (nc_is_audio($item['mimetype'])): ?>
+                                    <strong>🎵 <?= e($item['name']) ?></strong>
+                                <?php elseif (str_starts_with($item['mimetype'], 'image/')): ?>
+                                    <strong>🖼️ <?= e($item['name']) ?></strong>
+                                <?php elseif ($item['mimetype'] === 'application/pdf'): ?>
+                                    <strong>📄 <?= e($item['name']) ?></strong>
+                                <?php else: ?>
+                                    <strong>📎 <?= e($item['name']) ?></strong>
+                                <?php endif; ?>
+                                <div class="muted" style="font-size:.82rem;margin-top:2px;">
+                                    <?= e($item['size_fmt']) ?> · <?= e($item['mtime']) ?>
+                                </div>
+                                <?php if (nc_is_audio($item['mimetype'])): ?>
+                                    <audio controls preload="none" style="width:100%;margin-top:8px;max-width:480px;">
+                                        <source src="<?= e(nc_download_url($item['path'])) ?>" type="audio/mpeg">
+                                    </audio>
+                                <?php endif; ?>
+                            </div>
+                            <div class="cliente-list-meta" style="align-self:center;">
+                                <a class="btn btn-primary btn-small" href="<?= e(nc_download_url($item['path'])) ?>"<?= nc_is_audio($item['mimetype']) ? '' : ' download' ?>>Download</a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+<?php elseif (!$lista): ?>
     <div class="empty">Nenhum item cadastrado nesta categoria ainda.</div>
 <?php else: ?>
     <div class="grid-cards">
@@ -67,7 +130,7 @@ cliente_header($meta['label'], $tipo);
                             <a class="btn btn-primary btn-small" href="<?= e(app_url('cliente/conteudo.php?id=' . intval($p['id']))) ?>">Acessar</a>
                         </div>
                     <?php else: ?>
-                        <p class="card-desc muted">Conteúdo bloqueado. Solicite a liberação desta categoria à equipe.</p>
+                        <p class="card-desc muted">Conteudo bloqueado. Solicite a liberacao desta categoria a equipe.</p>
                         <div class="card-actions">
                             <span class="btn btn-ghost btn-small" style="opacity:.6;cursor:not-allowed;">Bloqueado</span>
                         </div>

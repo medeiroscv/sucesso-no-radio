@@ -413,3 +413,14 @@ a.cliente-list-item:hover { border-color: #22c55e; }
     align-items: flex-start;
   }
 }
+
+.nc-browser .cliente-list-item-static {
+  cursor: default;
+  flex-wrap: wrap;
+}
+@media (max-width:640px) {
+  .nc-browser .cliente-list-item-static {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -15,15 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tipo = trim((string)($_POST['tipo'] ?? 'programa'));
     $ordem = intval($_POST['ordem'] ?? 0);
     $ativo = !empty($_POST['ativo']) ? 1 : 0;
+    $nc_pasta = trim((string)($_POST['nc_pasta'] ?? ''));
     if ($nome === '') {
         $err = 'Nome obrigatório';
     } else {
         if ($id > 0) {
-            $pdo->prepare('UPDATE categorias SET nome=?, slug=?, tipo=?, ordem=?, ativo=? WHERE id=?')
-                ->execute([$nome, $slug, $tipo, $ordem, $ativo, $id]);
+            $pdo->prepare('UPDATE categorias SET nome=?, slug=?, tipo=?, ordem=?, ativo=?, nc_pasta=? WHERE id=?')
+                ->execute([$nome, $slug, $tipo, $ordem, $ativo, $nc_pasta, $id]);
         } else {
-            $pdo->prepare('INSERT INTO categorias (nome,slug,tipo,ordem,ativo,created_at) VALUES (?,?,?,?,?,NOW())')
-                ->execute([$nome, $slug, $tipo, $ordem, $ativo]);
+            $pdo->prepare('INSERT INTO categorias (nome,slug,tipo,ordem,ativo,nc_pasta,created_at) VALUES (?,?,?,?,?,?,NOW())')
+                ->execute([$nome, $slug, $tipo, $ordem, $ativo, $nc_pasta]);
         }
         header('Location: categorias.php?ok=1');
         exit;
@@ -59,6 +60,10 @@ admin_flash($ok, $err);
             </div>
             <div class="field"><label>Ordem</label><input type="number" name="ordem" value="<?= intval($edit['ordem'] ?? 0) ?>"></div>
         </div>
+        <div class="field" style="margin-top:8px;">
+            <label>Pasta Nextcloud <span class="muted" style="font-weight:400;">(opcional — caminho dentro do Nextcloud, ex.: <code>Conteudos/Noticiarios</code>)</span></label>
+            <input name="nc_pasta" value="<?= htmlspecialchars((string)($edit['nc_pasta'] ?? '')) ?>" placeholder="Deixe vazio para usar upload manual" style="width:100%;max-width:450px;">
+        </div>
         <div class="field"><label><input type="checkbox" name="ativo" value="1" <?= ($edit['ativo'] ?? 1) ? 'checked' : '' ?>> Ativa</label></div>
         <button class="btn btn-primary">Salvar</button>
         <?php if ($edit): ?><a class="btn btn-secondary" href="categorias.php">Nova</a><?php endif; ?>
@@ -66,13 +71,14 @@ admin_flash($ok, $err);
 </div>
 <div class="card">
     <table>
-        <thead><tr><th>Nome</th><th>Slug</th><th>Tipo</th><th>Ordem</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Slug</th><th>Tipo</th><th>Pasta Nextcloud</th><th>Ordem</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($lista as $c): ?>
             <tr>
                 <td><?= htmlspecialchars($c['nome']) ?></td>
                 <td class="muted"><?= htmlspecialchars($c['slug']) ?></td>
                 <td><?= htmlspecialchars($c['tipo']) ?></td>
+                <td><?= $c['nc_pasta'] ? '<code>' . htmlspecialchars($c['nc_pasta']) . '</code>' : '<span class="muted">—</span>' ?></td>
                 <td><?= intval($c['ordem']) ?></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="categorias.php?id=<?= $c['id'] ?>">Editar</a>

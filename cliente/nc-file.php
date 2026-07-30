@@ -1,0 +1,57 @@
+<?php
+require_once __DIR__ . '/_layout.php';
+cliente_require_liberacao();
+
+$path = trim((string)($_GET['path'] ?? ''));
+if ($path === '') {
+    http_response_code(400);
+    exit('path missing');
+}
+
+$cfg = nc_config();
+if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) {
+    http_response_code(502);
+    exit('Nextcloud not configured');
+}
+
+$url = nc_base_webdav() . '/' . ltrim($path, '/');
+$ch = curl_init($url);
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => false,
+    CURLOPT_USERPWD => $cfg['user'] . ':' . $cfg['pass'],
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_TIMEOUT => 0,
+    CURLOPT_HEADERFUNCTION => function ($ch, $header) {
+        $trimmed = trim($header);
+        if ($trimmed === '') return strlen($header);
+        $lower = strtolower($trimmed);
+        if (str_starts_with($lower, 'content-type:') || str_starts_with($lower, 'content-length:') || str_starts_with($lower, 'accept-ranges:')) {
+            header($trimmed);
+        }
+        if (str_starts_with($lower, 'content-disposition:')) {
+            header($trimmed);
+        }
+        return strlen($header);
+    },
+]);
+
+$range = $_SERVER['HTTP_RANGE'] ?? '';
+if ($range) {
+    curl_setopt($ch, CURLOPT_RANGE, $range);
+    $isRange = true;
+} else {
+    $isRange = false;
+}
+
+curl_exec($ch);
+$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($code === 404) {
+    http_response_code(404);
+    exit('File not found');
+}
+if ($code >= 400) {
+    http_response_code($code);
+    exit('Error fetching file');
+}

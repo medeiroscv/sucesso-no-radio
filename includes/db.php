@@ -104,6 +104,7 @@ function app_bootstrap_database(PDO $pdo): void {
         tipo VARCHAR(40) DEFAULT 'programa',
         ordem INT DEFAULT 0,
         ativo SMALLINT DEFAULT 1,
+        nc_pasta VARCHAR(500) DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW()
     )");
 
@@ -484,6 +485,21 @@ function app_bootstrap_database(PDO $pdo): void {
     }
 
     app_migrate_to_conteudos($pdo);
+
+    // Nextcloud settings
+    $ncDefaults = ['nc_server','nc_user','nc_pass'];
+    $stNc = $pdo->prepare(
+        "INSERT INTO site_settings (chave, valor, updated_at) VALUES (?, '', NOW())
+         ON CONFLICT (chave) DO NOTHING"
+    );
+    foreach ($ncDefaults as $k) $stNc->execute([$k]);
+
+    // nc_pasta column for existing databases
+    try {
+        $pdo->exec("ALTER TABLE categorias ADD COLUMN nc_pasta VARCHAR(500) DEFAULT ''");
+    } catch (PDOException $e) {
+        // column already exists
+    }
 }
 
 /** Tipos de conteúdo do sistema (chave => meta). */
