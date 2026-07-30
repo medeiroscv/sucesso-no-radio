@@ -93,7 +93,15 @@ admin_header('Nextcloud', 'nextcloud');
     </p>
     <?php if (!$ncItens): ?>
         <div class="empty">Pasta vazia ou sem arquivos.</div>
-    <?php else: ?>
+    <?php else:
+        $temArquivos = false;
+        foreach ($ncItens as $item) { if ($item['type'] === 'file') { $temArquivos = true; break; } }
+    ?>
+        <?php if ($temArquivos): ?>
+        <div class="actions" style="margin-bottom:10px;">
+            <a class="btn btn-primary btn-small" href="nc-download.php?zip=<?= rawurlencode($ncPath) ?>">📦 Baixar todos (ZIP)</a>
+        </div>
+        <?php endif; ?>
         <div style="display:grid;gap:4px;">
             <?php foreach ($ncItens as $item): ?>
                 <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:<?= $item['type'] === 'folder' ? 'rgba(34,197,94,.06)' : 'transparent' ?>;border:1px solid var(--line);">
@@ -107,6 +115,9 @@ admin_header('Nextcloud', 'nextcloud');
                     </span>
                     <span class="muted" style="font-size:.82rem;"><?= e($item['size_fmt']) ?></span>
                     <span class="muted" style="font-size:.78rem;"><?= e($item['mtime']) ?></span>
+                    <?php if ($item['type'] === 'file'): ?>
+                        <a class="btn btn-primary btn-small" href="nc-download.php?path=<?= rawurlencode($item['path']) ?>">Download</a>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>

@@ -1,11 +1,14 @@
 <?php
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/nextcloud.php';
-cliente_require_liberacao();
 
 $path = trim((string)($_GET['path'] ?? ''));
 $modoZip = isset($_GET['zip']);
-$folder = trim((string)($_GET['zip'] ?? ''));
+
+if ($path === '' && !$modoZip) {
+    http_response_code(400);
+    exit('path missing');
+}
 
 $cfg = nc_config();
 if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) {
@@ -16,6 +19,7 @@ if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) {
 $baseUrl = rtrim($cfg['server'], '/') . '/remote.php/dav/files/' . rawurlencode($cfg['user']);
 
 if ($modoZip) {
+    $folder = trim((string)($_GET['zip'] ?? ''));
     $arquivos = nc_listar($folder);
     $zip = new ZipArchive();
     $tmp = tempnam(sys_get_temp_dir(), 'nc_') . '.zip';
@@ -26,8 +30,7 @@ if ($modoZip) {
     $adicionados = 0;
     foreach ($arquivos as $item) {
         if ($item['type'] !== 'file') continue;
-        $parts = array_map('rawurlencode', explode('/', $item['path']));
-        $url = $baseUrl . '/' . implode('/', $parts);
+        $url = $baseUrl . '/' . implode('/', array_map('rawurlencode', explode('/', $item['path'])));
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -58,13 +61,7 @@ if ($modoZip) {
     exit;
 }
 
-if ($path === '') {
-    http_response_code(400);
-    exit('path missing');
-}
-
-$parts = array_map('rawurlencode', explode('/', $path));
-$url = $baseUrl . '/' . implode('/', $parts);
+$url = $baseUrl . '/' . implode('/', array_map('rawurlencode', explode('/', $path)));
 $ch = curl_init($url);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => false,
@@ -77,8 +74,8 @@ curl_setopt_array($ch, [
         $lower = strtolower($trimmed);
         if (str_starts_with($lower, 'content-type:') ||
             str_starts_with($lower, 'content-length:') ||
-            str_starts_with($lower, 'accept-ranges:') ||
-            str_starts_with($lower, 'content-disposition:')) {
+            str_starts_with($lower, 'content-disposition:') ||
+            str_starts_with($lower, 'accept-ranges:')) {
             header($trimmed);
         }
         return strlen($header);

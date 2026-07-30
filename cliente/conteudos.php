@@ -58,7 +58,15 @@ cliente_header($meta['label'], $tipo);
         <?php endif; ?>
         <?php if (!$ncItens): ?>
             <div class="empty">Pasta vazia.</div>
-        <?php else: ?>
+        <?php else:
+            $temArquivos = false;
+            foreach ($ncItens as $item) { if ($item['type'] === 'file') { $temArquivos = true; break; } }
+        ?>
+            <?php if ($temArquivos): ?>
+            <div class="actions" style="margin-bottom:10px;">
+                <a class="btn btn-primary btn-small" href="<?= e(app_url('cliente/nc-file.php?zip=' . rawurlencode($ncPath))) ?>">📦 Baixar todos (ZIP)</a>
+            </div>
+            <?php endif; ?>
             <div class="cliente-list">
                 <?php foreach ($ncItens as $item): ?>
                     <?php if ($item['type'] === 'folder'): ?>
