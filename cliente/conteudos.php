@@ -80,8 +80,13 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
 <?php elseif ($browsingNc):
     // --- Navegador NC inline ---
     $ncItens = nc_listar($ncFull);
-    // Remove a pasta raiz da listagem
-    $ncItens = array_values(array_filter($ncItens, fn($i) => !($i['type'] === 'folder' && $i['path'] === $ncRoot))); ?>
+    // Remove a pasta raiz da listagem (compara path e nome)
+    $ncRootNorm = rtrim(str_replace('\\', '/', $ncRoot), '/');
+    $ncItens = array_values(array_filter($ncItens, function($i) use ($ncRootNorm) {
+        if ($i['type'] !== 'folder') return true;
+        $iPath = rtrim(str_replace('\\', '/', $i['path']), '/');
+        return $iPath !== $ncRootNorm && basename($iPath) !== basename($ncRootNorm);
+    })); ?>
     <?php if (!$ncItens): ?>
         <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>
     <?php else: ?>
