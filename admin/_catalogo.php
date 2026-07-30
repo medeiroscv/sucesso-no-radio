@@ -1,8 +1,8 @@
 <?php
 /**
  * Catálogo compartilhado:
- * - area=demonstrativo → site público
- * - area=conteudo → produtos do cliente (liberação manual)
+ * - area=demonstrativo → site público (form completo)
+ * - area=conteudo → produtos do cliente (apenas vinculo com pasta Nextcloud)
  */
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/nextcloud.php';
@@ -17,7 +17,6 @@ $script = $areaMeta['file'];
 $navActive = $areaMeta['active'];
 
 $pdo = app_pdo();
-// Tipos: demonstrativos tem os 4; conteúdos do cliente = diários/semanais/informativos
 $tipos = $isDemo ? app_conteudo_tipos() : app_conteudo_tipos_cliente();
 $ok = $err = '';
 $edit = null;
@@ -38,12 +37,6 @@ if (isset($_GET['del'])) {
     $st->execute([$id]);
     $row = $st->fetch();
     if ($row && ($row['area'] ?? '') === $area) {
-        foreach (app_demonstrativos('conteudo', $id) as $d) {
-            app_delete_demonstrativo(intval($d['id']));
-        }
-        foreach (app_entregas($id, false) as $ent) {
-            app_delete_entrega(intval($ent['id']));
-        }
         if (!empty($row['capa'])) {
             admin_delete_local_upload((string)$row['capa']);
         }
@@ -53,7 +46,34 @@ if (isset($_GET['del'])) {
     exit;
 }
 
-// ---- Salvar ----
+// ---- nc_folder_set: criar/atualizar conteudo diretamente ----
+if (isset($_GET['nc_folder_set']) && !$isDemo) {
+    $ncSet = trim((string)($_GET['nc_folder_set']));
+    if ($ncSet !== '') {
+        $id = intval($_GET['id'] ?? 0);
+        $tipoSet = $tipo ?: 'diario';
+        if ($id > 0) {
+            $pdo->prepare('UPDATE conteudos SET nc_folder=?, updated_at=NOW() WHERE id=? AND area=?')
+                ->execute([$ncSet, $id, $area]);
+        } else {
+            $titulo = basename($ncSet);
+            $slug = app_slug($titulo);
+            $slugCheck = $pdo->prepare('SELECT id FROM conteudos WHERE slug = ? LIMIT 1');
+            $slugCheck->execute([$slug]);
+            if ($slugCheck->fetch()) {
+                $slug .= '-' . bin2hex(random_bytes(2));
+            }
+            $pdo->prepare(
+                'INSERT INTO conteudos (area,tipo,titulo,slug,nc_folder,ativo,created_at)
+                 VALUES (?,?,?,?,?,1,NOW())'
+            )->execute([$area, $tipoSet, $titulo, $slug, $ncSet]);
+        }
+    }
+    header('Location: ' . $script . '?tipo=' . rawurlencode($tipo));
+    exit;
+}
+
+// ---- Salvar (apenas demonstrativo usa POST form) ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = intval($_POST['id'] ?? 0);
     $tipoPost = trim((string)($_POST['tipo'] ?? 'diario'));
@@ -77,9 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $destaque = !empty($_POST['destaque']) ? 1 : 0;
     $ativo = !empty($_POST['ativo']) ? 1 : 0;
     $whatsapp_msg = trim((string)($_POST['whatsapp_msg'] ?? ''));
-    $nc_folder = trim((string)($_POST['nc_folder'] ?? ''));
     $capaAtual = trim((string)($_POST['capa_atual'] ?? ''));
-    $capaNova = admin_upload('capa', $isDemo ? 'programas' : 'conteudos');
+    $capaNova = admin_upload('capa', 'programas');
     if ($capaNova !== '') {
         if ($capaAtual !== '' && $capaAtual !== $capaNova) {
             admin_delete_local_upload($capaAtual);
@@ -92,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($titulo === '') {
         $err = 'Título obrigatório.';
         $tipo = $tipoPost;
-        $edit = compact('id', 'titulo', 'slug', 'resumo', 'descricao', 'capa', 'duracao', 'blocos', 'dias', 'insercoes', 'destaque', 'ativo', 'ordem', 'whatsapp_msg', 'nc_folder');
+        $edit = compact('id', 'titulo', 'slug', 'resumo', 'descricao', 'capa', 'duracao', 'blocos', 'dias', 'insercoes', 'destaque', 'ativo', 'ordem', 'whatsapp_msg');
         $edit['tipo'] = $tipoPost;
         $edit['area'] = $area;
     } else {
@@ -103,28 +122,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         try {
             if ($id > 0) {
-                // garante que não troca de área
                 $pdo->prepare(
-                    'UPDATE conteudos SET area=?, tipo=?, titulo=?, slug=?, resumo=?, descricao=?, capa=?, duracao=?, blocos=?, dias=?, insercoes=?, destaque=?, ativo=?, ordem=?, whatsapp_msg=?, nc_folder=?, updated_at=NOW()
+                    'UPDATE conteudos SET area=?, tipo=?, titulo=?, slug=?, resumo=?, descricao=?, capa=?, duracao=?, blocos=?, dias=?, insercoes=?, destaque=?, ativo=?, ordem=?, whatsapp_msg=?, updated_at=NOW()
                      WHERE id=? AND area=?'
                 )->execute([
                     $area, $tipoPost, $titulo, $slug, $resumo, $descricao, $capa, $duracao, $blocos, $dias,
-                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $nc_folder, $id, $area,
+                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $id, $area,
                 ]);
             } else {
                 $pdo->prepare(
-                    'INSERT INTO conteudos (area,tipo,titulo,slug,resumo,descricao,capa,duracao,blocos,dias,insercoes,destaque,ativo,ordem,whatsapp_msg,nc_folder,created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
+                    'INSERT INTO conteudos (area,tipo,titulo,slug,resumo,descricao,capa,duracao,blocos,dias,insercoes,destaque,ativo,ordem,whatsapp_msg,created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
                 )->execute([
                     $area, $tipoPost, $titulo, $slug, $resumo, $descricao, $capa, $duracao, $blocos, $dias,
-                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $nc_folder,
+                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg,
                 ]);
                 $id = intval($pdo->lastInsertId());
             }
             if ($isDemo) {
                 admin_salvar_demonstrativos('conteudo', $id);
-            } else {
-                admin_salvar_entregas($id);
             }
             header('Location: ' . $script . '?tipo=' . rawurlencode($tipoPost) . '&id=' . $id . '&ok=1');
             exit;
@@ -143,10 +159,6 @@ if (isset($_GET['id']) || isset($_GET['novo'])) {
         $edit = $st->fetch() ?: null;
         if ($edit) {
             $tipo = (string)$edit['tipo'];
-            // nc_folder_set sobrescreve temporariamente (sem salvar no DB)
-            if (!empty($_GET['nc_folder_set'])) {
-                $edit['nc_folder'] = trim((string)($_GET['nc_folder_set']));
-            }
         }
     } else {
         $tipoNovo = ($tipo !== '' && isset($tipos[$tipo])) ? $tipo : (array_key_first($tipos) ?: 'diario');
@@ -229,7 +241,8 @@ if ($tipo === '' && $edit === null):
 // ========== FORM ==========
 elseif ($edit !== null):
     $tipoAtual = (string)($edit['tipo'] ?? $tipo);
-    $isProgramete = $tipoAtual === 'programete';
+    if ($isDemo):
+        $isProgramete = $tipoAtual === 'programete';
 ?>
 <div class="actions" style="margin-bottom:12px;">
     <a class="btn btn-secondary btn-small" href="<?= e($script) ?>">← Tipos</a>
@@ -239,7 +252,6 @@ elseif ($edit !== null):
     <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="id" value="<?= intval($edit['id']) ?>">
         <input type="hidden" name="capa_atual" value="<?= e($edit['capa'] ?? '') ?>">
-
         <div class="field-row">
             <div class="field">
                 <label>Tipo *</label>
@@ -251,23 +263,12 @@ elseif ($edit !== null):
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="field">
-                <label>Ordem</label>
-                <input type="number" name="ordem" value="<?= intval($edit['ordem'] ?? 0) ?>">
-            </div>
+            <div class="field"><label>Ordem</label><input type="number" name="ordem" value="<?= intval($edit['ordem'] ?? 0) ?>"></div>
         </div>
-
         <div class="field-row">
-            <div class="field">
-                <label>Título *</label>
-                <input name="titulo" required value="<?= e($edit['titulo'] ?? '') ?>">
-            </div>
-            <div class="field">
-                <label>Slug (URL)</label>
-                <input name="slug" value="<?= e($edit['slug'] ?? '') ?>" placeholder="gerado automaticamente">
-            </div>
+            <div class="field"><label>Título *</label><input name="titulo" required value="<?= e($edit['titulo'] ?? '') ?>"></div>
+            <div class="field"><label>Slug (URL)</label><input name="slug" value="<?= e($edit['slug'] ?? '') ?>" placeholder="gerado automaticamente"></div>
         </div>
-
         <?php if (!$isProgramete): ?>
         <div class="field-row">
             <div class="field"><label>Duração</label><input name="duracao" value="<?= e($edit['duracao'] ?? '') ?>" placeholder="ex: 3 horas"></div>
@@ -285,14 +286,9 @@ elseif ($edit !== null):
         <input type="hidden" name="blocos" value="<?= e($edit['blocos'] ?? '') ?>">
         <input type="hidden" name="dias" value="<?= e($edit['dias'] ?? '') ?>">
         <?php endif; ?>
-
         <div class="field"><label>Resumo (card)</label><textarea name="resumo" rows="2"><?= e($edit['resumo'] ?? '') ?></textarea></div>
         <div class="field"><label>Descrição completa</label><textarea name="descricao" rows="5"><?= e($edit['descricao'] ?? '') ?></textarea></div>
-        <?php if ($isDemo): ?>
         <div class="field"><label>Mensagem WhatsApp (opcional)</label><input name="whatsapp_msg" value="<?= e($edit['whatsapp_msg'] ?? '') ?>"></div>
-        <?php else: ?>
-        <input type="hidden" name="whatsapp_msg" value="">
-        <?php endif; ?>
         <div class="field">
             <label>Capa (imagem)</label>
             <p class="muted" style="margin:4px 0 8px;">Convertida para JPEG (máx. 540×675).</p>
@@ -305,104 +301,78 @@ elseif ($edit !== null):
             <div class="field"><label><input type="checkbox" name="ativo" value="1" <?= !empty($edit['ativo']) ? 'checked' : '' ?>> Ativo</label></div>
             <div class="field"><label><input type="checkbox" name="destaque" value="1" <?= !empty($edit['destaque']) ? 'checked' : '' ?>> Destaque</label></div>
         </div>
-
-        <?php if (!$isDemo): ?>
-        <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
-            <label>Origem dos arquivos de entrega</label>
-            <p class="muted" style="margin:4px 0 8px;">Escolha de onde virão os arquivos para os clientes.</p>
-            <div style="display:flex;gap:20px;margin-bottom:10px;">
-                <label><input type="radio" name="origem_arquivos" value="upload" <?= (empty($edit['nc_folder']) && ($_POST['origem_arquivos'] ?? '') !== 'nc' && empty($_GET['nc_browse']) && empty($_GET['nc_folder_set'])) ? 'checked' : '' ?>> Upload manual</label>
-                <label><input type="radio" name="origem_arquivos" value="nc" <?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse']) || !empty($_GET['nc_folder_set'])) ? 'checked' : '' ?>> Pasta do Nextcloud</label>
-            </div>
-            <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
-
-            <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc' || !empty($_GET['nc_browse']) || !empty($_GET['nc_folder_set'])) ? '' : 'none' ?>">
-            <?php if (nc_configurado()):
-                $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
-                // Se nc_folder vazio e não veio de nc_folder_set, já abre navegação na raiz
-                if ($ncBrowse === '' && empty($edit['nc_folder']) && empty($_GET['nc_folder_set'])) {
-                    $ncBrowse = '_root_';
-                }
-                if ($ncBrowse !== ''):
-                    $ncPath = $ncBrowse === '_root_' ? '' : $ncBrowse; ?>
-                <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:400px;overflow-y:auto;">
-                    <p class="muted" style="margin-bottom:8px;font-size:.85rem;">Navegando: <code><?= e($ncPath ?: 'Raiz') ?></code></p>
-                    <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
-                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>">← Fechar navegação</a>
-                        <?php if ($ncPath !== ''): ?>
-                            <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=_root_">← Raiz</a>
-                            <?php $parent = dirname($ncPath); if ($parent !== '.' && $parent !== $ncPath): ?>
-                                <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($parent) ?>">← Pasta anterior</a>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </div>
-                    <?php $ncItens = nc_listar($ncPath); ?>
-                    <?php if (!$ncItens): ?>
-                        <div class="muted">Pasta vazia.</div>
-                    <?php else: ?>
-                        <div style="display:grid;gap:3px;">
-                            <?php foreach ($ncItens as $item): ?>
-                                <?php if ($item['type'] === 'folder'): ?>
-                                    <div style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;background:rgba(34,197,94,.06);border:1px solid var(--line);">
-                                        <span>📁 <?= e($item['name']) ?></span>
-                                        <span style="flex:1;"></span>
-                                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($item['path']) ?>">Abrir</a>
-                                        <a class="btn btn-primary btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_folder_set=<?= rawurlencode($item['path']) ?>">Selecionar</a>
-                                    </div>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-                <?php else: // no nc_browse ?>
-                    <p style="margin-bottom:8px;">
-                        Pasta selecionada: <strong id="nc_selected_path"><?= e($edit['nc_folder'] ?: 'Nenhuma') ?></strong>
-                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($edit['nc_folder'] ?: '_root_') ?>" style="margin-left:8px;"><?= empty($edit['nc_folder']) ? 'Escolher pasta' : 'Alterar' ?></a>
-                    </p>
-                <?php endif; // nc_browse
-            else: // nc_configurado false ?>
-                <p class="muted">Configure o Nextcloud em <a href="nextcloud.php">Admin > Nextcloud</a> para vincular pastas.</p>
-            <?php endif; // nc_configurado ?>
-            </div>
-        </div>
-        <?php endif; // !isDemo ?>
-
-        <?php if ($isDemo): ?>
-            <?php admin_bloco_demonstrativos('conteudo', intval($edit['id'] ?? 0)); ?>
-            <p class="muted" style="margin-top:8px;">Áudios de demonstração — aparecem no site público.</p>
-        <?php else: ?>
-            <div id="block-entregas-upload">
-            <?php if (!empty($edit['id'])): ?>
-                <?php admin_bloco_entregas(intval($edit['id'])); ?>
-            <?php else: ?>
-                <div class="field" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
-                    <p class="muted">Salve o conteúdo primeiro para enviar <strong>arquivos de entrega</strong> (só clientes com liberação).</p>
-                </div>
-            <?php endif; ?>
-            </div>
-        <?php endif; ?>
-
+        <?php admin_bloco_demonstrativos('conteudo', intval($edit['id'] ?? 0)); ?>
+        <p class="muted" style="margin-top:8px;">Áudios de demonstração — aparecem no site público.</p>
         <div class="actions" style="margin-top:16px;">
             <button class="btn btn-primary" type="submit">Salvar</button>
             <a class="btn btn-secondary" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>">Cancelar</a>
         </div>
     </form>
 </div>
-<script>
-function toggleOrigem() {
-    var v = document.querySelector('input[name="origem_arquivos"]:checked');
-    if (!v) return;
-    var uploadBlock = document.getElementById('block-entregas-upload');
-    var ncBlock = document.getElementById('block-entregas-nc');
-    if (ncBlock) ncBlock.style.display = v.value === 'nc' ? '' : 'none';
-    if (uploadBlock) uploadBlock.style.display = v.value === 'upload' ? '' : 'none';
-}
-document.addEventListener('change', function(e) {
-    if (e.target.name === 'origem_arquivos') toggleOrigem();
-});
-document.addEventListener('DOMContentLoaded', toggleOrigem);
-</script>
 <?php
+    else:
+        // ===== CONTEUDO: apenas vinculo com pasta Nextcloud =====
+        $ncOk = nc_configurado();
+?>
+<div class="actions" style="margin-bottom:12px;">
+    <a class="btn btn-secondary btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>">← Lista de <?= e($tipos[$tipoAtual]['label'] ?? '') ?></a>
+</div>
+<div class="card">
+    <h3 style="margin-bottom:8px;">Vincular pasta do Nextcloud</h3>
+    <p class="muted" style="margin-bottom:16px;">Selecione a pasta do Nextcloud que será exibida para os clientes nesta categoria.</p>
+
+    <?php if ($ncOk):
+        $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
+        if ($ncBrowse === '' && empty($edit['nc_folder'])) {
+            $ncBrowse = '_root_';
+        }
+        if ($ncBrowse !== ''):
+            $ncPath = $ncBrowse === '_root_' ? '' : $ncBrowse; ?>
+        <div style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:400px;overflow-y:auto;">
+            <p class="muted" style="margin-bottom:8px;font-size:.85rem;">
+                Navegando: <code><?= e($ncPath ?: 'Raiz') ?></code>
+                <?php if (!empty($edit['nc_folder'])): ?>
+                    <span class="chip" style="margin-left:8px;">Atual: <?= e($edit['nc_folder']) ?></span>
+                <?php endif; ?>
+            </p>
+            <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                <?php if ($ncPath !== ''): ?>
+                    <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=_root_">← Raiz</a>
+                    <?php $parent = dirname($ncPath); if ($parent !== '.' && $parent !== $ncPath): ?>
+                        <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($parent) ?>">← Pasta anterior</a>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+            <?php $ncItens = nc_listar($ncPath); ?>
+            <?php if (!$ncItens): ?>
+                <div class="muted">Pasta vazia.</div>
+            <?php else: ?>
+                <div style="display:grid;gap:3px;">
+                    <?php foreach ($ncItens as $item): ?>
+                        <?php if ($item['type'] === 'folder'): ?>
+                            <div style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;background:rgba(34,197,94,.06);border:1px solid var(--line);">
+                                <span>📁 <?= e($item['name']) ?></span>
+                                <span style="flex:1;"></span>
+                                <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($item['path']) ?>">Abrir</a>
+                                <a class="btn btn-primary btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_folder_set=<?= rawurlencode($item['path']) ?>">Selecionar</a>
+                            </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php elseif (!empty($edit['nc_folder'])): ?>
+            <p>Pasta vinculada: <strong><?= e($edit['nc_folder']) ?></strong></p>
+            <a class="btn btn-primary btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($edit['nc_folder']) ?>">Alterar pasta</a>
+        <?php else: ?>
+            <p class="muted">Navegue pelas pastas acima e clique em <strong>Selecionar</strong> para vincular.</p>
+        <?php endif; ?>
+    <?php else: ?>
+        <p class="muted">Configure o Nextcloud em <a href="nextcloud.php">Admin > Nextcloud</a> para vincular pastas.</p>
+    <?php endif; ?>
+</div>
+<?php
+    endif;
 // ========== LISTA ==========
 else:
     $meta = $tipos[$tipo];
@@ -427,9 +397,15 @@ else:
     <table>
         <thead>
             <tr>
+                <?php if ($isDemo): ?>
                 <th>Capa</th>
+                <?php endif; ?>
                 <th>Título</th>
+                <?php if ($isDemo): ?>
                 <th><?= $tipo === 'programete' ? 'Inserções' : 'Duração' ?></th>
+                <?php else: ?>
+                <th>Pasta NC</th>
+                <?php endif; ?>
                 <th>Status</th>
                 <th></th>
             </tr>
@@ -437,9 +413,15 @@ else:
         <tbody>
         <?php foreach ($lista as $p): ?>
             <tr>
+                <?php if ($isDemo): ?>
                 <td><?php if (!empty($p['capa'])): ?><img class="thumb" src="../<?= e($p['capa']) ?>" alt=""><?php else: ?>—<?php endif; ?></td>
-                <td><strong><?= e($p['titulo']) ?></strong><div class="muted"><?= e($p['slug']) ?><?= !empty($p['nc_folder']) ? ' · <span class="chip">☁️ NC</span>' : '' ?></div></td>
+                <?php endif; ?>
+                <td><strong><?= e($p['titulo']) ?></strong><?php if (!$isDemo): ?><div class="muted"><?= e($p['slug']) ?></div><?php endif; ?></td>
+                <?php if ($isDemo): ?>
                 <td><?= e($tipo === 'programete' ? ($p['insercoes'] ?: '—') : ($p['duracao'] ?: '—')) ?></td>
+                <?php else: ?>
+                <td><code><?= e($p['nc_folder'] ?: '—') ?></code></td>
+                <?php endif; ?>
                 <td><?= !empty($p['ativo']) ? '<span class="badge badge-ok">Ativo</span>' : '<span class="badge badge-off">Inativo</span>' ?></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="<?= e($script) ?>?tipo=<?= e($tipo) ?>&id=<?= intval($p['id']) ?>">Editar</a>
@@ -448,7 +430,7 @@ else:
             </tr>
         <?php endforeach; ?>
         <?php if (!$lista): ?>
-            <tr><td colspan="5" class="muted">Nenhum item ainda. Clique em <strong>+ Novo</strong>.</td></tr>
+            <tr><td colspan="<?= $isDemo ? 5 : 4 ?>" class="muted">Nenhum item ainda. Clique em <strong>+ Novo</strong>.</td></tr>
         <?php endif; ?>
         </tbody>
     </table>
