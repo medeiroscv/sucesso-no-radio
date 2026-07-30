@@ -19,7 +19,7 @@ function nc_curl_init(string $path, string $method = 'PROPFIND') {
     if (empty($cfg['server']) || empty($cfg['user']) || empty($cfg['pass'])) return null;
     $base = nc_base_webdav();
     $path = ltrim($path, '/');
-    $url = $base . ($path !== '' ? '/' . $path : '/');
+    $url = $path !== '' ? $base . '/' . $path . '/' : $base . '/';
     $ch = curl_init($url);
     if (!$ch) return null;
     curl_setopt_array($ch, [
