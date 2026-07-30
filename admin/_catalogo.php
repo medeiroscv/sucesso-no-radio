@@ -313,6 +313,14 @@ elseif ($edit !== null):
             <input type="hidden" name="nc_folder" id="nc_folder" value="<?= e($edit['nc_folder'] ?? '') ?>">
 
             <div id="block-entregas-nc" style="display:<?= (!empty($edit['nc_folder']) || ($_POST['origem_arquivos'] ?? '') === 'nc') ? '' : 'none' ?>">
+                <p style="margin-bottom:8px;">
+                    Pasta selecionada: <strong id="nc_selected_path"><?= e($edit['nc_folder'] ?: 'Nenhuma') ?></strong>
+                    <?php if (nc_configurado()): ?>
+                    <a class="btn btn-ghost btn-small" href="<?= e($script) ?>?tipo=<?= e($tipoAtual) ?>&id=<?= intval($edit['id']) ?>&nc_browse=<?= rawurlencode($edit['nc_folder'] ?: '') ?>" style="margin-left:8px;"><?= empty($edit['nc_folder']) ? 'Escolher pasta' : 'Alterar' ?></a>
+                    <?php else: ?>
+                    <span class="muted"> — Configure o Nextcloud em <a href="nextcloud.php">Admin > Nextcloud</a>.</span>
+                    <?php endif; ?>
+                </p>
             <?php if (nc_configurado()):
                 $ncBrowse = trim((string)($_GET['nc_browse'] ?? ''));
                 if ($ncBrowse !== ''):
