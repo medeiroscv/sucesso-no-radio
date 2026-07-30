@@ -39,6 +39,17 @@ $ncOk = $vals['nc_server'] && $vals['nc_user'] && $vals['nc_pass'];
 $ncPath = trim((string)($_GET['nc'] ?? ''));
 $ncItens = $ncOk ? nc_listar($ncPath) : [];
 
+$rawXml = '';
+if (isset($_GET['debug']) && $ncOk) {
+    $ch = nc_curl_init($ncPath);
+    if ($ch) {
+        curl_setopt($ch, CURLOPT_HEADER, true);
+        $rawXml = curl_exec($ch);
+        if ($rawXml === false) $rawXml = 'cURL error: ' . curl_error($ch);
+        curl_close($ch);
+    }
+}
+
 admin_header('Nextcloud', 'nextcloud');
 ?>
 <div class="card">
@@ -92,6 +103,13 @@ admin_header('Nextcloud', 'nextcloud');
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+</div>
+<?php endif; ?>
+<?php if ($rawXml !== ''): ?>
+<div class="card" style="margin-top:18px;">
+    <h3 style="margin-bottom:10px;">Debug — resposta bruta do servidor</h3>
+    <pre style="background:#0f172a;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:.78rem;max-height:500px;overflow:auto;white-space:pre-wrap;word-break:break-all;"><?= e(substr($rawXml, 0, 10000)) ?></pre>
+    <p class="muted" style="margin-top:8px;font-size:.82rem;"><a href="nextcloud.php">← Limpar debug</a></p>
 </div>
 <?php endif; ?>
 <?php admin_footer(); ?>
