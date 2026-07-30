@@ -79,7 +79,9 @@ cliente_header($browsingNc ? $ncItem['titulo'] : $meta['label'], $tipo);
 
 <?php elseif ($browsingNc):
     // --- Navegador NC inline ---
-    $ncItens = nc_listar($ncFull); ?>
+    $ncItens = nc_listar($ncFull);
+    // Remove a pasta raiz da listagem
+    $ncItens = array_values(array_filter($ncItens, fn($i) => !($i['type'] === 'folder' && $i['path'] === $ncRoot))); ?>
     <?php if (!$ncItens): ?>
         <div class="empty" style="padding:24px;">Nenhum arquivo disponível nesta pasta.</div>
     <?php else: ?>

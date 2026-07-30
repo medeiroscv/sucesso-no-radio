@@ -55,6 +55,7 @@ cliente_header($item['titulo'], $tipo);
             $ncRel = trim((string)($_GET['nc_path'] ?? ''));
             $ncFull = $ncRel !== '' ? $item['nc_folder'] . '/' . $ncRel : $item['nc_folder'];
             $ncItens = nc_listar($ncFull);
+            $ncItens = array_values(array_filter($ncItens, fn($i) => !($i['type'] === 'folder' && $i['path'] === $ncFull)));
         ?>
             <?php if ($ncRel !== ''): ?>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
