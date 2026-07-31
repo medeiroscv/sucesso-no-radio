@@ -159,7 +159,7 @@ if ($edit):
     <a class="btn btn-secondary btn-small" href="../precos.php" target="_blank">Ver página de preços</a>
 </div>
 <div class="card">
-    <form method="post">
+        <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="id" value="<?= intval($edit['id']) ?>">
         <h3 style="margin-bottom:12px;">Produto / plano / pacote</h3>
         <div class="field-row">

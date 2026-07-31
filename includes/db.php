@@ -538,7 +538,7 @@ function app_conteudo_tipos(): array {
         'produto' => [
             'label' => 'Produtos',
             'icon' => '📦',
-            'desc' => 'Produtos avulsos e pacotes com demonstrativos',
+            'desc' => 'Produtos avulsos e pacotes',
             'dias_default' => '',
         ],
     ];
@@ -546,7 +546,6 @@ function app_conteudo_tipos(): array {
 
 /** Tipos na área do cliente (produtos comprados). */
 function app_conteudo_tipos_cliente(): array {
-    // Mesmos tipos do catálogo: diários, semanais, informativos e programetes
     return app_conteudo_tipos();
 }
 

@@ -6,6 +6,7 @@
  */
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/nextcloud.php';
+require_once __DIR__ . '/../includes/billing.php';
 
 $area = defined('CATALOGO_AREA') ? CATALOGO_AREA : 'conteudo';
 if (!app_catalogo_area_valida($area)) {
@@ -75,6 +76,16 @@ if (isset($_GET['nc_folder_set']) && !$isDemo) {
 
 // ---- Salvar (apenas demonstrativo usa POST form) ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Produto: salva entregas e demonstrativos (sem Nextcloud)
+    if (!$isDemo && $tipo === 'produto') {
+        $id = intval($_POST['id'] ?? 0);
+        if ($id > 0) {
+            if (function_exists('admin_salvar_produto_entregas')) admin_salvar_produto_entregas($id);
+            if (function_exists('admin_salvar_produto_demonstrativos')) admin_salvar_produto_demonstrativos($id);
+        }
+        header('Location: ' . $script . '?tipo=produto&id=' . $id . '&ok=1');
+        exit;
+    }
     $id = intval($_POST['id'] ?? 0);
     $tipoPost = trim((string)($_POST['tipo'] ?? 'diario'));
     if (!isset($tipos[$tipoPost])) {
@@ -154,13 +165,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ---- Form novo/editar ----
 if (isset($_GET['id']) || isset($_GET['novo'])) {
     if (!empty($_GET['id'])) {
-        $st = $pdo->prepare('SELECT * FROM conteudos WHERE id = ? AND area = ?');
-        $st->execute([intval($_GET['id']), $area]);
-        $edit = $st->fetch() ?: null;
+        if ($tipo === 'produto' && !$isDemo) {
+            $edit = billing_produto_by_id(intval($_GET['id']));
+            if ($edit) $edit = billing_produto_normalize_row($edit);
+        } else {
+            $st = $pdo->prepare('SELECT * FROM conteudos WHERE id = ? AND area = ?');
+            $st->execute([intval($_GET['id']), $area]);
+            $edit = $st->fetch() ?: null;
+        }
         if ($edit) {
-            $tipo = (string)$edit['tipo'];
+            $tipoVal = $edit['tipo'] ?? '';
+            if ($tipoVal !== '' && isset($tipos[$tipoVal])) $tipo = $tipoVal;
         }
     } else {
+        if ($tipo === 'produto' && !$isDemo) {
+            header('Location: produtos.php');
+            exit;
+        }
         $tipoNovo = ($tipo !== '' && isset($tipos[$tipo])) ? $tipo : (array_key_first($tipos) ?: 'diario');
         $meta = $tipos[$tipoNovo];
         $edit = [
@@ -193,8 +214,12 @@ if (isset($_GET['ok'])) {
 $counts = [];
 foreach (array_keys($tipos) as $t) {
     try {
-        $st = $pdo->prepare('SELECT COUNT(*) FROM conteudos WHERE tipo = ? AND area = ?');
-        $st->execute([$t, $area]);
+        if (!$isDemo && $t === 'produto') {
+            $st = $pdo->prepare("SELECT COUNT(*) FROM produtos WHERE tipo IN ('avulso','pacote')");
+        } else {
+            $st = $pdo->prepare('SELECT COUNT(*) FROM conteudos WHERE tipo = ? AND area = ?');
+            $st->execute([$t, $area]);
+        }
         $counts[$t] = (int)$st->fetchColumn();
     } catch (Throwable $e) {
         $counts[$t] = 0;
@@ -203,12 +228,20 @@ foreach (array_keys($tipos) as $t) {
 
 $lista = [];
 if ($tipo !== '' && $edit === null) {
-    $st = $pdo->prepare('SELECT * FROM conteudos WHERE tipo = ? AND area = ? ORDER BY ordem ASC, id DESC');
-    $st->execute([$tipo, $area]);
-    $lista = $st->fetchAll() ?: [];
+    if ($tipo === 'produto' && !$isDemo) {
+        $todos = billing_produtos_lista(false, false);
+        $lista = array_values(array_filter($todos, fn($p) => in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true)));
+        $lista = array_map('billing_produto_normalize_row', $lista);
+    } else {
+        $st = $pdo->prepare('SELECT * FROM conteudos WHERE tipo = ? AND area = ? ORDER BY ordem ASC, id DESC');
+        $st->execute([$tipo, $area]);
+        $lista = $st->fetchAll() ?: [];
+    }
 }
 
-if ($edit !== null) {
+if ($tipo === 'produto' && !$isDemo && $edit !== null) {
+    $pageTitle = 'Entregas · ' . ($edit['nome'] ?? 'Produto');
+} elseif ($edit !== null) {
     $tipoLabel = $tipos[$edit['tipo'] ?? $tipo]['label'] ?? $areaMeta['singular'];
     $pageTitle = !empty($edit['id']) ? 'Editar · ' . $tipoLabel : 'Novo · ' . $tipoLabel;
 } elseif ($tipo !== '') {
@@ -238,7 +271,33 @@ if ($tipo === '' && $edit === null):
     </div>
 </div>
 <?php
-// ========== FORM ==========
+// ========== PRODUTO: FORMULÁRIO DE ENTREGAS ==========
+elseif ($tipo === 'produto' && !$isDemo && $edit !== null):
+    $prodId = intval($edit['id'] ?? 0);
+?>
+<div class="actions" style="margin-bottom:12px;">
+    <a class="btn btn-secondary btn-small" href="<?= e($script) ?>?tipo=produto">← Lista de produtos</a>
+    <a class="btn btn-secondary btn-small" href="produtos.php?id=<?= $prodId ?>" target="_blank">Editar produto</a>
+</div>
+<div class="card">
+    <h3 style="margin-bottom:8px;"><?= e($edit['nome'] ?? 'Produto') ?></h3>
+    <p class="muted" style="margin-bottom:16px;">
+        <?= e($tipos['produto']['icon'] ?? '') ?>
+        <?= e($edit['tipo'] === 'avulso' ? 'Produto avulso' : 'Pacote') ?> ·
+        <?= e(app_money_br(intval($edit['valor_centavos']))) ?>
+    </p>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="id" value="<?= $prodId ?>">
+        <?php admin_bloco_produto_entregas($prodId); ?>
+        <?php admin_bloco_produto_demonstrativos($prodId); ?>
+        <div class="actions" style="margin-top:16px;">
+            <button class="btn btn-primary" type="submit">Salvar entregas</button>
+            <a class="btn btn-secondary" href="<?= e($script) ?>?tipo=produto">Cancelar</a>
+        </div>
+    </form>
+</div>
+<?php
+// ========== FORM (demonstrativo) ==========
 elseif ($edit !== null):
     $tipoAtual = (string)($edit['tipo'] ?? $tipo);
     if ($isDemo):
@@ -373,7 +432,52 @@ elseif ($edit !== null):
 </div>
 <?php
     endif;
-// ========== LISTA ==========
+// ========== PRODUTO: LISTA ==========
+elseif ($tipo === 'produto' && !$isDemo):
+    $ehAvulso = fn($p) => ($p['tipo'] ?? '') === 'avulso';
+    $ehPacote = fn($p) => ($p['tipo'] ?? '') === 'pacote';
+?>
+<div class="actions" style="margin-bottom:12px;">
+    <a class="btn btn-secondary btn-small" href="<?= e($script) ?>">← Todos os tipos</a>
+    <a class="btn btn-primary btn-small" href="produtos.php?novo=1" target="_blank">+ Novo produto em Produtos e Preços</a>
+</div>
+<div class="card">
+    <strong style="font-size:1.05rem;">📦 Produtos avulsos e pacotes</strong>
+    <div class="muted" style="margin-bottom:14px;">Gerencie os arquivos de entrega e links.</div>
+    <?php if (!$lista): ?>
+        <p class="muted">Nenhum produto avulso ou pacote cadastrado. Crie um em <a href="produtos.php">Produtos e Preços</a>.</p>
+    <?php else: ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Entregas</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($lista as $p):
+                $qtd = count(app_produto_entregas(intval($p['id'])));
+                $temDemo = count(app_produto_demonstrativos(intval($p['id']))) > 0;
+            ?>
+                <tr>
+                    <td><strong><?= e($p['nome']) ?></strong></td>
+                    <td><?= $ehAvulso($p) ? 'Avulso' : 'Pacote' ?></td>
+                    <td><?= e(app_money_br(intval($p['valor_centavos']))) ?></td>
+                    <td><?= $qtd ?> ite(ns)</td>
+                    <td class="actions">
+                        <a class="btn btn-secondary btn-small" href="<?= e($script) ?>?tipo=produto&id=<?= intval($p['id']) ?>">Gerenciar entregas</a>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+</div>
+<?php
+// ========== LISTA (demais tipos) ==========
 else:
     $meta = $tipos[$tipo];
 ?>
