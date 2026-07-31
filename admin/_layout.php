@@ -699,7 +699,7 @@ function admin_bloco_produto_entregas(int $produtoId): void {
         </p>
 
         <?php if ($itens): ?>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;margin-bottom:14px;">
+            <div style="display:grid;gap:10px;margin-bottom:14px;">
                 <?php foreach ($itens as $d):
                     $temArquivo = !empty($d['arquivo']);
                     $temLink = !empty($d['link_url']);
@@ -717,7 +717,9 @@ function admin_bloco_produto_entregas(int $produtoId): void {
                             </audio>
                             <div class="muted" style="font-size:.8rem;">Arquivo: <?= htmlspecialchars(basename((string)$d['arquivo'])) ?></div>
                         <?php endif; ?>
-                        <input name="prod_entrega_link_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['link_url'] ?? '') ?>" placeholder="Link externo (opcional)">
+                        <?php if ($temLink): ?>
+                            <input name="prod_entrega_link_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['link_url'] ?? '') ?>" placeholder="Link externo (opcional)">
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>
