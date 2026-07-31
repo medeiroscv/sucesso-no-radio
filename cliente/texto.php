@@ -327,8 +327,10 @@ else:
             $st = (string)($t['status'] ?? 'pendente');
             $m = app_texto_status_meta($st);
             $url = app_url('cliente/texto.php?id=' . intval($t['id']));
+            $podeEditar = in_array($st, ['pendente', 'precisa_correcao', 'corrigido'], true);
+            $podeCancelar = !in_array($st, ['entregue', 'cancelado'], true);
         ?>
-            <a class="cliente-list-item" href="<?= e($url) ?>">
+            <div class="cliente-list-item" style="cursor:default;">
                 <div>
                     <strong><?= e($t['titulo'] ?: ('Texto #' . intval($t['id']))) ?></strong>
                     <div class="muted" style="font-size:.85rem;margin-top:4px;">
@@ -340,6 +342,16 @@ else:
                     <span style="font-size:.72rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;white-space:nowrap;">
                         <?= e($m['label']) ?>
                     </span>
+                    <?php if ($podeEditar): ?>
+                        <a class="btn btn-ghost btn-small" href="<?= e($url) ?>">Editar</a>
+                    <?php endif; ?>
+                    <?php if ($podeCancelar): ?>
+                        <form method="post" style="display:inline;">
+                            <input type="hidden" name="acao" value="cancelar">
+                            <input type="hidden" name="id" value="<?= intval($t['id']) ?>">
+                            <button class="btn btn-ghost btn-small" type="submit" onclick="return confirm('Tem certeza que deseja cancelar esta gravação?');">Cancelar</button>
+                        </form>
+                    <?php endif; ?>
                     <?php if (!empty($t['audio_arquivo'])): ?>
                         <span class="chip">🎧 Áudio</span>
                     <?php endif; ?>
@@ -347,7 +359,7 @@ else:
                         <span class="chip" style="background:rgba(239,68,68,.15);color:#fecaca;border-color:rgba(239,68,68,.3);">Novo</span>
                     <?php endif; ?>
                 </div>
-            </a>
+            </div>
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
