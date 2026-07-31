@@ -705,17 +705,16 @@ function admin_bloco_produto_entregas(int $produtoId): void {
                     $temLink = !empty($d['link_url']);
                 ?>
                     <div class="item-card">
-                        <div style="display:flex;gap:10px;align-items:center;">
-                            <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="max-width:320px;">
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                            <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="max-width:240px;">
+                            <?php if ($temArquivo): ?>
+                                <audio controls preload="none" style="height:36px;max-width:300px;">
+                                    <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                                </audio>
+                            <?php endif; ?>
                             <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>" style="display:none;" id="del_ent_<?= intval($d['id']) ?>">
                             <button type="button" class="btn btn-danger btn-small" style="flex-shrink:0;" onclick="var cb=document.getElementById('del_ent_<?= intval($d['id']) ?>');cb.checked=!cb.checked;this.textContent=cb.checked?'Desfazer':'Remover';this.closest('.item-card').style.opacity=cb.checked?'.45':'1';">Remover</button>
                         </div>
-                        <?php if ($temArquivo): ?>
-                            <audio controls preload="none">
-                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
-                            </audio>
-                            <div class="muted" style="font-size:.8rem;">Arquivo: <?= htmlspecialchars(basename((string)$d['arquivo'])) ?></div>
-                        <?php endif; ?>
                         <?php if ($temLink): ?>
                             <input name="prod_entrega_link_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['link_url'] ?? '') ?>" placeholder="Link externo (opcional)">
                         <?php endif; ?>
@@ -825,14 +824,14 @@ function admin_bloco_produto_demonstrativos(int $produtoId): void {
             <div style="display:grid;gap:10px;margin-bottom:14px;">
                 <?php foreach ($demos as $d): ?>
                     <div class="item-card">
-                        <div style="display:flex;gap:10px;align-items:center;">
-                            <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="max-width:320px;">
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                            <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="max-width:240px;">
+                            <audio controls preload="none" style="height:36px;max-width:300px;">
+                                <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
+                            </audio>
                             <input type="checkbox" name="prod_demo_del[]" value="<?= intval($d['id']) ?>" style="display:none;" id="del_demo_<?= intval($d['id']) ?>">
                             <button type="button" class="btn btn-danger btn-small" style="flex-shrink:0;" onclick="var cb=document.getElementById('del_demo_<?= intval($d['id']) ?>');cb.checked=!cb.checked;this.textContent=cb.checked?'Desfazer':'Remover';this.closest('.item-card').style.opacity=cb.checked?'.45':'1';">Remover</button>
                         </div>
-                        <audio controls preload="none">
-                            <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
-                        </audio>
                     </div>
                 <?php endforeach; ?>
             </div>
