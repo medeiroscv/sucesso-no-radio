@@ -384,6 +384,7 @@ else:
                     <span style="font-size:.72rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;white-space:nowrap;">
                         <?= e($m['label']) ?>
                     </span>
+                    <a class="btn btn-ghost btn-small" href="<?= e($url) ?>">Abrir</a>
                     <?php if ($podeEditar): ?>
                         <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/texto.php?id=' . intval($t['id']) . '&editar=1')) ?>">Editar</a>
                     <?php endif; ?>
