@@ -1347,8 +1347,8 @@ function app_fmt_date(?string $data): string {
 function app_texto_status_meta(?string $status = null): array {
     $all = [
         'pendente' => [
-            'label' => 'Aguardando análise',
-            'desc' => 'Texto enviado, aguardando a equipe',
+            'label' => 'Aguardando gravação',
+            'desc' => 'Texto enviado, aguardando gravação',
             'color' => '#94a3b8',
             'bg' => 'rgba(148,163,184,.15)',
         ],
