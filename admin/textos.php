@@ -3,6 +3,7 @@ require_once __DIR__ . '/_layout.php';
 $pdo = app_pdo();
 $ok = $err = '';
 $statusMeta = app_texto_status_meta();
+$editandoAdmin = isset($_GET['editar']);
 
 if (isset($_GET['del'])) {
     $id = intval($_GET['del']);
@@ -285,7 +286,7 @@ admin_flash($ok, $err);
             <button class="btn btn-primary btn-small" type="submit">Reativar gravação</button>
         </form>
     <?php endif; ?>
-
+    <?php if ($editandoAdmin): ?>
     <div style="margin-top:16px;">
         <strong style="display:block;margin-bottom:8px;">Editar título e texto</strong>
         <p class="muted" style="margin-bottom:10px;font-size:.85rem;">Altere o título ou o conteúdo do texto enviado pelo cliente.</p>
@@ -303,6 +304,9 @@ admin_flash($ok, $err);
             <button class="btn btn-secondary" type="submit">Salvar texto</button>
         </form>
     </div>
+    <?php else: ?>
+    <a class="btn btn-secondary btn-small" href="textos.php?id=<?= intval($ver['id']) ?>&editar=1" style="margin-top:12px;">Editar texto</a>
+    <?php endif; ?>
 </div>
 <style>@media(max-width:900px){div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}}</style>
 <?php endif; ?>
@@ -342,6 +346,7 @@ admin_flash($ok, $err);
                 <td><?= !empty($c['audio_arquivo']) ? '✓' : '—' ?></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="textos.php?id=<?= intval($c['id']) ?>">Abrir</a>
+                    <a class="btn btn-secondary btn-small" href="textos.php?id=<?= intval($c['id']) ?>&editar=1">Editar</a>
                     <a class="btn btn-danger btn-small" href="textos.php?del=<?= intval($c['id']) ?>" onclick="return confirm('Excluir?')">Excluir</a>
                 </td>
             </tr>
