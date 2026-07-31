@@ -145,7 +145,7 @@ if ($modoNovo):
         <div class="cliente-dados-box" style="margin-bottom:14px;">
             <strong>Você está logado</strong>
             <div class="muted" style="margin-top:8px;line-height:1.7;font-size:.92rem;">
-                <?= e($cli['nome']) ?>
+                <?= e($cli['nome']) ?><?php if (!empty($cli['radio'])): ?> — <?= e($cli['radio']) ?><?php endif; ?>
             </div>
         </div>
         <form method="post">
