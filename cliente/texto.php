@@ -39,7 +39,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
     $texto = trim((string)($_POST['texto'] ?? ''));
     $idPost = intval($_POST['id'] ?? 0);
 
-    if ($texto === '') {
+    if ($acao === 'cancelar' && $idPost > 0) {
+        $row = app_texto_by_id($idPost);
+        if (!$row || intval($row['cliente_id'] ?? 0) !== $cliId) {
+            $err = 'Texto não encontrado.';
+        } elseif (($row['status'] ?? '') === 'entregue') {
+            $err = 'Não é possível cancelar um texto já entregue.';
+        } elseif (($row['status'] ?? '') === 'cancelado') {
+            $err = 'Este texto já foi cancelado.';
+        } else {
+            try {
+                app_pdo()->prepare(
+                    "UPDATE textos_gravacao
+                     SET status = 'cancelado', updated_at = NOW()
+                     WHERE id = ? AND cliente_id = ?"
+                )->execute([$idPost, $cliId]);
+                header('Location: ' . app_url('cliente/texto.php?ok_cancelado=1'));
+                exit;
+            } catch (Throwable $e) {
+                $err = 'Não foi possível cancelar.';
+            }
+        }
+    } elseif ($texto === '') {
         $err = 'Informe o texto para gravação.';
         if ($acao === 'novo') $modoNovo = true;
     } elseif ($acao === 'corrigir' && $idPost > 0) {
@@ -124,27 +145,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
                 exit;
             } catch (Throwable $e) {
                 $err = 'Não foi possível salvar as alterações.';
-            }
-        }
-    } elseif ($acao === 'cancelar' && $idPost > 0) {
-        $row = app_texto_by_id($idPost);
-        if (!$row || intval($row['cliente_id'] ?? 0) !== $cliId) {
-            $err = 'Texto não encontrado.';
-        } elseif (($row['status'] ?? '') === 'entregue') {
-            $err = 'Não é possível cancelar um texto já entregue.';
-        } elseif (($row['status'] ?? '') === 'cancelado') {
-            $err = 'Este texto já foi cancelado.';
-        } else {
-            try {
-                app_pdo()->prepare(
-                    "UPDATE textos_gravacao
-                     SET status = 'cancelado', updated_at = NOW()
-                     WHERE id = ? AND cliente_id = ?"
-                )->execute([$idPost, $cliId]);
-                header('Location: ' . app_url('cliente/texto.php?ok_cancelado=1'));
-                exit;
-            } catch (Throwable $e) {
-                $err = 'Não foi possível cancelar.';
             }
         }
     }
