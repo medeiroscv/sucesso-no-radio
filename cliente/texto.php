@@ -107,6 +107,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
                 $modoNovo = true;
             }
         }
+    } elseif ($acao === 'editar' && $idPost > 0) {
+        $row = app_texto_by_id($idPost);
+        if (!$row || intval($row['cliente_id'] ?? 0) !== $cliId) {
+            $err = 'Texto não encontrado.';
+        } elseif (!in_array($row['status'] ?? '', ['pendente', 'precisa_correcao'], true)) {
+            $err = 'Este texto não pode mais ser editado.';
+        } else {
+            try {
+                app_pdo()->prepare(
+                    "UPDATE textos_gravacao
+                     SET titulo = ?, texto = ?, lido_cliente = 1, updated_at = NOW()
+                     WHERE id = ? AND cliente_id = ?"
+                )->execute([$titulo, $texto, $idPost, $cliId]);
+                header('Location: ' . app_url('cliente/texto.php?id=' . $idPost . '&ok=1'));
+                exit;
+            } catch (Throwable $e) {
+                $err = 'Não foi possível salvar as alterações.';
+            }
+        }
+    } elseif ($acao === 'cancelar' && $idPost > 0) {
+        $row = app_texto_by_id($idPost);
+        if (!$row || intval($row['cliente_id'] ?? 0) !== $cliId) {
+            $err = 'Texto não encontrado.';
+        } elseif (($row['status'] ?? '') === 'entregue') {
+            $err = 'Não é possível cancelar um texto já entregue.';
+        } elseif (($row['status'] ?? '') === 'cancelado') {
+            $err = 'Este texto já foi cancelado.';
+        } else {
+            try {
+                app_pdo()->prepare(
+                    "UPDATE textos_gravacao
+                     SET status = 'cancelado', updated_at = NOW()
+                     WHERE id = ? AND cliente_id = ?"
+                )->execute([$idPost, $cliId]);
+                header('Location: ' . app_url('cliente/texto.php?id=' . $idPost . '&ok=1'));
+                exit;
+            } catch (Throwable $e) {
+                $err = 'Não foi possível cancelar.';
+            }
+        }
     }
 }
 
@@ -220,6 +260,27 @@ elseif ($editando):
                 <textarea name="texto" rows="14" required><?= e($_POST['texto'] ?? $editando['texto'] ?? '') ?></textarea>
             </div>
             <button class="btn btn-primary" type="submit">Reenviar texto corrigido</button>
+        </form>
+    <?php elseif (in_array($st, ['pendente', 'corrigido'], true)): ?>
+        <form method="post">
+            <input type="hidden" name="acao" value="editar">
+            <input type="hidden" name="id" value="<?= intval($editando['id']) ?>">
+            <div class="field">
+                <label>Título / referência</label>
+                <input name="titulo" value="<?= e($_POST['titulo'] ?? $editando['titulo'] ?? '') ?>">
+            </div>
+            <div class="field">
+                <label>Texto *</label>
+                <textarea name="texto" rows="14" required><?= e($_POST['texto'] ?? $editando['texto'] ?? '') ?></textarea>
+            </div>
+            <div class="actions">
+                <button class="btn btn-primary" type="submit">Salvar alterações</button>
+            </div>
+        </form>
+        <form method="post" style="margin-top:8px;">
+            <input type="hidden" name="acao" value="cancelar">
+            <input type="hidden" name="id" value="<?= intval($editando['id']) ?>">
+            <button class="btn btn-ghost" type="submit" onclick="return confirm('Tem certeza que deseja cancelar esta gravação?');">Cancelar gravação</button>
         </form>
     <?php else: ?>
         <div style="background:#0b1220;border:1px solid #243047;border-radius:12px;padding:14px;white-space:pre-wrap;line-height:1.55;margin-bottom:14px;">

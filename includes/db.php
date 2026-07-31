@@ -1370,6 +1370,12 @@ function app_texto_status_meta(?string $status = null): array {
             'color' => '#86efac',
             'bg' => 'rgba(34,197,94,.15)',
         ],
+        'cancelado' => [
+            'label' => 'Cancelado',
+            'desc' => 'Gravação cancelada pelo cliente',
+            'color' => '#ef4444',
+            'bg' => 'rgba(239,68,68,.15)',
+        ],
     ];
     if ($status === null) return $all;
     $status = $status !== '' ? $status : 'pendente';
