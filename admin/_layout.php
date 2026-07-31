@@ -707,9 +707,8 @@ function admin_bloco_produto_entregas(int $produtoId): void {
                     <div class="item-card">
                         <div style="display:flex;gap:10px;align-items:center;">
                             <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="flex:1;min-width:0;">
-                            <label style="font-size:.82rem;white-space:nowrap;cursor:pointer;flex-shrink:0;padding:4px 10px;border-radius:6px;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);">
-                                <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>" style="margin-right:4px;"> Excluir
-                            </label>
+                            <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>" style="display:none;" id="del_ent_<?= intval($d['id']) ?>">
+                            <button type="button" class="btn btn-danger btn-small" style="flex-shrink:0;" onclick="var cb=document.getElementById('del_ent_<?= intval($d['id']) ?>');cb.checked=!cb.checked;this.textContent=cb.checked?'Desfazer':'Remover';this.closest('.item-card').style.opacity=cb.checked?'.45':'1';">Remover</button>
                         </div>
                         <?php if ($temArquivo): ?>
                             <audio controls preload="none">
@@ -826,15 +825,14 @@ function admin_bloco_produto_demonstrativos(int $produtoId): void {
             <div style="display:grid;gap:10px;margin-bottom:14px;">
                 <?php foreach ($demos as $d): ?>
                     <div class="item-card">
-                        <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título">
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="flex:1;min-width:0;">
+                            <input type="checkbox" name="prod_demo_del[]" value="<?= intval($d['id']) ?>" style="display:none;" id="del_demo_<?= intval($d['id']) ?>">
+                            <button type="button" class="btn btn-danger btn-small" style="flex-shrink:0;" onclick="var cb=document.getElementById('del_demo_<?= intval($d['id']) ?>');cb.checked=!cb.checked;this.textContent=cb.checked?'Desfazer':'Remover';this.closest('.item-card').style.opacity=cb.checked?'.45':'1';">Remover</button>
+                        </div>
                         <audio controls preload="none">
                             <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
                         </audio>
-                        <div class="item-footer">
-                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;">
-                                <input type="checkbox" name="prod_demo_del[]" value="<?= intval($d['id']) ?>"> Excluir
-                            </label>
-                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
