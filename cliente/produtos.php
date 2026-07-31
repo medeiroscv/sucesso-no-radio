@@ -37,22 +37,30 @@ cliente_header('Meus Produtos', 'produtos');
                             $temArquivo = !empty($d['arquivo']);
                             $temLink = !empty($d['link_url']);
                         ?>
+                            <?php if ($temLink): ?>
+                            <a href="<?= e($d['link_url']) ?>" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(15,23,42,.6);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-decoration:none;color:inherit;cursor:pointer;">
+                            <?php else: ?>
                             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(15,23,42,.6);border:1px solid var(--line);border-radius:8px;padding:8px 12px;">
+                            <?php endif; ?>
                                 <span style="font-size:.92rem;"><?= e($d['titulo'] ?: 'Arquivo') ?></span>
                                 <div style="display:flex;gap:6px;flex-shrink:0;">
                                     <?php if ($temArquivo): ?>
-                                        <a class="btn btn-primary btn-small" href="<?= e(app_url($d['arquivo'])) ?>" download>Baixar</a>
+                                        <a class="btn btn-primary btn-small" href="<?= e(app_url($d['arquivo'])) ?>" download onclick="event.stopPropagation();">Baixar</a>
                                         <?php if (preg_match('/\.(mp3|m4a|wav|ogg)$/i', (string)$d['arquivo'])): ?>
                                             <button class="btn btn-ghost btn-small" type="button"
                                                     data-url="<?= e(app_url($d['arquivo'])) ?>"
-                                                    onclick="abrirPlayer(this.dataset.url)">Ouvir</button>
+                                                    onclick="event.stopPropagation();abrirPlayer(this.dataset.url);">Ouvir</button>
                                         <?php endif; ?>
                                     <?php endif; ?>
                                     <?php if ($temLink): ?>
-                                        <a class="btn btn-secondary btn-small" href="<?= e($d['link_url']) ?>" target="_blank" rel="noopener">Link</a>
+                                        <span class="btn btn-secondary btn-small">Link</span>
                                     <?php endif; ?>
                                 </div>
+                            <?php if ($temLink): ?>
+                            </a>
+                            <?php else: ?>
                             </div>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
