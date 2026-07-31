@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 cliente_header('Meus dados', 'perfil');
 cliente_flash($ok, $err);
 ?>
-<div class="form-card" style="max-width:560px;">
+<div class="form-card" style="max-width:100%;">
     <form method="post">
         <div class="field"><label>Nome</label><input value="<?= e($cli['nome']) ?>" disabled></div>
         <div class="field"><label>E-mail (login)</label><input value="<?= e($cli['email']) ?>" disabled></div>
