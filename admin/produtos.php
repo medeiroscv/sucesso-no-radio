@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($tipos[$tipo])) $tipo = 'mensalidade';
     $ciclo = (string)($_POST['ciclo'] ?? 'mensal');
     if (!isset($ciclos[$ciclo])) $ciclo = 'mensal';
-    if ($tipo === 'avulso') $ciclo = 'unico';
+    if (in_array($tipo, ['avulso', 'pacote'], true)) $ciclo = 'unico';
     $valor = (float)str_replace(',', '.', preg_replace('/[^\d,.]/', '', (string)($_POST['valor'] ?? '0')));
     $cent = (int)round($valor * 100);
     $desc = trim((string)($_POST['descricao'] ?? ''));
@@ -204,7 +204,7 @@ if ($edit):
         </div>
 
         <?php
-        $ehSingle = in_array($edit['tipo'] ?? '', ['avulso', 'pacote'], true) && ($edit['ciclo'] ?? '') === 'unico';
+        $ehSingle = in_array($edit['tipo'] ?? '', ['avulso', 'pacote'], true);
         ?>
         <?php if ($ehSingle): ?>
             <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:12px;padding:16px 18px;margin-top:18px;">
@@ -308,11 +308,12 @@ if ($edit):
             $p = billing_produto_normalize_row($p);
             $t = $tipos[$p['tipo']] ?? ['label' => $p['tipo']];
             $c = $ciclos[$p['ciclo']] ?? ['label' => $p['ciclo']];
-            $antes = $p['cobranca_antes_list'];
-            $apos = $p['cobranca_apos_list'];
+            $isSingle = !empty($p['is_single_product']);
+            $antes = $isSingle ? [] : $p['cobranca_antes_list'];
+            $apos = $isSingle ? [] : $p['cobranca_apos_list'];
             $cob = [];
             if ($antes) $cob[] = 'antes: ' . implode(',', $antes);
-            if (!empty($p['cobranca_no_vencimento'])) $cob[] = 'no venc.';
+            if (!$isSingle && !empty($p['cobranca_no_vencimento'])) $cob[] = 'no venc.';
             if ($apos) $cob[] = 'após: ' . implode(',', $apos);
         ?>
             <tr>
@@ -320,12 +321,13 @@ if ($edit):
                     <strong><?= e($p['nome']) ?></strong>
                     <?php if (!empty($p['destaque'])): ?><span class="badge badge-ok">destaque</span><?php endif; ?>
                     <?php if (empty($p['ativo'])): ?><span class="badge badge-off">inativo</span><?php endif; ?>
+                    <?php if ($isSingle): ?><span class="badge badge-ok" style="background:rgba(34,197,94,.15);color:#86efac;">pag. único</span><?php endif; ?>
                 </td>
                 <td><?= e($t['label']) ?></td>
                 <td><?= e($c['label']) ?></td>
                 <td><?= e(app_money_br(intval($p['valor_centavos']))) ?></td>
-                <td class="muted"><?= intval($p['dias_gerar_antes']) ?>d antes</td>
-                <td class="muted" style="font-size:.8rem;"><?= e($cob ? implode(' · ', $cob) : '—') ?></td>
+                <td class="muted"><?= $isSingle ? '—' : (intval($p['dias_gerar_antes']) . 'd antes') ?></td>
+                <td class="muted" style="font-size:.8rem;"><?= $isSingle ? '—' : e($cob ? implode(' · ', $cob) : '—') ?></td>
                 <td><?= !empty($p['mostrar_site']) ? 'Sim' : 'Não' ?></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="produtos.php?id=<?= intval($p['id']) ?>">Editar</a>

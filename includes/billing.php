@@ -114,6 +114,9 @@ function billing_produtos_lista(bool $somenteAtivos = false, bool $somenteSite =
 }
 
 function billing_produto_normalize_row(array $p): array {
+    if (in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true)) {
+        $p['ciclo'] = 'unico';
+    }
     $p['cobranca_antes_list'] = billing_parse_dias_list($p['cobranca_antes'] ?? '[]');
     $p['cobranca_apos_list'] = billing_parse_dias_list($p['cobranca_apos'] ?? '[]');
     $p['recursos_list'] = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)($p['recursos'] ?? '')) ?: [])));
@@ -127,7 +130,7 @@ function billing_produto_normalize_row(array $p): array {
         $p['liberar_tipos_list'] = [];
     }
     $p['liberar_acesso_total'] = !empty($p['liberar_acesso_total']);
-    $p['is_single_product'] = in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true) && ($p['ciclo'] ?? '') === 'unico';
+    $p['is_single_product'] = true;
     return $p;
 }
 
