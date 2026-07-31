@@ -92,7 +92,7 @@ layout_header('Confirmar compra', 'precos');
             <p class="muted">Nenhuma fatura ou boleto será gerado até você confirmar abaixo.</p>
         </div>
 
-        <div class="form-card" style="max-width:520px;margin:0 auto 40px;">
+        <div class="form-card" style="max-width:100%;margin:0 auto 40px;">
             <?php if ($erro !== ''): ?>
                 <div class="alert alert-err"><?= e($erro) ?></div>
             <?php endif; ?>

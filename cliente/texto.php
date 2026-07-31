@@ -181,7 +181,7 @@ if ($modoNovo):
     <div class="alert alert-err">O envio de textos está temporariamente desativado.</div>
 <?php else: ?>
 <div class="forms-grid">
-    <div class="form-card" style="max-width:720px;">
+    <div class="form-card" style="max-width:100%;">
         <div class="cliente-dados-box" style="margin-bottom:14px;">
             <strong>Você está logado</strong>
             <div class="muted" style="margin-top:8px;line-height:1.7;font-size:.92rem;">
@@ -232,7 +232,7 @@ elseif ($editando):
     </span>
 </div>
 
-<div class="form-card" style="max-width:800px;margin-bottom:28px;">
+<div class="form-card" style="max-width:100%;margin-bottom:28px;">
     <h3 style="margin:0 0 8px;"><?= e($editando['titulo'] ?: ('Texto #' . intval($editando['id']))) ?></h3>
     <p class="muted" style="margin-bottom:12px;font-size:.88rem;">
         Enviado em <?= e(app_fmt_date($editando['created_at'])) ?>

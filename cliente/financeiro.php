@@ -143,7 +143,7 @@ if ($atraso):
     <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/financeiro.php?lista=1')) ?>">← Todas as faturas</a>
 </div>
 
-<div class="form-card" style="max-width:720px;margin-bottom:28px;">
+<div class="form-card" style="max-width:100%;margin-bottom:28px;">
     <div class="actions" style="margin-bottom:10px;">
         <h3 style="margin:0;flex:1;"><?= e($ver['descricao'] ?: 'Fatura') ?> #<?= intval($ver['id']) ?></h3>
         <span style="font-size:.78rem;font-weight:800;padding:4px 10px;border-radius:999px;color:<?= e($m['color']) ?>;background:<?= e($m['bg']) ?>;"><?= e($m['label']) ?></span>
