@@ -154,10 +154,13 @@ th { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-s
   border-radius: 10px;
   padding: 12px;
 }
-.item-card input,
-.item-card audio {
+.item-card input[type="text"],
+.item-card input[type="url"],
+.item-card input:not([type="checkbox"]):not([type="file"]) {
   width: 100% !important;
   box-sizing: border-box;
+  height: 38px;
+  padding: 6px 10px;
 }
 .item-card .item-footer {
   display: flex;
