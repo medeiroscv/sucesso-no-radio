@@ -428,7 +428,7 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_texto_titulo' => 'Envio de texto para gravação',
         'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
         'form_texto_btn' => 'Enviar texto',
-        'form_texto_instrucoes' => 'Cole o texto completo abaixo. Se preferir, indique o título ou o programa ao qual se refere.',
+        'form_texto_instrucoes' => '',
         // Financeiro / Asaas
         'finance_ativo' => '0',
         'finance_bloquear_atraso' => '1',
