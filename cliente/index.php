@@ -6,6 +6,7 @@ $cli = cliente_atual();
 $cliId = intval($cli['id'] ?? 0);
 $liberado = cliente_tem_liberacao($cli);
 $tipos = app_conteudo_tipos_cliente();
+unset($tipos['produto']);
 $counts = [];
 $recentes = [];
 $totalLiberados = 0;

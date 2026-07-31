@@ -71,6 +71,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Liberação de categorias
                 cliente_salvar_liberacoes($id, $liberados, (bool)$acessoTotal);
 
+                // Produtos avulsos/pacotes atribuídos manualmente
+                $prodAtrib = $_POST['produtos_atribuidos'] ?? [];
+                if (!is_array($prodAtrib)) $prodAtrib = [];
+                $prodAtrib = array_map('intval', $prodAtrib);
+                $prodAtrib = array_values(array_filter($prodAtrib, fn($v) => $v > 0));
+                cliente_salvar_produtos_atribuidos($id, $prodAtrib);
+
                 header('Location: clientes.php?id=' . $id . '&ok=1');
                 exit;
             }
@@ -196,6 +203,7 @@ if ($edit !== null):
         <div id="listaLiberacoes" style="<?= $acessoTotalChecked ? 'opacity:.45;pointer-events:none;' : '' ?>">
             <div style="display:grid;gap:10px;">
                 <?php foreach ($tipos as $tKey => $tMeta):
+                    if ($tKey === 'produto') continue;
                     $checked = in_array($tKey, $tiposLiberados, true);
                 ?>
                     <label style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-weight:600;color:var(--text);cursor:pointer;">
@@ -207,25 +215,53 @@ if ($edit !== null):
             </div>
         </div>
 
-        <?php if (!empty($edit['id'])): $cliProd = app_cliente_produtos(intval($edit['id'])); ?>
-            <?php if ($cliProd): ?>
-                <h3 style="margin:22px 0 10px;">Produtos adquiridos</h3>
-                <div style="display:grid;gap:8px;">
-                    <?php foreach ($cliProd as $cp): ?>
-                        <div style="display:flex;justify-content:space-between;align-items:center;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 14px;">
-                            <div>
-                                <strong><?= e($cp['produto_nome']) ?></strong>
-                                <span class="muted" style="font-size:.85rem;margin-left:10px;">
-                                    liberado em <?= e(app_fmt_date($cp['liberado_em'] ?? null)) ?>
-                                </span>
+        <?php if (!empty($edit['id'])): ?>
+            <?php
+            $prodAvulsos = [];
+            try {
+                $st = $pdo->prepare("SELECT * FROM produtos WHERE tipo IN ('avulso','pacote') ORDER BY nome ASC");
+                $st->execute();
+                $prodAvulsos = $st->fetchAll() ?: [];
+            } catch (Throwable $e) { /* ok */ }
+            $atribIds = cliente_produtos_atribuidos_ids(intval($edit['id']));
+            $compIds = cliente_produtos_comprados_ids(intval($edit['id']));
+            ?>
+            <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:18px;margin-top:24px;">
+                <h3 style="margin:0 0 4px;font-size:1.05rem;">Produtos avulsos / pacotes</h3>
+                <p class="muted" style="margin:0 0 14px;font-size:.85rem;">
+                    Produtos que o cliente pode acessar. Os comprados via pagamento aparecem com selo "Comprado".
+                    Marque abaixo para atribuir manualmente.
+                </p>
+                <?php if (!$prodAvulsos): ?>
+                    <p class="muted">Nenhum produto avulso ou pacote cadastrado.</p>
+                <?php else: ?>
+                    <div style="display:grid;gap:8px;">
+                        <?php foreach ($prodAvulsos as $pa):
+                            $paId = intval($pa['id']);
+                            $isComprado = in_array($paId, $compIds, true);
+                            $isAtribuido = in_array($paId, $atribIds, true);
+                        ?>
+                            <div style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 14px;">
+                                <?php if ($isComprado): ?>
+                                    <input type="checkbox" disabled checked title="Comprado via pagamento">
+                                <?php else: ?>
+                                    <input type="checkbox" name="produtos_atribuidos[]" value="<?= $paId ?>" <?= $isAtribuido ? 'checked' : '' ?>>
+                                <?php endif; ?>
+                                <div style="flex:1;">
+                                    <strong><?= e($pa['nome']) ?></strong>
+                                    <?php if ($isComprado): ?>
+                                        <span class="badge badge-ok" style="font-size:.75rem;margin-left:8px;">Comprado</span>
+                                    <?php endif; ?>
+                                </div>
+                                <span class="muted" style="font-size:.85rem;"><?= e($pa['tipo'] === 'avulso' ? 'Avulso' : 'Pacote') ?></span>
+                                <a class="btn btn-ghost btn-small" href="../cliente/produto.php?id=<?= $paId ?>" target="_blank" rel="noopener" title="Ver arquivos do produto">
+                                    Ver
+                                </a>
                             </div>
-                            <a class="btn btn-ghost btn-small" href="../cliente/produto.php?id=<?= intval($cp['produto_id']) ?>" target="_blank" rel="noopener">
-                                Ver arquivos
-                            </a>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
 
         <div class="actions" style="margin-top:16px;">

@@ -48,6 +48,7 @@ function cliente_subnav(string $active = ''): void {
     $cli = cliente_atual();
     $liberado = cliente_tem_liberacao($cli);
     $tipos = app_conteudo_tipos_cliente();
+    unset($tipos['produto']);
     ?>
     <nav class="cliente-subnav" aria-label="Menu da área do cliente">
         <a href="<?= e(cliente_home_url()) ?>" class="<?= $active === 'home' || $active === 'cliente' ? 'active' : '' ?>">Início</a>

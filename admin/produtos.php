@@ -258,6 +258,7 @@ if ($edit):
                     <?php
                     $libList = $edit['liberar_tipos_list'] ?? [];
                     foreach (app_conteudo_tipos_cliente() as $tKey => $tMeta):
+                        if ($tKey === 'produto') continue;
                     ?>
                         <label style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:600;">
                             <input type="checkbox" name="liberar_tipos[]" value="<?= e($tKey) ?>"

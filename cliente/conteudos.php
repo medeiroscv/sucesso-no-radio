@@ -6,6 +6,7 @@ cliente_require_liberacao();
 $cli = cliente_atual();
 $cliId = intval($cli['id'] ?? 0);
 $tipos = app_conteudo_tipos_cliente();
+unset($tipos['produto']);
 $tipo = trim((string)($_GET['tipo'] ?? 'diario'));
 if (!isset($tipos[$tipo])) {
     $tipo = 'diario';

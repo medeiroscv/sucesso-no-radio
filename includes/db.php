@@ -1554,3 +1554,47 @@ function app_cliente_produtos(int $clienteId): array {
         return [];
     }
 }
+
+function cliente_produtos_atribuidos_ids(int $clienteId): array {
+    if ($clienteId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT produto_id FROM cliente_produtos WHERE cliente_id = ? AND fatura_id IS NULL'
+        );
+        $st->execute([$clienteId]);
+        return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function cliente_produtos_comprados_ids(int $clienteId): array {
+    if ($clienteId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT produto_id FROM cliente_produtos WHERE cliente_id = ? AND fatura_id IS NOT NULL'
+        );
+        $st->execute([$clienteId]);
+        return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function cliente_salvar_produtos_atribuidos(int $clienteId, array $produtoIds): void {
+    if ($clienteId <= 0) return;
+    $pdo = app_pdo();
+    try {
+        $pdo->prepare('DELETE FROM cliente_produtos WHERE cliente_id = ? AND fatura_id IS NULL')
+            ->execute([$clienteId]);
+        if ($produtoIds) {
+            $ins = $pdo->prepare(
+                'INSERT INTO cliente_produtos (cliente_id, produto_id, created_at) VALUES (?,?,NOW()) ON CONFLICT DO NOTHING'
+            );
+            foreach ($produtoIds as $pid) {
+                $pid = intval($pid);
+                if ($pid > 0) $ins->execute([$clienteId, $pid]);
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+}
