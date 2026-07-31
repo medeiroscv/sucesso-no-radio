@@ -314,9 +314,7 @@ admin_flash($ok, $err);
                 <th>Data</th>
                 <th>Status</th>
                 <th>Cliente</th>
-                <th>WhatsApp</th>
                 <th>Título</th>
-                <th>Texto</th>
                 <th>Áudio</th>
                 <th></th>
             </tr>
@@ -324,7 +322,6 @@ admin_flash($ok, $err);
         <tbody>
         <?php foreach ($lista as $c):
             $nome = $c['cliente_nome'] ?: $c['nome'];
-            $wa = $c['cliente_whatsapp'] ?: $c['whatsapp'];
             $st = (string)($c['status'] ?? 'pendente');
             if ($st === '') $st = 'pendente';
             $m = app_texto_status_meta($st);
@@ -341,9 +338,7 @@ admin_flash($ok, $err);
                     <strong><?= e($nome ?: '—') ?></strong>
                     <?php if (!empty($c['cliente_radio'])): ?><div class="muted"><?= e($c['cliente_radio']) ?></div><?php endif; ?>
                 </td>
-                <td><?= e($wa ?: '—') ?></td>
                 <td><?= e($c['titulo'] ?: '—') ?></td>
-                <td><?= e(mb_strimwidth($c['texto'] ?? '', 0, 50, '…')) ?></td>
                 <td><?= !empty($c['audio_arquivo']) ? '✓' : '—' ?></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="textos.php?id=<?= intval($c['id']) ?>">Abrir</a>
@@ -352,7 +347,7 @@ admin_flash($ok, $err);
             </tr>
         <?php endforeach; ?>
         <?php if (!$lista): ?>
-            <tr><td colspan="8" class="muted">Nenhum texto enviado ainda.</td></tr>
+            <tr><td colspan="6" class="muted">Nenhum texto enviado ainda.</td></tr>
         <?php endif; ?>
         </tbody>
     </table>
