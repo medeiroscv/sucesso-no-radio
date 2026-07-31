@@ -53,7 +53,7 @@ cliente_flash($ok, $err);
         <div class="field"><label>E-mail (login)</label><input value="<?= e($cli['email']) ?>" disabled></div>
         <p class="muted" style="margin-bottom:12px;font-size:.85rem;">Nome e e-mail são alterados apenas pela administração.</p>
         <div class="field-row-form">
-            <div class="field"><label>CPF (para boleto/Pix)</label><input name="cpf" value="<?= e($cli['cpf'] ?? '') ?>" placeholder="000.000.000-00"></div>
+            <div class="field"><label>CPF ou CNPJ (para boleto/Pix)</label><input name="cpf" value="<?= e($cli['cpf'] ?? '') ?>" placeholder="000.000.000-00 ou 00.000.000/0000-00"></div>
             <div class="field"><label>WhatsApp</label><input name="whatsapp" value="<?= e($cli['whatsapp'] ?? '') ?>"></div>
         </div>
         <div class="field-row-form">
