@@ -339,7 +339,6 @@ elseif ($editando):
             </div>
         </div>
     <?php elseif ($st === 'pendente' || $st === 'corrigido'): ?>
-        <p class="muted" style="margin-top:12px;"><?= e($meta['desc']) ?>.</p>
     <?php endif; ?>
 </div>
 
