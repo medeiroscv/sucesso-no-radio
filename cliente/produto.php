@@ -68,14 +68,10 @@ cliente_header($title, 'produtos');
                         </a>
                         <?php if (preg_match('/\.(mp3|m4a|wav|ogg)$/i', (string)$d['arquivo'])): ?>
                             <button class="btn btn-ghost btn-small" type="button"
-                                    onclick="var a=this.nextElementSibling;if(a){a.style.display=a.style.display==='none'?'block':'none';}this.textContent=this.textContent==='Ouvir'?'Fechar':'Ouvir';">
+                                    data-url="<?= e(app_url($d['arquivo'])) ?>"
+                                    onclick="abrirPlayer(this.dataset.url)">
                                 Ouvir
                             </button>
-                            <div style="display:none;grid-column:1/-1;padding:12px 0 6px;">
-                                <audio controls preload="none" style="width:100%;max-width:600px;">
-                                    <source src="<?= e(app_url($d['arquivo'])) ?>" type="audio/mpeg">
-                                </audio>
-                            </div>
                         <?php endif; ?>
                     <?php endif; ?>
                     <?php if ($temLink): ?>
@@ -92,5 +88,31 @@ cliente_header($title, 'produtos');
 <div class="actions" style="margin-top:20px;">
     <a class="btn btn-ghost" href="<?= e(app_url('cliente/produtos.php')) ?>">← Voltar para Meus Produtos</a>
 </div>
+
+<!-- Modal para ouvir áudio -->
+<div id="contentModal" class="modal-overlay" style="display:none;" onclick="closeModal(event)">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<style>
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;}
+.modal-card{background:var(--card);border-radius:12px;padding:24px;max-width:520px;width:90%;max-height:80vh;overflow:auto;position:relative;}
+.modal-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);line-height:1;}
+</style>
+
+<script>
+function abrirPlayer(url){
+  document.getElementById('modalBody').innerHTML='<audio controls autoplay style="width:100%;"><source src="'+url+'" type="audio/mpeg"></audio>';
+  document.getElementById('contentModal').style.display='flex';
+}
+function closeModal(e){
+  if(e&&e.target!==e.currentTarget)return;
+  document.getElementById('contentModal').style.display='none';
+  document.getElementById('modalBody').innerHTML='';
+}
+</script>
 
 <?php cliente_footer(); ?>

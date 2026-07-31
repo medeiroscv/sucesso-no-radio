@@ -58,8 +58,8 @@ function cliente_subnav(string $active = ''): void {
                     <?= e($meta['label']) ?>
                 </a>
             <?php endforeach; ?>
-            <a href="<?= e(app_url('cliente/texto.php')) ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">Meus textos</a>
         <?php endif; ?>
+        <a href="<?= e(app_url('cliente/texto.php')) ?>" class="<?= $active === 'texto' ? 'active' : '' ?>">Meus textos</a>
         <a href="<?= e(app_url('cliente/produtos.php')) ?>" class="<?= $active === 'produtos' ? 'active' : '' ?>">Meus Produtos</a>
         <?php if (function_exists('app_finance_ativo') && app_finance_ativo()): ?>
             <a href="<?= e(app_url('cliente/financeiro.php')) ?>" class="<?= $active === 'financeiro' ? 'active' : '' ?>">Financeiro</a>

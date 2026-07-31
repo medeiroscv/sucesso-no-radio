@@ -59,7 +59,8 @@ if ($bloqueado):
 <div class="empty" style="margin-bottom:28px;">
     <strong style="display:block;font-size:1.1rem;margin-bottom:10px;color:var(--text);">Acesso aos conteúdos bloqueado</strong>
     Sua conta está ativa, mas ainda <strong>não há categorias liberadas</strong> para o seu cadastro.<br>
-    Você não consegue visualizar programas nem enviar textos até a equipe liberar o produto.<br>
+    Você não consegue visualizar os programas até a equipe liberar o produto.<br>
+    Enquanto isso, você já pode <a href="<?= e(app_url('cliente/texto.php')) ?>">enviar textos</a>.<br>
     <span class="muted" style="display:block;margin-top:12px;">Fale com a Sucesso no Rádio para ativar sua liberação.</span>
 </div>
 <?php

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/_layout.php';
-cliente_require_liberacao('texto');
+cliente_require_auth('texto');
 
 $cli = cliente_atual();
 if (!$cli) {
