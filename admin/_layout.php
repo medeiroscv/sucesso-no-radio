@@ -705,10 +705,10 @@ function admin_bloco_produto_entregas(int $produtoId): void {
                     $temLink = !empty($d['link_url']);
                 ?>
                     <div class="item-card">
-                        <div style="display:flex;gap:8px;align-items:center;">
+                        <div style="display:flex;gap:10px;align-items:center;">
                             <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="flex:1;min-width:0;">
-                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;flex-shrink:0;">
-                                <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                            <label style="font-size:.82rem;white-space:nowrap;cursor:pointer;flex-shrink:0;padding:4px 10px;border-radius:6px;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);">
+                                <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>" style="margin-right:4px;"> Excluir
                             </label>
                         </div>
                         <?php if ($temArquivo): ?>
