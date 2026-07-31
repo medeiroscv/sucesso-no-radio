@@ -72,6 +72,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['texto_id'])) {
         )->execute([$id]);
         header('Location: textos.php?id=' . $id . '&ok=1');
         exit;
+    } elseif ($acao === 'reativar') {
+        if (($row['status'] ?? '') !== 'cancelado') {
+            $err = 'Este texto não está cancelado.';
+        } else {
+            $pdo->prepare(
+                "UPDATE textos_gravacao SET status = 'pendente', lido_cliente = 0, updated_at = NOW() WHERE id = ?"
+            )->execute([$id]);
+            header('Location: textos.php?id=' . $id . '&ok=1');
+            exit;
+        }
+    } elseif ($acao === 'editar_texto') {
+        $tituloAdmin = trim((string)($_POST['titulo'] ?? ''));
+        $textoAdmin = trim((string)($_POST['texto'] ?? ''));
+        if ($textoAdmin === '') {
+            $err = 'O texto não pode ficar em branco.';
+            $ver = $row;
+        } else {
+            $pdo->prepare(
+                "UPDATE textos_gravacao SET titulo = ?, texto = ?, updated_at = NOW() WHERE id = ?"
+            )->execute([$tituloAdmin, $textoAdmin, $id]);
+            header('Location: textos.php?id=' . $id . '&ok=1');
+            exit;
+        }
     }
 }
 
@@ -255,6 +278,31 @@ admin_flash($ok, $err);
             <button class="btn btn-secondary btn-small" type="submit">Cancelar pedido de correção (voltar para pendente)</button>
         </form>
     <?php endif; ?>
+    <?php if ($stKey === 'cancelado'): ?>
+        <form method="post" style="margin-top:12px;">
+            <input type="hidden" name="texto_id" value="<?= intval($ver['id']) ?>">
+            <input type="hidden" name="acao" value="reativar">
+            <button class="btn btn-primary btn-small" type="submit">Reativar gravação</button>
+        </form>
+    <?php endif; ?>
+
+    <div style="margin-top:16px;">
+        <strong style="display:block;margin-bottom:8px;">Editar título e texto</strong>
+        <p class="muted" style="margin-bottom:10px;font-size:.85rem;">Altere o título ou o conteúdo do texto enviado pelo cliente.</p>
+        <form method="post">
+            <input type="hidden" name="texto_id" value="<?= intval($ver['id']) ?>">
+            <input type="hidden" name="acao" value="editar_texto">
+            <div class="field">
+                <label>Título / referência</label>
+                <input name="titulo" value="<?= e($ver['titulo'] ?? '') ?>">
+            </div>
+            <div class="field">
+                <label>Texto</label>
+                <textarea name="texto" rows="10" required><?= e($ver['texto'] ?? '') ?></textarea>
+            </div>
+            <button class="btn btn-secondary" type="submit">Salvar texto</button>
+        </form>
+    </div>
 </div>
 <style>@media(max-width:900px){div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}}</style>
 <?php endif; ?>

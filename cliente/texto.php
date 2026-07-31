@@ -60,6 +60,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
                 $err = 'Não foi possível cancelar.';
             }
         }
+    } elseif ($acao === 'reativar' && $idPost > 0) {
+        $row = app_texto_by_id($idPost);
+        if (!$row || intval($row['cliente_id'] ?? 0) !== $cliId) {
+            $err = 'Texto não encontrado.';
+        } elseif (($row['status'] ?? '') !== 'cancelado') {
+            $err = 'Este texto não está cancelado.';
+        } else {
+            try {
+                app_pdo()->prepare(
+                    "UPDATE textos_gravacao
+                     SET status = 'pendente', updated_at = NOW()
+                     WHERE id = ? AND cliente_id = ?"
+                )->execute([$idPost, $cliId]);
+                header('Location: ' . app_url('cliente/texto.php?id=' . $idPost . '&ok=1'));
+                exit;
+            } catch (Throwable $e) {
+                $err = 'Não foi possível reativar.';
+            }
+        }
     } elseif ($texto === '') {
         $err = 'Informe o texto para gravação.';
         if ($acao === 'novo') $modoNovo = true;
@@ -283,6 +302,15 @@ elseif ($editando):
             <input type="hidden" name="id" value="<?= intval($editando['id']) ?>">
             <button class="btn btn-ghost" type="submit" onclick="return confirm('Tem certeza que deseja cancelar esta gravação?');">Cancelar gravação</button>
         </form>
+    <?php elseif ($st === 'cancelado'): ?>
+        <div style="background:#0b1220;border:1px solid #243047;border-radius:12px;padding:14px;white-space:pre-wrap;line-height:1.55;margin-bottom:14px;">
+            <?= e($editando['texto'] ?? '') ?>
+        </div>
+        <form method="post" style="margin-top:8px;">
+            <input type="hidden" name="acao" value="reativar">
+            <input type="hidden" name="id" value="<?= intval($editando['id']) ?>">
+            <button class="btn btn-primary" type="submit">Reativar gravação</button>
+        </form>
     <?php else: ?>
         <div style="background:#0b1220;border:1px solid #243047;border-radius:12px;padding:14px;white-space:pre-wrap;line-height:1.55;margin-bottom:14px;">
             <?= e($editando['texto'] ?? '') ?>
@@ -330,6 +358,7 @@ else:
             $url = app_url('cliente/texto.php?id=' . intval($t['id']));
             $podeEditar = in_array($st, ['pendente', 'precisa_correcao', 'corrigido'], true);
             $podeCancelar = !in_array($st, ['entregue', 'cancelado'], true);
+            $podeReativar = $st === 'cancelado';
         ?>
             <?php
             $cardStyle = 'cursor:default;';
@@ -355,6 +384,13 @@ else:
                             <input type="hidden" name="acao" value="cancelar">
                             <input type="hidden" name="id" value="<?= intval($t['id']) ?>">
                             <button class="btn btn-ghost btn-small" type="submit" onclick="return confirm('Tem certeza que deseja cancelar esta gravação?');">Cancelar</button>
+                        </form>
+                    <?php endif; ?>
+                    <?php if ($podeReativar): ?>
+                        <form method="post" style="display:inline;">
+                            <input type="hidden" name="acao" value="reativar">
+                            <input type="hidden" name="id" value="<?= intval($t['id']) ?>">
+                            <button class="btn btn-ghost btn-small" type="submit">Reativar</button>
                         </form>
                     <?php endif; ?>
                     <?php if (!empty($t['audio_arquivo'])): ?>
