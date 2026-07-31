@@ -130,7 +130,7 @@ if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
     } else {
         $edit = [
             'id' => 0, 'nome' => '', 'slug' => '', 'tipo' => 'mensalidade', 'ciclo' => 'mensal',
-            'valor_centavos' => 0, 'descricao' => '', 'recursos' => "Conteúdos liberados\nSuporte\nAtualizações",
+            'valor_centavos' => 0, 'descricao' => '', 'recursos' => "Programação liberada\nSuporte\nAtualizações",
             'destaque' => 0, 'ativo' => 1, 'mostrar_site' => 1, 'ordem' => 0,
             'dias_gerar_antes' => 7, 'cobranca_antes' => '[3]', 'cobranca_apos' => '[1,2,3]',
             'cobranca_no_vencimento' => 1, 'emitir_auto' => 1, 'botao_texto' => 'Assinar', 'whatsapp_msg' => '',

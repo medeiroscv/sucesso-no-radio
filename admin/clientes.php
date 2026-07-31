@@ -298,7 +298,7 @@ if ($edit !== null):
             <tr>
                 <th>Cliente</th>
                 <th>Rádio</th>
-                <th>Conteúdos</th>
+                <th>Categorias</th>
                 <th>Produtos</th>
                 <th>Status</th>
                 <th>Último acesso</th>

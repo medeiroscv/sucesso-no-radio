@@ -28,7 +28,7 @@ admin_header('Dashboard', 'dash');
 ?>
 <div class="grid-stats">
     <div class="stat"><span>Demonstrativos</span><strong><?= $stats['demonstrativos'] ?></strong><div class="muted">site público</div></div>
-    <div class="stat"><span>Conteúdos</span><strong><?= $stats['conteudos'] ?></strong><div class="muted">produto / cliente</div></div>
+    <div class="stat"><span>Programação</span><strong><?= $stats['conteudos'] ?></strong><div class="muted">gravada / cliente</div></div>
     <div class="stat"><span>Clientes</span><strong><?= $stats['clientes'] ?></strong><div class="muted"><?= $stats['clientes_liberados'] ?> com liberação</div></div>
     <div class="stat"><span>Textos a gravar</span><strong><?= $stats['textos_novos'] ?></strong><div class="muted">não lidos</div></div>
     <div class="stat"><span>Contatos novos</span><strong><?= $stats['contatos_novos'] ?></strong></div>
@@ -40,7 +40,8 @@ admin_header('Dashboard', 'dash');
     <div class="actions">
         <a class="btn btn-primary" href="clientes.php?novo=1">+ Novo cliente</a>
         <a class="btn btn-secondary" href="demonstrativos.php">Demonstrativos</a>
-        <a class="btn btn-secondary" href="conteudos.php">Conteúdos (produto)</a>
+        <a class="btn btn-secondary" href="conteudos.php">Programação gravada</a>
+        <a class="btn btn-secondary" href="conteudos.php?tipo=produto">Produtos</a>
         <a class="btn btn-secondary" href="textos.php">Textos a gravar</a>
         <a class="btn btn-secondary" href="../cliente/login.php" target="_blank">Área do cliente</a>
     </div>
@@ -50,7 +51,8 @@ admin_header('Dashboard', 'dash');
     <h3 style="margin-bottom:8px;">Como funciona</h3>
     <ul class="muted" style="margin-left:18px;line-height:1.8;">
         <li><strong>Demonstrativos</strong> — amostras na home do site (público).</li>
-        <li><strong>Conteúdos</strong> — programas do produto (diários, semanais, informativos) para quem comprou.</li>
+        <li><strong>Programação gravada</strong> — programas (diários, semanais, informativos) liberados para clientes.</li>
+        <li><strong>Produtos</strong> — entregas de produtos avulsos e pacotes (arquivos e links).</li>
         <li><strong>Clientes</strong> — ativo só permite login; liberação é por <strong>categoria</strong> (Diários, Semanais…).</li>
         <li>Sem categoria liberada, o cliente entra mas fica bloqueado (sem arquivos e sem textos).</li>
     </ul>

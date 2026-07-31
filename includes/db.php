@@ -568,8 +568,8 @@ function app_catalogo_area_meta(string $area): array {
             'active' => 'demonstrativos',
         ],
         default => [
-            'label' => 'Conteúdos',
-            'singular' => 'Conteúdo',
+            'label' => 'Programação gravada',
+            'singular' => 'Programação gravada',
             'desc' => 'Programas liberados para clientes que compraram o produto (login + liberação manual).',
             'file' => 'conteudos.php',
             'active' => 'conteudos',

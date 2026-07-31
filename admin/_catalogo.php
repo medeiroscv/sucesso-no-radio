@@ -23,6 +23,7 @@ $ok = $err = '';
 $edit = null;
 
 $tipo = trim((string)($_GET['tipo'] ?? $_POST['tipo'] ?? ''));
+if (!$isDemo && $tipo === 'produto') $navActive = 'produtos-conteudo';
 if ($tipo !== '' && !isset($tipos[$tipo])) {
     $tipo = '';
 }
@@ -241,6 +242,8 @@ if ($tipo !== '' && $edit === null) {
 
 if ($tipo === 'produto' && !$isDemo && $edit !== null) {
     $pageTitle = 'Entregas · ' . ($edit['nome'] ?? 'Produto');
+} elseif ($tipo === 'produto' && !$isDemo) {
+    $pageTitle = 'Produtos · Admin';
 } elseif ($edit !== null) {
     $tipoLabel = $tipos[$edit['tipo'] ?? $tipo]['label'] ?? $areaMeta['singular'];
     $pageTitle = !empty($edit['id']) ? 'Editar · ' . $tipoLabel : 'Novo · ' . $tipoLabel;
@@ -260,7 +263,8 @@ if ($tipo === '' && $edit === null):
     <p class="muted" style="margin-bottom:8px;"><strong><?= e($areaMeta['label']) ?></strong></p>
     <p class="muted" style="margin-bottom:16px;"><?= e($areaMeta['desc']) ?></p>
     <div class="conteudo-hub">
-        <?php foreach ($tipos as $key => $meta): ?>
+        <?php foreach ($tipos as $key => $meta):
+            if (!$isDemo && $key === 'produto') continue; ?>
             <a class="conteudo-hub-card" href="<?= e($script) ?>?tipo=<?= e($key) ?>">
                 <div class="conteudo-hub-icon"><?= $meta['icon'] ?></div>
                 <h3><?= e($meta['label']) ?></h3>
@@ -482,7 +486,8 @@ else:
 ?>
 <div class="actions" style="margin-bottom:12px;align-items:center;">
     <a class="btn btn-secondary btn-small" href="<?= e($script) ?>">← Todos os tipos</a>
-    <?php foreach ($tipos as $key => $m): ?>
+    <?php foreach ($tipos as $key => $m):
+        if (!$isDemo && $key === 'produto') continue; ?>
         <a class="btn btn-small <?= $key === $tipo ? 'btn-primary' : 'btn-secondary' ?>" href="<?= e($script) ?>?tipo=<?= e($key) ?>">
             <?= $m['icon'] ?> <?= e($m['label']) ?>
         </a>

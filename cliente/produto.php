@@ -1,8 +1,7 @@
 <?php
-require_once __DIR__ . '/../includes/layout_public.php';
+require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/billing.php';
 
-cliente_session_start();
 cliente_require_auth();
 
 $cli = cliente_atual();

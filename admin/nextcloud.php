@@ -93,7 +93,7 @@ admin_header('Nextcloud', 'nextcloud');
                 <a class="btn btn-ghost btn-small" href="nextcloud.php?nc=<?= rawurlencode($parent) ?>" style="margin-top:6px;">← Pasta anterior</a>
             <?php endif; ?>
         <?php else: ?>
-            Esta é a raiz do seu Nextcloud. Tudo aqui será exibido para os clientes na área de Conteúdos.
+            Esta é a raiz do seu Nextcloud. Tudo aqui será exibido para os clientes na Programação Gravada.
         <?php endif; ?>
     </p>
     <?php if (!$ncItens): ?>
