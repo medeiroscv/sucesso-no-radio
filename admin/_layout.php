@@ -706,7 +706,7 @@ function admin_bloco_produto_entregas(int $produtoId): void {
                 ?>
                     <div class="item-card">
                         <div style="display:flex;gap:10px;align-items:center;">
-                            <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="flex:1;min-width:0;">
+                            <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="max-width:320px;">
                             <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>" style="display:none;" id="del_ent_<?= intval($d['id']) ?>">
                             <button type="button" class="btn btn-danger btn-small" style="flex-shrink:0;" onclick="var cb=document.getElementById('del_ent_<?= intval($d['id']) ?>');cb.checked=!cb.checked;this.textContent=cb.checked?'Desfazer':'Remover';this.closest('.item-card').style.opacity=cb.checked?'.45':'1';">Remover</button>
                         </div>
@@ -826,7 +826,7 @@ function admin_bloco_produto_demonstrativos(int $produtoId): void {
                 <?php foreach ($demos as $d): ?>
                     <div class="item-card">
                         <div style="display:flex;gap:10px;align-items:center;">
-                            <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="flex:1;min-width:0;">
+                            <input name="prod_demo_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Título" style="max-width:320px;">
                             <input type="checkbox" name="prod_demo_del[]" value="<?= intval($d['id']) ?>" style="display:none;" id="del_demo_<?= intval($d['id']) ?>">
                             <button type="button" class="btn btn-danger btn-small" style="flex-shrink:0;" onclick="var cb=document.getElementById('del_demo_<?= intval($d['id']) ?>');cb.checked=!cb.checked;this.textContent=cb.checked?'Desfazer':'Remover';this.closest('.item-card').style.opacity=cb.checked?'.45':'1';">Remover</button>
                         </div>

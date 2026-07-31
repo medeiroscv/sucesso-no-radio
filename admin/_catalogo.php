@@ -289,7 +289,6 @@ elseif ($tipo === 'produto' && !$isDemo && $edit !== null):
     <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="id" value="<?= $prodId ?>">
         <?php admin_bloco_produto_entregas($prodId); ?>
-        <?php admin_bloco_produto_demonstrativos($prodId); ?>
         <div class="actions" style="margin-top:16px;">
             <button class="btn btn-primary" type="submit">Salvar entregas</button>
             <a class="btn btn-secondary" href="<?= e($script) ?>?tipo=produto">Cancelar</a>
