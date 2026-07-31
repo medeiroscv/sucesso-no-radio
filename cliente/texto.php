@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
                      SET status = 'cancelado', updated_at = NOW()
                      WHERE id = ? AND cliente_id = ?"
                 )->execute([$idPost, $cliId]);
-                header('Location: ' . app_url('cliente/texto.php?id=' . $idPost . '&ok=1'));
+                header('Location: ' . app_url('cliente/texto.php?ok_cancelado=1'));
                 exit;
             } catch (Throwable $e) {
                 $err = 'Não foi possível cancelar.';
@@ -151,6 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $formAtivo) {
 }
 
 if (isset($_GET['ok'])) $ok = 'Salvo com sucesso.';
+if (isset($_GET['ok_cancelado'])) $ok = 'Gravação cancelada com sucesso.';
 
 $meusTextos = app_textos_do_cliente($cliId);
 $tituloPag = 'Meus textos';
@@ -330,7 +331,11 @@ else:
             $podeEditar = in_array($st, ['pendente', 'precisa_correcao', 'corrigido'], true);
             $podeCancelar = !in_array($st, ['entregue', 'cancelado'], true);
         ?>
-            <div class="cliente-list-item" style="cursor:default;">
+            <?php
+            $cardStyle = 'cursor:default;';
+            if ($st === 'cancelado') $cardStyle .= 'opacity:.55;background:rgba(239,68,68,.06);';
+            ?>
+            <div class="cliente-list-item" style="<?= $cardStyle ?>">
                 <div>
                     <strong><?= e($t['titulo'] ?: ('Texto #' . intval($t['id']))) ?></strong>
                     <div class="muted" style="font-size:.85rem;margin-top:4px;">
