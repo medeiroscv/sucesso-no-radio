@@ -386,7 +386,7 @@ else:
                         <?= e($m['label']) ?>
                     </span>
                     <?php if ($podeEditar): ?>
-                        <a class="btn btn-ghost btn-small" href="<?= e($url) ?>">Editar</a>
+                        <a class="btn btn-ghost btn-small" href="<?= e(app_url('cliente/texto.php?id=' . intval($t['id']) . '&editar=1')) ?>">Editar</a>
                     <?php endif; ?>
                     <?php if ($podeCancelar): ?>
                         <form method="post" style="display:inline;">
