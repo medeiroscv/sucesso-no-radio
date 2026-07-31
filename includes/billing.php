@@ -130,7 +130,7 @@ function billing_produto_normalize_row(array $p): array {
         $p['liberar_tipos_list'] = [];
     }
     $p['liberar_acesso_total'] = !empty($p['liberar_acesso_total']);
-    $p['is_single_product'] = true;
+    $p['is_single_product'] = in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true);
     return $p;
 }
 
