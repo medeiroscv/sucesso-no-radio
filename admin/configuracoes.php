@@ -464,6 +464,55 @@ $colorLabels = [
     'color_header' => 'Fundo do topo',
     'color_footer' => 'Fundo do rodapé',
 ];
+
+// Paletas pré-configuradas
+$paletas = [
+    'verde_escuro' => [
+        'nome' => 'Verde Escuro (Padrão)',
+        'cores' => [
+            'color_bg' => '#0b1220', 'color_card' => '#151e30', 'color_text' => '#e8eef9',
+            'color_muted' => '#94a3b8', 'color_accent' => '#22c55e', 'color_line' => '#243047',
+            'color_danger' => '#ef4444', 'color_warn' => '#f59e0b', 'color_sidebar' => '#111827',
+            'color_primary' => '#3b82f6', 'color_header' => '#0b1220', 'color_footer' => '#0b1220',
+        ]
+    ],
+    'azul_escuro' => [
+        'nome' => 'Azul Escuro',
+        'cores' => [
+            'color_bg' => '#0f172a', 'color_card' => '#1e293b', 'color_text' => '#f1f5f9',
+            'color_muted' => '#94a3b8', 'color_accent' => '#3b82f6', 'color_line' => '#334155',
+            'color_danger' => '#ef4444', 'color_warn' => '#f59e0b', 'color_sidebar' => '#111827',
+            'color_primary' => '#60a5fa', 'color_header' => '#0f172a', 'color_footer' => '#0f172a',
+        ]
+    ],
+    'coral_escuro' => [
+        'nome' => 'Coral Escuro',
+        'cores' => [
+            'color_bg' => '#1a1a2e', 'color_card' => '#16213e', 'color_text' => '#eaeaea',
+            'color_muted' => '#a0a0a0', 'color_accent' => '#e85d4a', 'color_line' => '#2d2d44',
+            'color_danger' => '#dc3545', 'color_warn' => '#ffc107', 'color_sidebar' => '#0f0f23',
+            'color_primary' => '#ff6b6b', 'color_header' => '#1a1a2e', 'color_footer' => '#1a1a2e',
+        ]
+    ],
+    'verde_claro' => [
+        'nome' => 'Verde Claro',
+        'cores' => [
+            'color_bg' => '#f0fdf4', 'color_card' => '#ffffff', 'color_text' => '#1a1a1a',
+            'color_muted' => '#6b7280', 'color_accent' => '#16a34a', 'color_line' => '#e5e7eb',
+            'color_danger' => '#dc2626', 'color_warn' => '#d97706', 'color_sidebar' => '#166534',
+            'color_primary' => '#2563eb', 'color_header' => '#166534', 'color_footer' => '#166534',
+        ]
+    ],
+    'azul_claro' => [
+        'nome' => 'Azul Claro',
+        'cores' => [
+            'color_bg' => '#eff6ff', 'color_card' => '#ffffff', 'color_text' => '#1e293b',
+            'color_muted' => '#64748b', 'color_accent' => '#2563eb', 'color_line' => '#e2e8f0',
+            'color_danger' => '#dc2626', 'color_warn' => '#d97706', 'color_sidebar' => '#1e40af',
+            'color_primary' => '#3b82f6', 'color_header' => '#1e40af', 'color_footer' => '#1e40af',
+        ]
+    ],
+];
 ?>
 <div class="actions" style="margin-bottom:12px;">
     <a class="btn btn-secondary btn-small" href="configuracoes.php">← Configurações</a>
@@ -473,6 +522,19 @@ $colorLabels = [
         <input type="hidden" name="sec" value="cores">
         <h3 style="margin-bottom:14px;">Paleta de cores</h3>
         <p class="muted" style="margin-bottom:16px;">As alterações são aplicadas automaticamente no site público, área do cliente e painel administrativo.</p>
+        
+        <div style="margin-bottom:20px;">
+            <label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:8px;">Paletas pré-configuradas</label>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                <?php foreach ($paletas as $key => $p): ?>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="aplicarPaleta('<?= $key ?>')" style="display:flex;align-items:center;gap:6px;">
+                        <span style="width:16px;height:16px;border-radius:4px;background:<?= $p['cores']['color_accent'] ?>;border:1px solid <?= $p['cores']['color_line'] ?>;"></span>
+                        <?= e($p['nome']) ?>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;">
 <?php foreach ($colorKeys as $k): $val = app_setting($k); ?>
             <div>
@@ -491,6 +553,29 @@ $colorLabels = [
         </div>
     </form>
 </div>
+<script>
+const paletas = <?= json_encode($paletas) ?>;
+function aplicarPaleta(key) {
+    const p = paletas[key];
+    if (!p) return;
+    const inputs = document.querySelectorAll('input[name]');
+    inputs.forEach(inp => {
+        const name = inp.getAttribute('name');
+        if (p.cores[name]) {
+            inp.value = p.cores[name];
+            const colorInput = inp.previousElementSibling;
+            if (colorInput && colorInput.type === 'color') {
+                colorInput.value = p.cores[name];
+                colorInput.style.backgroundColor = p.cores[name];
+            }
+            const preview = inp.nextElementSibling;
+            if (preview && preview.style.borderRadius) {
+                preview.style.background = p.cores[name];
+            }
+        }
+    });
+}
+</script>
 <?php
 elseif ($sec === 'atualizacao'):
     $local = app_update_local_version();
