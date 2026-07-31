@@ -699,25 +699,25 @@ function admin_bloco_produto_entregas(int $produtoId): void {
         </p>
 
         <?php if ($itens): ?>
-            <div style="display:grid;gap:10px;margin-bottom:14px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;margin-bottom:14px;">
                 <?php foreach ($itens as $d):
                     $temArquivo = !empty($d['arquivo']);
                     $temLink = !empty($d['link_url']);
                 ?>
                     <div class="item-card">
-                        <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item">
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input name="prod_entrega_titulo_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['titulo'] ?? '') ?>" placeholder="Nome do item" style="flex:1;min-width:0;">
+                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;flex-shrink:0;">
+                                <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
+                            </label>
+                        </div>
                         <?php if ($temArquivo): ?>
                             <audio controls preload="none">
                                 <source src="../<?= htmlspecialchars($d['arquivo']) ?>" type="audio/mpeg">
                             </audio>
                             <div class="muted" style="font-size:.8rem;">Arquivo: <?= htmlspecialchars(basename((string)$d['arquivo'])) ?></div>
                         <?php endif; ?>
-                        <input name="prod_entrega_link_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['link_url'] ?? '') ?>" placeholder="Link externo (opcional)" style="margin-top:2px;">
-                        <div class="item-footer">
-                            <label class="muted" style="font-size:.82rem;white-space:nowrap;cursor:pointer;">
-                                <input type="checkbox" name="prod_entrega_del[]" value="<?= intval($d['id']) ?>"> Excluir
-                            </label>
-                        </div>
+                        <input name="prod_entrega_link_existente[<?= intval($d['id']) ?>]" value="<?= htmlspecialchars($d['link_url'] ?? '') ?>" placeholder="Link externo (opcional)">
                     </div>
                 <?php endforeach; ?>
             </div>
