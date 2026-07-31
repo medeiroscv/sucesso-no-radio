@@ -321,7 +321,6 @@ if ($edit):
                     <strong><?= e($p['nome']) ?></strong>
                     <?php if (!empty($p['destaque'])): ?><span class="badge badge-ok">destaque</span><?php endif; ?>
                     <?php if (empty($p['ativo'])): ?><span class="badge badge-off">inativo</span><?php endif; ?>
-                    <?php if ($isSingle): ?><span class="badge badge-ok" style="background:rgba(34,197,94,.15);color:#86efac;">pag. único</span><?php endif; ?>
                 </td>
                 <td><?= e($t['label']) ?></td>
                 <td><?= e($c['label']) ?></td>
