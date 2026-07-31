@@ -1591,6 +1591,7 @@ function cliente_salvar_produtos_atribuidos(int $clienteId, array $produtoIds): 
     if ($clienteId <= 0) return;
     $pdo = app_pdo();
     try {
+        // Atribuidos manualmente (fatura_id IS NULL)
         $pdo->prepare('DELETE FROM cliente_produtos WHERE cliente_id = ? AND fatura_id IS NULL')
             ->execute([$clienteId]);
         if ($produtoIds) {
@@ -1602,5 +1603,13 @@ function cliente_salvar_produtos_atribuidos(int $clienteId, array $produtoIds): 
                 if ($pid > 0) $ins->execute([$clienteId, $pid]);
             }
         }
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function cliente_remover_produto_purchased(int $clienteId, int $produtoId): void {
+    if ($clienteId <= 0 || $produtoId <= 0) return;
+    try {
+        app_pdo()->prepare('DELETE FROM cliente_produtos WHERE cliente_id = ? AND produto_id = ? AND fatura_id IS NOT NULL')
+            ->execute([$clienteId, $produtoId]);
     } catch (Throwable $e) { /* ok */ }
 }

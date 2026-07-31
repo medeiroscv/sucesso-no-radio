@@ -78,6 +78,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $prodAtrib = array_values(array_filter($prodAtrib, fn($v) => $v > 0));
                 cliente_salvar_produtos_atribuidos($id, $prodAtrib);
 
+                // Produtos comprados que foram desmarcados → remover
+                $compIds = cliente_produtos_comprados_ids($id);
+                $compMantidos = $_POST['produtos_comprados_mantidos'] ?? [];
+                if (!is_array($compMantidos)) $compMantidos = [];
+                $compMantidos = array_map('intval', $compMantidos);
+                foreach ($compIds as $cid) {
+                    if (!in_array($cid, $compMantidos, true)) {
+                        cliente_remover_produto_purchased($id, $cid);
+                    }
+                }
+
                 header('Location: clientes.php?id=' . $id . '&ok=1');
                 exit;
             }
@@ -243,7 +254,7 @@ if ($edit !== null):
                         ?>
                             <div style="display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 14px;">
                                 <?php if ($isComprado): ?>
-                                    <input type="checkbox" disabled checked title="Comprado via pagamento">
+                                    <input type="checkbox" name="produtos_comprados_mantidos[]" value="<?= $paId ?>" checked title="Comprado via pagamento (desmarque para remover)">
                                 <?php else: ?>
                                     <input type="checkbox" name="produtos_atribuidos[]" value="<?= $paId ?>" <?= $isAtribuido ? 'checked' : '' ?>>
                                 <?php endif; ?>
