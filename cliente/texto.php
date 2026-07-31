@@ -143,10 +143,9 @@ if ($modoNovo):
 <div class="forms-grid">
     <div class="form-card" style="max-width:720px;">
         <div class="cliente-dados-box" style="margin-bottom:14px;">
-            <strong>Seus dados</strong>
+            <strong>Você está logado</strong>
             <div class="muted" style="margin-top:8px;line-height:1.7;font-size:.92rem;">
-                <?= e($cli['nome']) ?> · <?= e($cli['email']) ?>
-                <?php if (!empty($cli['whatsapp'])): ?> · WhatsApp <?= e($cli['whatsapp']) ?><?php endif; ?>
+                <?= e($cli['nome']) ?>
             </div>
         </div>
         <form method="post">
