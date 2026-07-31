@@ -11,6 +11,7 @@ $ok = $err = '';
 $formAtivo = app_setting('form_texto_ativo', '1') === '1';
 $verId = intval($_GET['id'] ?? 0);
 $modoNovo = isset($_GET['novo']);
+$editandoTexto = isset($_GET['editar']);
 $editando = null;
 
 // Carrega texto do cliente para ver/corrigir
@@ -281,7 +282,7 @@ elseif ($editando):
             </div>
             <button class="btn btn-primary" type="submit">Reenviar texto corrigido</button>
         </form>
-    <?php elseif (in_array($st, ['pendente', 'corrigido'], true)): ?>
+    <?php elseif (in_array($st, ['pendente', 'corrigido'], true) && $editandoTexto): ?>
         <form method="post">
             <input type="hidden" name="acao" value="editar">
             <input type="hidden" name="id" value="<?= intval($editando['id']) ?>">
@@ -295,13 +296,21 @@ elseif ($editando):
             </div>
             <div class="actions">
                 <button class="btn btn-primary" type="submit">Salvar alterações</button>
+                <a class="btn btn-ghost" href="<?= e(app_url('cliente/texto.php?id=' . intval($editando['id']))) ?>">Cancelar</a>
             </div>
         </form>
-        <form method="post" style="margin-top:8px;">
-            <input type="hidden" name="acao" value="cancelar">
-            <input type="hidden" name="id" value="<?= intval($editando['id']) ?>">
-            <button class="btn btn-ghost" type="submit" onclick="return confirm('Tem certeza que deseja cancelar esta gravação?');">Cancelar gravação</button>
-        </form>
+    <?php elseif (in_array($st, ['pendente', 'corrigido'], true)): ?>
+        <div style="background:#0b1220;border:1px solid #243047;border-radius:12px;padding:14px;white-space:pre-wrap;line-height:1.55;margin-bottom:14px;">
+            <?= e($editando['texto'] ?? '') ?>
+        </div>
+        <div class="actions">
+            <a class="btn btn-secondary btn-small" href="<?= e(app_url('cliente/texto.php?id=' . intval($editando['id']) . '&editar=1')) ?>">Editar texto</a>
+            <form method="post" style="display:inline;">
+                <input type="hidden" name="acao" value="cancelar">
+                <input type="hidden" name="id" value="<?= intval($editando['id']) ?>">
+                <button class="btn btn-ghost btn-small" type="submit" onclick="return confirm('Tem certeza que deseja cancelar esta gravação?');">Cancelar gravação</button>
+            </form>
+        </div>
     <?php elseif ($st === 'cancelado'): ?>
         <div style="background:#0b1220;border:1px solid #243047;border-radius:12px;padding:14px;white-space:pre-wrap;line-height:1.55;margin-bottom:14px;">
             <?= e($editando['texto'] ?? '') ?>
