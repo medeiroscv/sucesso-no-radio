@@ -21,6 +21,7 @@ if (!$item) {
 
 $recursos = app_produto_servico_recursos($item);
 $whmcs = app_produto_servico_whmcs_url($item);
+$demoUrl = app_produto_servico_demo_url($item);
 $tipoLabel = ($item['tipo'] ?? 'servico') === 'produto' ? 'Produto' : 'Serviço';
 $preco = app_produto_servico_preco($item);
 $periodo = app_produto_servico_periodicidade_label((string)($item['periodicidade'] ?? 'sob_consulta'));
@@ -68,6 +69,9 @@ layout_header($item['nome'], 'produtos-servicos');
             </div>
 
             <div class="hero-actions">
+                <?php if ($demoUrl): ?>
+                    <a class="btn btn-ghost" href="<?= e($demoUrl) ?>" target="_blank" rel="noopener">Ver demonstração</a>
+                <?php endif; ?>
                 <?php if ($whmcs): ?>
                     <a class="btn btn-primary" href="<?= e($whmcs) ?>" target="_blank" rel="noopener"><?= e($item['botao_texto'] ?: 'Contratar') ?></a>
                 <?php elseif ($wa): ?>
