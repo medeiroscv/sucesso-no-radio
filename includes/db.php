@@ -256,6 +256,33 @@ function app_bootstrap_database(PDO $pdo): void {
     try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS capa VARCHAR(500) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
     try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS exibir_preco SMALLINT DEFAULT 1"); } catch (Throwable $e) { /* ok */ }
 
+    // ===== Produtos e Serviços (catálogo comercial genérico) =====
+    $pdo->exec("CREATE TABLE IF NOT EXISTS produtos_servicos (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(200) NOT NULL,
+        slug VARCHAR(220) NOT NULL UNIQUE,
+        tipo VARCHAR(20) NOT NULL DEFAULT 'servico',
+        categoria VARCHAR(120) DEFAULT '',
+        resumo TEXT DEFAULT '',
+        descricao TEXT DEFAULT '',
+        capa VARCHAR(500) DEFAULT '',
+        recursos TEXT DEFAULT '',
+        preco_centavos INT NOT NULL DEFAULT 0,
+        exibir_preco SMALLINT DEFAULT 0,
+        preco_texto VARCHAR(100) DEFAULT 'Sob consulta',
+        periodicidade VARCHAR(40) DEFAULT 'sob_consulta',
+        whmcs_url TEXT DEFAULT '',
+        whatsapp_msg TEXT DEFAULT '',
+        botao_texto VARCHAR(80) DEFAULT 'Saiba mais',
+        destaque SMALLINT DEFAULT 0,
+        ativo SMALLINT DEFAULT 1,
+        ordem INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP NULL
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_servicos_publico ON produtos_servicos (ativo, destaque, ordem, id)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_servicos_categoria ON produtos_servicos (categoria, ativo, ordem, id)');
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS assinaturas (
         id SERIAL PRIMARY KEY,
         cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
@@ -1328,6 +1355,61 @@ function app_produto_whmcs_url(array $produto): string {
 
 function app_conteudo_whmcs_url(array $conteudo): string {
     $url = trim((string)($conteudo['whmcs_url'] ?? ''));
+    return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
+}
+
+/** Catálogo genérico de produtos e serviços. */
+function app_produtos_servicos_lista(bool $somenteAtivos = true): array {
+    try {
+        $sql = 'SELECT * FROM produtos_servicos';
+        if ($somenteAtivos) $sql .= ' WHERE ativo = 1';
+        $sql .= ' ORDER BY destaque DESC, ordem ASC, nome ASC';
+        return app_pdo()->query($sql)->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_produto_servico_by_slug(string $slug): ?array {
+    $slug = trim($slug);
+    if ($slug === '') return null;
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM produtos_servicos WHERE slug = ? AND ativo = 1 LIMIT 1');
+        $st->execute([$slug]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function app_produto_servico_recursos(array $item): array {
+    return array_values(array_filter(array_map(
+        'trim',
+        preg_split('/\r\n|\r|\n/', (string)($item['recursos'] ?? '')) ?: []
+    )));
+}
+
+function app_produto_servico_preco(array $item): string {
+    if (!empty($item['exibir_preco'])) {
+        return 'R$ ' . number_format(max(0, (int)($item['preco_centavos'] ?? 0)) / 100, 2, ',', '.');
+    }
+    return trim((string)($item['preco_texto'] ?? '')) ?: 'Sob consulta';
+}
+
+function app_produto_servico_periodicidade_label(string $periodicidade): string {
+    return match ($periodicidade) {
+        'unico' => 'Pagamento único',
+        'mensal' => 'Mensal',
+        'trimestral' => 'Trimestral',
+        'semestral' => 'Semestral',
+        'anual' => 'Anual',
+        default => 'Sob consulta',
+    };
+}
+
+function app_produto_servico_whmcs_url(array $item): string {
+    $url = trim((string)($item['whmcs_url'] ?? ''));
     return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
 }
 
