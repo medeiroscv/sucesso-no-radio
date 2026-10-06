@@ -285,6 +285,28 @@ function app_bootstrap_database(PDO $pdo): void {
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_servicos_categoria ON produtos_servicos (categoria, ativo, ordem, id)');
     try { $pdo->exec("ALTER TABLE produtos_servicos ADD COLUMN IF NOT EXISTS demo_url TEXT DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
 
+    // Demonstrações / modelos dos Produtos e Serviços — quantidade livre
+    $pdo->exec("CREATE TABLE IF NOT EXISTS produto_servico_demos (
+        id SERIAL PRIMARY KEY,
+        produto_servico_id INT NOT NULL REFERENCES produtos_servicos(id) ON DELETE CASCADE,
+        titulo VARCHAR(160) DEFAULT '',
+        url TEXT NOT NULL,
+        ordem INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produto_servico_demos_item ON produto_servico_demos (produto_servico_id, ordem, id)');
+    // Migra automaticamente o antigo link único para a nova lista, sem duplicar.
+    $pdo->exec("
+        INSERT INTO produto_servico_demos (produto_servico_id, titulo, url, ordem, created_at)
+        SELECT ps.id, 'Modelo 1', ps.demo_url, 0, NOW()
+        FROM produtos_servicos ps
+        WHERE COALESCE(ps.demo_url, '') <> ''
+          AND NOT EXISTS (
+              SELECT 1 FROM produto_servico_demos d
+              WHERE d.produto_servico_id = ps.id
+          )
+    ");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS assinaturas (
         id SERIAL PRIMARY KEY,
         cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
@@ -1412,6 +1434,40 @@ function app_produto_servico_whmcs_url(array $item): string {
 function app_produto_servico_demo_url(array $item): string {
     $url = trim((string)($item['demo_url'] ?? ''));
     return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
+}
+
+function app_produto_servico_demos(int $produtoServicoId, ?array $item = null): array {
+    if ($produtoServicoId <= 0) return [];
+    try {
+        $st = app_pdo()->prepare(
+            'SELECT id, produto_servico_id, titulo, url, ordem
+             FROM produto_servico_demos
+             WHERE produto_servico_id = ?
+             ORDER BY ordem ASC, id ASC'
+        );
+        $st->execute([$produtoServicoId]);
+        $rows = $st->fetchAll() ?: [];
+        $rows = array_values(array_filter($rows, function ($row) {
+            return filter_var(trim((string)($row['url'] ?? '')), FILTER_VALIDATE_URL);
+        }));
+        if ($rows) return $rows;
+    } catch (Throwable $e) {
+        // mantém compatibilidade com a coluna antiga abaixo
+    }
+
+    if ($item !== null) {
+        $legacy = app_produto_servico_demo_url($item);
+        if ($legacy !== '') {
+            return [[
+                'id' => 0,
+                'produto_servico_id' => $produtoServicoId,
+                'titulo' => 'Modelo 1',
+                'url' => $legacy,
+                'ordem' => 0,
+            ]];
+        }
+    }
+    return [];
 }
 
 function app_slug(string $text): string {

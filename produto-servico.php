@@ -21,7 +21,7 @@ if (!$item) {
 
 $recursos = app_produto_servico_recursos($item);
 $whmcs = app_produto_servico_whmcs_url($item);
-$demoUrl = app_produto_servico_demo_url($item);
+$demos = app_produto_servico_demos((int)$item['id'], $item);
 $tipoLabel = ($item['tipo'] ?? 'servico') === 'produto' ? 'Produto' : 'Serviço';
 $preco = app_produto_servico_preco($item);
 $periodo = app_produto_servico_periodicidade_label((string)($item['periodicidade'] ?? 'sob_consulta'));
@@ -68,10 +68,21 @@ layout_header($item['nome'], 'produtos-servicos');
                 <?php if (!empty($item['exibir_preco']) && $periodo !== 'Sob consulta'): ?><span><?= e($periodo) ?></span><?php endif; ?>
             </div>
 
+            <?php if ($demos): ?>
+                <div id="demonstracoes" style="margin-top:22px;">
+                    <h2 style="margin-bottom:10px;">Demonstrações e modelos</h2>
+                    <div class="hero-actions" style="margin-top:0;">
+                        <?php foreach ($demos as $i => $demo):
+                            $demoTitulo = trim((string)($demo['titulo'] ?? ''));
+                            if ($demoTitulo === '') $demoTitulo = 'Modelo ' . ($i + 1);
+                        ?>
+                            <a class="btn btn-ghost" href="<?= e($demo['url']) ?>" target="_blank" rel="noopener">Ver <?= e($demoTitulo) ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="hero-actions">
-                <?php if ($demoUrl): ?>
-                    <a class="btn btn-ghost" href="<?= e($demoUrl) ?>" target="_blank" rel="noopener">Ver demonstração</a>
-                <?php endif; ?>
                 <?php if ($whmcs): ?>
                     <a class="btn btn-primary" href="<?= e($whmcs) ?>" target="_blank" rel="noopener"><?= e($item['botao_texto'] ?: 'Contratar') ?></a>
                 <?php elseif ($wa): ?>
