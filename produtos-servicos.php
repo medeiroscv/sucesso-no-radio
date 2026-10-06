@@ -67,7 +67,7 @@ layout_header('Produtos e Serviços', 'produtos-servicos');
                             <?php if (!empty($item['exibir_preco']) && $periodo !== 'Sob consulta'): ?><span><?= e($periodo) ?></span><?php endif; ?>
                         </div>
                         <div class="card-actions">
-                            <a class="btn btn-primary btn-small" href="<?= e($detalhe) ?>"><?= e($item['botao_texto'] ?: 'Saiba mais') ?></a>
+                            <a class="btn btn-primary btn-small" href="<?= e($detalhe) ?>">Ver detalhes</a>
                         </div>
                     </div>
                 </article>
