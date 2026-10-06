@@ -45,6 +45,7 @@ layout_header('Produtos e Serviços', 'produtos-servicos');
                     $tipoLabel = ($item['tipo'] ?? 'servico') === 'produto' ? 'Produto' : 'Serviço';
                     $preco = app_produto_servico_preco($item);
                     $periodo = app_produto_servico_periodicidade_label((string)($item['periodicidade'] ?? 'sob_consulta'));
+                    $demoUrl = app_produto_servico_demo_url($item);
                 ?>
                 <article class="ps-card">
                     <a class="ps-cover" href="<?= e($detalhe) ?>">
@@ -68,6 +69,9 @@ layout_header('Produtos e Serviços', 'produtos-servicos');
                         </div>
                         <div class="card-actions">
                             <a class="btn btn-primary btn-small" href="<?= e($detalhe) ?>">Ver detalhes</a>
+                            <?php if ($demoUrl): ?>
+                                <a class="btn btn-ghost btn-small" href="<?= e($demoUrl) ?>" target="_blank" rel="noopener">Ver demonstração</a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </article>

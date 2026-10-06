@@ -272,6 +272,7 @@ function app_bootstrap_database(PDO $pdo): void {
         preco_texto VARCHAR(100) DEFAULT 'Sob consulta',
         periodicidade VARCHAR(40) DEFAULT 'sob_consulta',
         whmcs_url TEXT DEFAULT '',
+        demo_url TEXT DEFAULT '',
         whatsapp_msg TEXT DEFAULT '',
         botao_texto VARCHAR(80) DEFAULT 'Saiba mais',
         destaque SMALLINT DEFAULT 0,
@@ -282,6 +283,7 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_servicos_publico ON produtos_servicos (ativo, destaque, ordem, id)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_servicos_categoria ON produtos_servicos (categoria, ativo, ordem, id)');
+    try { $pdo->exec("ALTER TABLE produtos_servicos ADD COLUMN IF NOT EXISTS demo_url TEXT DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS assinaturas (
         id SERIAL PRIMARY KEY,
@@ -1404,6 +1406,11 @@ function app_produto_servico_periodicidade_label(string $periodicidade): string 
 
 function app_produto_servico_whmcs_url(array $item): string {
     $url = trim((string)($item['whmcs_url'] ?? ''));
+    return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
+}
+
+function app_produto_servico_demo_url(array $item): string {
+    $url = trim((string)($item['demo_url'] ?? ''));
     return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
 }
 
