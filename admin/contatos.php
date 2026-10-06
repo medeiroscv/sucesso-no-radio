@@ -2,16 +2,6 @@
 require_once __DIR__ . '/_layout.php';
 $pdo = app_pdo();
 
-// Redireciona links antigos ?tipo=texto
-if (isset($_GET['tipo']) && $_GET['tipo'] === 'texto') {
-    $q = [];
-    if (!empty($_GET['id'])) $q[] = 'id=' . intval($_GET['id']);
-    if (!empty($_GET['lido'])) $q[] = 'lido=' . intval($_GET['lido']);
-    if (!empty($_GET['del'])) $q[] = 'del=' . intval($_GET['del']);
-    header('Location: textos.php' . ($q ? '?' . implode('&', $q) : ''));
-    exit;
-}
-
 if (isset($_GET['lido'])) {
     $pdo->prepare('UPDATE contatos SET lido = 1 WHERE id = ?')->execute([intval($_GET['lido'])]);
     header('Location: contatos.php');
