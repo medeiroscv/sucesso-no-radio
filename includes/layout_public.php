@@ -23,12 +23,6 @@ function layout_media_url(string $rel, string $base = ''): string {
 }
 
 function layout_header(string $title = '', string $active = ''): void {
-    if (function_exists('cliente_session_start')) {
-        cliente_session_start();
-    } elseif (session_status() !== PHP_SESSION_ACTIVE) {
-        session_start();
-    }
-
     $s = site_settings_all();
     $nome = $s['site_nome'] ?? APP_NAME;
     $wa = preg_replace('/\D+/', '', $s['whatsapp'] ?? '5561974002349');
@@ -39,10 +33,6 @@ function layout_header(string $title = '', string $active = ''): void {
     $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
     $favicon = !empty($s['site_favicon']) ? layout_media_url((string)$s['site_favicon'], $base) : '';
     $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
-    $clienteLogado = function_exists('cliente_logado') && cliente_logado();
-    $areaCliente = function_exists('cliente_home_url') ? cliente_home_url() : app_url('cliente/index.php');
-    $loginCliente = app_url('cliente/login.php');
-    $nomeCli = $_SESSION['cliente_nome'] ?? '';
     ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -71,20 +61,7 @@ function layout_header(string $title = '', string $active = ''): void {
                     <span class="brand-text"><?= e($nome) ?></span>
                 <?php endif; ?>
             </a>
-            <div class="header-account">
-                <?php if ($clienteLogado): ?>
-                    <div class="header-account-links">
-                        <a class="header-link" href="<?= e($areaCliente) ?>">Minha área</a>
-                        <span class="header-sep" aria-hidden="true">·</span>
-                        <a class="header-link" href="<?= e(app_url('cliente/logout.php')) ?>">Sair</a>
-                    </div>
-                    <span class="nav-user">Olá, <?= e($nomeCli ?: 'cliente') ?></span>
-                <?php else: ?>
-                    <div class="header-account-links">
-                        <a class="header-link" href="<?= e($loginCliente) ?>">Entrar</a>
-                    </div>
-                <?php endif; ?>
-            </div>
+            <div class="header-top-spacer" aria-hidden="true"></div>
         </div>
         <nav class="nav-links" aria-label="Menu principal">
             <a href="<?= e($home) ?>#diarios" class="<?= $active === 'diario' ? 'active' : '' ?>">Diários</a>
@@ -109,7 +86,6 @@ function layout_footer(): void {
     $home = ($base === '' ? '/' : $base . '/');
     $logo = !empty($s['site_logo']) ? layout_media_url((string)$s['site_logo'], $base) : '';
     $formContatoAtivo = ($s['form_contato_ativo'] ?? '1') === '1';
-    $clienteLogado = function_exists('cliente_logado') && cliente_logado();
     ?>
 <footer class="site-footer">
     <div class="container footer-grid">
@@ -126,11 +102,6 @@ function layout_footer(): void {
             <p><a href="<?= e($home) ?>">Início</a></p>
             <p><a href="<?= e(app_url('precos.php')) ?>">Preços</a></p>
             <?php if ($formContatoAtivo): ?><p><a href="<?= e(app_url('contato.php')) ?>">Contato</a></p><?php endif; ?>
-            <?php if ($clienteLogado): ?>
-                <p><a href="<?= e(cliente_home_url()) ?>">Minha área</a></p>
-            <?php else: ?>
-                <p><a href="<?= e(app_url('cliente/login.php')) ?>">Área do cliente</a></p>
-            <?php endif; ?>
             <p><a href="<?= e(app_url('admin/')) ?>">Área admin</a></p>
         </div>
         <div>
