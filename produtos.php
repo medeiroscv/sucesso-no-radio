@@ -1,43 +1,90 @@
 <?php
 require_once __DIR__ . '/includes/layout_public.php';
-$produtos = app_produtos_vitrine();
-$tipos = app_produto_tipos_vitrine();
-layout_header('Produtos', 'produtos');
+require_once __DIR__ . '/includes/billing.php';
+
+try { app_pdo(); } catch (Throwable $e) { /* ok */ }
+
+$todos = array_map('billing_produto_normalize_row', billing_produtos_lista(true, true));
+$produtos = array_filter($todos, function ($p) {
+    return in_array($p['tipo'] ?? '', ['avulso', 'pacote'], true) && ($p['ciclo'] ?? '') === 'unico';
+});
+$s = site_settings_all();
+$wa = preg_replace('/\D+/', '', $s['whatsapp'] ?? '5561974002349');
+
+layout_header('Produtos avulsos', 'produtos');
+$base = app_base_path();
 ?>
 <main>
-<section class="section">
+<section class="section" style="padding-top:28px;">
     <div class="container">
-        <div class="page-title catalog-page-title">
-            <span class="catalog-eyebrow">Catálogo comercial</span>
-            <h1>Produtos para sua emissora</h1>
-            <p class="muted">Todos os itens abaixo são apresentados por este site. A contratação é concluída no WHMCS pelo link individual de cada produto.</p>
+        <div class="page-title" style="text-align:center;max-width:640px;margin:0 auto 28px;">
+            <p class="cliente-kicker" style="justify-content:center;">Produtos avulsos</p>
+            <h1 style="font-size:clamp(1.6rem,3vw,2.1rem);">Produtos avulsos e pacotes</h1>
+            <p class="muted" style="margin-top:10px;">Escolha o produto, ouça os demonstrativos e clique em contratar. A contratação e a cobrança são concluídas no WHMCS.</p>
         </div>
+
         <?php if (!$produtos): ?>
-            <div class="empty" style="text-align:center;">Nenhum produto publicado no momento.</div>
+            <div class="empty" style="text-align:center;">
+                Nenhum produto avulso disponível no momento.<br>
+                <?php if ($wa): ?>
+                    <a class="btn btn-primary" style="margin-top:14px;" href="https://wa.me/<?= e($wa) ?>?text=<?= rawurlencode('Olá! Quero saber sobre os produtos avulsos.') ?>" target="_blank" rel="noopener">Falar no WhatsApp</a>
+                <?php endif; ?>
+            </div>
         <?php else: ?>
-            <div class="catalog-grid">
-            <?php foreach ($produtos as $p):
-                $capa=trim((string)($p['capa']??''));
-                $recursos=app_produto_recursos($p);
-                $whmcs=app_produto_whmcs_url($p);
-                $detalhe=app_url('produto.php?slug='.rawurlencode((string)$p['slug']));
-                $tipo=$tipos[$p['tipo']??'']??['label'=>'Produto'];
-            ?>
-                <article class="catalog-card">
-                    <a class="catalog-cover" href="<?= e($detalhe) ?>"><?php if($capa): ?><img src="<?= e(app_url($capa)) ?>" alt="<?= e($p['nome']) ?>" loading="lazy"><?php else: ?><span>🎙</span><?php endif; ?></a>
-                    <div class="catalog-body">
-                        <div class="catalog-badges"><span class="chip"><?= e($tipo['label']) ?></span><?php if(!empty($p['destaque'])): ?><span class="chip">Destaque</span><?php endif; ?></div>
-                        <h2><a href="<?= e($detalhe) ?>"><?= e($p['nome']) ?></a></h2>
-                        <?php if(!empty($p['descricao'])): ?><p class="catalog-desc"><?= e($p['descricao']) ?></p><?php endif; ?>
-                        <?php if($recursos): ?><ul class="catalog-list"><?php foreach(array_slice($recursos,0,4) as $r): ?><li><?= e($r) ?></li><?php endforeach; ?></ul><?php endif; ?>
-                        <?php if(!empty($p['exibir_preco'])): ?><div class="catalog-price"><?= e(app_produto_preco_br((int)$p['valor_centavos'])) ?></div><?php endif; ?>
-                        <div class="card-actions">
-                            <a class="btn btn-ghost btn-small" href="<?= e($detalhe) ?>">Detalhes</a>
-                            <?php if($whmcs): ?><a class="btn btn-primary btn-small" href="<?= e($whmcs) ?>" target="_blank" rel="noopener"><?= e($p['botao_texto'] ?: 'Contratar') ?></a><?php else: ?><a class="btn btn-primary btn-small" href="<?= e(wa_link($p['whatsapp_msg'] ?: ('Olá! Quero saber mais sobre '.$p['nome']))) ?>" target="_blank" rel="noopener">Tenho interesse</a><?php endif; ?>
+            <div style="display:grid;gap:28px;">
+                <?php foreach ($produtos as $p):
+                    $demos = app_produto_demonstrativos(intval($p['id']));
+                    $href = app_produto_whmcs_url($p);
+                    if ($href === '') {
+                        $href = wa_link($p['whatsapp_msg'] ?: ('Olá! Quero contratar: ' . $p['nome']));
+                    }
+                ?>
+                    <div style="background:#0b1220;border:1px solid var(--line);border-radius:16px;padding:24px 26px;">
+                        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px;">
+                            <div>
+                                <h2 style="font-size:1.3rem;margin:0 0 6px;"><?= e($p['nome']) ?></h2>
+                                <?php if (!empty($p['descricao'])): ?>
+                                    <p class="muted" style="margin:0;font-size:.92rem;max-width:540px;"><?= e($p['descricao']) ?></p>
+                                <?php endif; ?>
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;">
+                                <div style="font-size:1.6rem;font-weight:800;"><?= e(app_money_br(intval($p['valor_centavos']))) ?></div>
+                                <span class="muted" style="font-size:.82rem;">pagamento único</span>
+                            </div>
+                        </div>
+
+                        <?php if (!empty($p['recursos_list'])): ?>
+                            <ul style="margin:10px 0 14px 18px;color:var(--muted);font-size:.9rem;line-height:1.7;">
+                                <?php foreach (array_slice($p['recursos_list'], 0, 8) as $rec): ?>
+                                    <li><?= e($rec) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+
+                        <?php if ($demos): ?>
+                            <div style="margin:14px 0;">
+                                <p class="muted" style="font-size:.82rem;font-weight:600;margin-bottom:10px;">OUÇA AMOSTRAS</p>
+                                <div style="display:grid;gap:10px;">
+                                    <?php foreach ($demos as $d): ?>
+                                        <div style="background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+                                            <p style="font-size:.88rem;font-weight:600;margin:0 0 6px;"><?= e($d['titulo'] ?: 'Demonstrativo') ?></p>
+                                            <audio controls preload="none" style="width:100%;max-width:480px;">
+                                                <source src="<?= e($base . '/' . ltrim((string)$d['arquivo'], '/')) ?>" type="audio/mpeg">
+                                            </audio>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="actions" style="margin-top:16px;">
+                            <a class="btn btn-primary" href="<?= e($href) ?>" target="_blank" rel="noopener"><?= e($p['botao_texto'] ?: 'Comprar') ?></a>
+                            <?php if (!empty($p['whatsapp_msg']) && $wa): ?>
+                                <a class="btn btn-ghost" href="https://wa.me/<?= e($wa) ?>?text=<?= rawurlencode((string)$p['whatsapp_msg']) ?>" target="_blank" rel="noopener">Tirar dúvidas</a>
+                            <?php endif; ?>
                         </div>
                     </div>
-                </article>
-            <?php endforeach; ?>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </div>
