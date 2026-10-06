@@ -124,6 +124,7 @@ function app_bootstrap_database(PDO $pdo): void {
         ativo SMALLINT DEFAULT 1,
         ordem INT DEFAULT 0,
         whatsapp_msg TEXT DEFAULT '',
+        whmcs_url TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP NULL
     )");
@@ -350,6 +351,7 @@ function app_bootstrap_database(PDO $pdo): void {
     )");
     try { $pdo->exec("ALTER TABLE conteudos ADD COLUMN IF NOT EXISTS area VARCHAR(40) NOT NULL DEFAULT 'demonstrativo'"); } catch (Throwable $e) { /* ok */ }
     try { $pdo->exec("ALTER TABLE conteudos ADD COLUMN IF NOT EXISTS nc_folder VARCHAR(500) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE conteudos ADD COLUMN IF NOT EXISTS whmcs_url TEXT DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
     $pdo->exec("UPDATE conteudos SET area = 'demonstrativo' WHERE area IS NULL OR area = ''");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_conteudos_tipo ON conteudos (area, tipo, ativo, ordem, id)');
 
@@ -1332,6 +1334,11 @@ function app_produto_publico_by_slug(string $slug): ?array {
 
 function app_produto_whmcs_url(array $produto): string {
     $url = trim((string)($produto['whmcs_url'] ?? ''));
+    return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
+}
+
+function app_conteudo_whmcs_url(array $conteudo): string {
+    $url = trim((string)($conteudo['whmcs_url'] ?? ''));
     return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
 }
 

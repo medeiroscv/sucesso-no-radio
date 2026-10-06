@@ -38,6 +38,8 @@ $tipoLabel = $tipos[$tipo]['label'] ?? 'Conteúdo';
 layout_header($programa['titulo']);
 $capa = !empty($programa['capa']) ? (($base === '' ? '' : $base) . '/' . ltrim($programa['capa'], '/')) : '';
 $msg = $programa['whatsapp_msg'] ?: ('Olá! Quero contratar: ' . $programa['titulo']);
+$whmcs = app_conteudo_whmcs_url($programa);
+$compra = $whmcs !== '' ? $whmcs : (($base === '' ? '' : $base) . '/precos.php');
 
 $demos = app_demonstrativos('conteudo', intval($programa['id']));
 if (!$demos) {
@@ -83,7 +85,7 @@ if (!$demos && $tipo === 'programete') {
             </div>
             <?php endif; ?>
             <div class="hero-actions">
-                <a class="btn btn-primary" href="<?= e(($base === '' ? '' : $base) . '/precos.php') ?>">Comprar</a>
+                <a class="btn btn-primary" href="<?= e($compra) ?>" <?= $whmcs !== '' ? 'target="_blank" rel="noopener"' : '' ?>>Comprar</a>
                 <a class="btn btn-ghost" href="<?= e($base === '' ? '/' : $base . '/') ?>">Ver catálogo</a>
             </div>
         </div>

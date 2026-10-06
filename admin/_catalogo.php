@@ -109,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $destaque = !empty($_POST['destaque']) ? 1 : 0;
     $ativo = !empty($_POST['ativo']) ? 1 : 0;
     $whatsapp_msg = trim((string)($_POST['whatsapp_msg'] ?? ''));
+    $whmcs_url = trim((string)($_POST['whmcs_url'] ?? ''));
     $capaAtual = trim((string)($_POST['capa_atual'] ?? ''));
     $capaNova = admin_upload('capa', 'programas');
     if ($capaNova !== '') {
@@ -120,10 +121,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $capa = $capaAtual;
     }
 
-    if ($titulo === '') {
-        $err = 'Título obrigatório.';
+    $whmcsInvalido = $whmcs_url !== '' && !filter_var($whmcs_url, FILTER_VALIDATE_URL);
+    if ($titulo === '' || $whmcsInvalido) {
+        $err = $titulo === '' ? 'Título obrigatório.' : 'O link do WHMCS precisa ser uma URL válida.';
         $tipo = $tipoPost;
-        $edit = compact('id', 'titulo', 'slug', 'resumo', 'descricao', 'capa', 'duracao', 'blocos', 'dias', 'insercoes', 'destaque', 'ativo', 'ordem', 'whatsapp_msg');
+        $edit = compact('id', 'titulo', 'slug', 'resumo', 'descricao', 'capa', 'duracao', 'blocos', 'dias', 'insercoes', 'destaque', 'ativo', 'ordem', 'whatsapp_msg', 'whmcs_url');
         $edit['tipo'] = $tipoPost;
         $edit['area'] = $area;
     } else {
@@ -135,19 +137,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($id > 0) {
                 $pdo->prepare(
-                    'UPDATE conteudos SET area=?, tipo=?, titulo=?, slug=?, resumo=?, descricao=?, capa=?, duracao=?, blocos=?, dias=?, insercoes=?, destaque=?, ativo=?, ordem=?, whatsapp_msg=?, updated_at=NOW()
+                    'UPDATE conteudos SET area=?, tipo=?, titulo=?, slug=?, resumo=?, descricao=?, capa=?, duracao=?, blocos=?, dias=?, insercoes=?, destaque=?, ativo=?, ordem=?, whatsapp_msg=?, whmcs_url=?, updated_at=NOW()
                      WHERE id=? AND area=?'
                 )->execute([
                     $area, $tipoPost, $titulo, $slug, $resumo, $descricao, $capa, $duracao, $blocos, $dias,
-                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $id, $area,
+                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $whmcs_url, $id, $area,
                 ]);
             } else {
                 $pdo->prepare(
-                    'INSERT INTO conteudos (area,tipo,titulo,slug,resumo,descricao,capa,duracao,blocos,dias,insercoes,destaque,ativo,ordem,whatsapp_msg,created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
+                    'INSERT INTO conteudos (area,tipo,titulo,slug,resumo,descricao,capa,duracao,blocos,dias,insercoes,destaque,ativo,ordem,whatsapp_msg,whmcs_url,created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
                 )->execute([
                     $area, $tipoPost, $titulo, $slug, $resumo, $descricao, $capa, $duracao, $blocos, $dias,
-                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg,
+                    $insercoes, $destaque, $ativo, $ordem, $whatsapp_msg, $whmcs_url,
                 ]);
                 $id = intval($pdo->lastInsertId());
             }
@@ -202,6 +204,7 @@ if (isset($_GET['id']) || isset($_GET['novo'])) {
             'ativo' => 1,
             'ordem' => 0,
             'whatsapp_msg' => '',
+            'whmcs_url' => '',
             'nc_folder' => '',
         ];
         $tipo = $tipoNovo;
@@ -351,6 +354,11 @@ elseif ($edit !== null):
         <div class="field"><label>Resumo (card)</label><textarea name="resumo" rows="2"><?= e($edit['resumo'] ?? '') ?></textarea></div>
         <div class="field"><label>Descrição completa</label><textarea name="descricao" rows="5"><?= e($edit['descricao'] ?? '') ?></textarea></div>
         <div class="field"><label>Mensagem WhatsApp (opcional)</label><input name="whatsapp_msg" value="<?= e($edit['whatsapp_msg'] ?? '') ?>"></div>
+        <div class="field">
+            <label>Link de contratação no WHMCS (opcional)</label>
+            <input type="url" name="whmcs_url" value="<?= e($edit['whmcs_url'] ?? '') ?>" placeholder="https://seu-whmcs.com/cart.php?a=add&pid=...">
+            <p class="muted" style="margin-top:4px;font-size:.78rem;">Quando preenchido, o botão Comprar deste demonstrativo leva diretamente ao WHMCS. Se ficar vazio, continua levando para a página de preços.</p>
+        </div>
         <div class="field">
             <label>Capa (imagem)</label>
             <p class="muted" style="margin:4px 0 8px;">Convertida para JPEG (máx. 540×675).</p>
