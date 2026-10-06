@@ -134,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'destaque','ativo','ordem'
     );
     $edit['preco_centavos'] = $precoCentavos;
+    $edit['exibir_preco'] = $exibirPreco;
     $edit['preco_texto'] = $precoTexto;
     $edit['whmcs_url'] = $whmcs;
     $edit['whatsapp_msg'] = $wa;
