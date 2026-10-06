@@ -34,7 +34,6 @@ $intro = $s['form_contato_intro'] ?? ('Fale com a equipe da ' . ($s['site_nome']
 $btn = $s['form_contato_btn'] ?? 'Enviar mensagem';
 
 layout_header($titulo, 'contato');
-$base = app_base_path();
 ?>
 <main class="container">
     <div class="page-title">
@@ -64,8 +63,6 @@ $base = app_base_path();
             <h3>Atendimento rápido</h3>
             <p style="color:var(--muted);margin:10px 0 16px;">Prefere falar agora? Chame no WhatsApp.</p>
             <a class="btn btn-wa" href="<?= e(wa_link('Olá! Vim pelo site e quero mais informações.')) ?>" target="_blank">Abrir WhatsApp</a>
-            <p style="color:var(--muted);margin:18px 0 10px;font-size:.9rem;">Cliente? Envie textos para gravação na área restrita.</p>
-            <a class="btn btn-ghost" href="<?= e(($base === '' ? '' : $base) . '/cliente/login.php?redirect=texto') ?>">Área do cliente</a>
         </div>
     </div>
 </main>
