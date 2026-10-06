@@ -1,24 +1,17 @@
 <?php
 /**
- * Catálogo compartilhado:
- * - area=demonstrativo → site público (form completo)
- * - area=conteudo → produtos do cliente (apenas vinculo com pasta Nextcloud)
+ * Catálogo público de demonstrativos.
  */
 require_once __DIR__ . '/_layout.php';
-require_once __DIR__ . '/../includes/nextcloud.php';
-require_once __DIR__ . '/../includes/billing.php';
 
-$area = defined('CATALOGO_AREA') ? CATALOGO_AREA : 'conteudo';
-if (!app_catalogo_area_valida($area)) {
-    $area = 'conteudo';
-}
+$area = 'demonstrativo';
 $areaMeta = app_catalogo_area_meta($area);
-$isDemo = $area === 'demonstrativo';
-$script = $areaMeta['file'];
-$navActive = $areaMeta['active'];
+$isDemo = true;
+$script = 'demonstrativos.php';
+$navActive = 'demonstrativos';
 
 $pdo = app_pdo();
-$tipos = $isDemo ? app_conteudo_tipos() : app_conteudo_tipos_cliente();
+$tipos = app_conteudo_tipos();
 $ok = $err = '';
 $edit = null;
 
