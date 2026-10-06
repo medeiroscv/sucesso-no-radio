@@ -75,9 +75,6 @@ $base = app_base_path();
                     </article>
                 <?php endforeach; ?>
             </div>
-            <p class="muted" style="text-align:center;margin-top:28px;font-size:.9rem;">
-                Já é cliente? <a href="<?= e(app_url('cliente/login.php')) ?>" style="color:var(--accent);font-weight:700;">Acesse sua área</a>.
-            </p>
         <?php endif; ?>
     </div>
 </section>
