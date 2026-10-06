@@ -221,7 +221,7 @@ function app_bootstrap_database(PDO $pdo): void {
     try { $pdo->exec("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS cobrancas_log TEXT DEFAULT '[]'"); } catch (Throwable $e) { /* ok */ }
     try { $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_assinatura ON faturas (assinatura_id, periodo_ref)'); } catch (Throwable $e) { /* ok */ }
 
-    // ===== Produtos / planos / pacotes / mensalidades (estilo WHMCS) =====
+    // ===== Produtos da vitrine comercial =====
     $pdo->exec("CREATE TABLE IF NOT EXISTS produtos (
         id SERIAL PRIMARY KEY,
         nome VARCHAR(200) NOT NULL,
@@ -240,14 +240,20 @@ function app_bootstrap_database(PDO $pdo): void {
         cobranca_no_vencimento SMALLINT DEFAULT 1,
         cobranca_apos TEXT DEFAULT '[1,2,3]',
         emitir_auto SMALLINT DEFAULT 1,
-        botao_texto VARCHAR(80) DEFAULT 'Comprar',
+        botao_texto VARCHAR(80) DEFAULT 'Contratar',
         whatsapp_msg TEXT DEFAULT '',
+        whmcs_url TEXT DEFAULT '',
+        capa VARCHAR(500) DEFAULT '',
+        exibir_preco SMALLINT DEFAULT 1,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP NULL
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_produtos_ativo ON produtos (ativo, mostrar_site, ordem, id)');
     try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS liberar_tipos TEXT DEFAULT '[]'"); } catch (Throwable $e) { /* ok */ }
     try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS liberar_acesso_total SMALLINT DEFAULT 0"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS whmcs_url TEXT DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS capa VARCHAR(500) DEFAULT ''"); } catch (Throwable $e) { /* ok */ }
+    try { $pdo->exec("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS exibir_preco SMALLINT DEFAULT 1"); } catch (Throwable $e) { /* ok */ }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS assinaturas (
         id SERIAL PRIMARY KEY,
@@ -887,11 +893,12 @@ function cliente_require_liberacao(string $redirectLogin = ''): void {
 }
 
 function app_finance_ativo(): bool {
-    return app_setting('finance_ativo', '0') === '1';
+    // Módulo financeiro local desativado: cobrança e assinaturas são responsabilidade do WHMCS.
+    return false;
 }
 
 function app_finance_bloquear_atraso(): bool {
-    return app_setting('finance_bloquear_atraso', '1') === '1';
+    return false;
 }
 
 /** Sem faturas vencidas em aberto (quando financeiro ativo e bloqueio ligado). */
@@ -1245,22 +1252,12 @@ function app_config_secoes(): array {
         'cores' => [
             'label' => 'Cores do sistema',
             'icon' => '🎨',
-            'desc' => 'Personalize a paleta de cores do site, admin e área do cliente',
+            'desc' => 'Personalize a paleta de cores do site e do painel administrativo',
         ],
         'formulario_contato' => [
             'label' => 'Formulário de contato',
             'icon' => '✉️',
             'desc' => 'Formulário padrão: nome, e-mail, telefone, WhatsApp e mensagem',
-        ],
-        'formulario_texto' => [
-            'label' => 'Envio de texto',
-            'icon' => '🎙️',
-            'desc' => 'Formulário para envio de texto que será gravado',
-        ],
-        'financeiro' => [
-            'label' => 'Financeiro',
-            'icon' => '💳',
-            'desc' => 'Asaas: Pix, boleto, API Key e bloqueio por atraso',
         ],
         'atualizacao' => [
             'label' => 'Atualização do site',
@@ -1268,6 +1265,69 @@ function app_config_secoes(): array {
             'desc' => 'Atualizar código via GitHub sem rebuild do EasyPanel',
         ],
     ];
+}
+
+
+/** Tipos usados apenas para apresentação comercial da vitrine. */
+function app_produto_tipos_vitrine(): array {
+    return [
+        'mensalidade' => ['label' => 'Assinatura', 'icon' => '📅'],
+        'plano' => ['label' => 'Plano', 'icon' => '📦'],
+        'pacote' => ['label' => 'Pacote', 'icon' => '🎁'],
+        'avulso' => ['label' => 'Produto avulso', 'icon' => '⭐'],
+    ];
+}
+
+/** Periodicidades comerciais. Não gera cobrança neste sistema. */
+function app_produto_ciclos_vitrine(): array {
+    return [
+        'unico' => ['label' => 'Pagamento único'],
+        'mensal' => ['label' => 'Mensal'],
+        'trimestral' => ['label' => 'Trimestral'],
+        'semestral' => ['label' => 'Semestral'],
+        'anual' => ['label' => 'Anual'],
+    ];
+}
+
+function app_produto_recursos(array $produto): array {
+    return array_values(array_filter(array_map(
+        'trim',
+        preg_split('/\r\n|\r|\n/', (string)($produto['recursos'] ?? '')) ?: []
+    )));
+}
+
+function app_produto_preco_br(int $centavos): string {
+    return 'R$ ' . number_format(max(0, $centavos) / 100, 2, ',', '.');
+}
+
+/** Produtos públicos da vitrine. */
+function app_produtos_vitrine(bool $somenteDestaques = false): array {
+    try {
+        $sql = 'SELECT * FROM produtos WHERE ativo = 1 AND mostrar_site = 1';
+        if ($somenteDestaques) $sql .= ' AND destaque = 1';
+        $sql .= ' ORDER BY destaque DESC, ordem ASC, nome ASC';
+        return app_pdo()->query($sql)->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function app_produto_publico_by_slug(string $slug): ?array {
+    $slug = trim($slug);
+    if ($slug === '') return null;
+    try {
+        $st = app_pdo()->prepare('SELECT * FROM produtos WHERE slug = ? AND ativo = 1 AND mostrar_site = 1 LIMIT 1');
+        $st->execute([$slug]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function app_produto_whmcs_url(array $produto): string {
+    $url = trim((string)($produto['whmcs_url'] ?? ''));
+    return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
 }
 
 function app_slug(string $text): string {

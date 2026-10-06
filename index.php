@@ -1,99 +1,56 @@
 <?php
 require_once __DIR__ . '/includes/layout_public.php';
 
-$pdo = null;
-$erro = '';
-$porTipo = [
-    'diario' => [],
-    'semanal' => [],
-    'informativo' => [],
-    'programete' => [],
-    'produto' => [],
-];
+$produtos = app_produtos_vitrine();
+$destaques = array_values(array_filter($produtos, fn($p) => !empty($p['destaque'])));
+if (!$destaques) $destaques = array_slice($produtos, 0, 6);
 $banners = [];
-$tiposMeta = app_conteudo_tipos();
-
 try {
-    $pdo = app_pdo();
-    foreach (array_keys($porTipo) as $t) {
-        // Só demonstrativos (catálogo público)
-        $porTipo[$t] = app_conteudos_por_tipo($t, true, 'demonstrativo');
-    }
-    $banners = $pdo->query(
-        "SELECT * FROM banners WHERE ativo = 1 ORDER BY ordem ASC, id DESC LIMIT 5"
-    )->fetchAll();
-} catch (Throwable $e) {
-    $erro = 'Conteúdo ainda não disponível. Configure o banco no EasyPanel (AUTO_INSTALL + Postgres).';
-}
-
+    $banners = app_pdo()->query("SELECT * FROM banners WHERE ativo = 1 ORDER BY ordem ASC, id DESC LIMIT 5")->fetchAll() ?: [];
+} catch (Throwable $e) { /* catálogo continua sem banners */ }
 $s = site_settings_all();
-layout_header('', 'home');
-$base = app_base_path();
-$prefix = $base === '' ? '' : $base;
 
-function render_conteudo_card(array $p, string $base, string $tipo): void {
-    $capa = $p['capa'] ? (($base === '' ? '' : $base) . '/' . ltrim($p['capa'], '/')) : '';
-    $msg = $p['whatsapp_msg'] ?: ('Olá! Quero contratar: ' . $p['titulo']);
-    $detalhe = ($base === '' ? '' : $base) . '/programa.php?slug=' . rawurlencode($p['slug']);
-    $demos = app_demonstrativos('conteudo', intval($p['id']));
-    if (!$demos && $tipo === 'programete') {
-        $demos = app_demonstrativos('programete', intval($p['id']));
-    }
-    if (!$demos) {
-        $demos = app_demonstrativos('programa', intval($p['id']));
-    }
+function vitrine_card(array $p): void {
+    $capa = trim((string)($p['capa'] ?? ''));
+    $recursos = app_produto_recursos($p);
+    $whmcs = app_produto_whmcs_url($p);
+    $detalhe = app_url('produto.php?slug=' . rawurlencode((string)$p['slug']));
+    $tipos = app_produto_tipos_vitrine();
+    $tipo = $tipos[$p['tipo'] ?? ''] ?? ['label' => 'Produto'];
     ?>
-    <article class="card">
-        <?php if ($capa): ?>
-            <img class="card-cover" src="<?= e($capa) ?>" alt="<?= e($p['titulo']) ?>" loading="lazy">
-        <?php else: ?>
-            <div class="card-cover" style="display:grid;place-items:center;color:var(--muted);font-weight:700;">🎙</div>
-        <?php endif; ?>
-        <div class="card-body">
-            <h3><?= e($p['titulo']) ?></h3>
-            <div class="card-meta">
-                <?php if (!empty($p['duracao'])): ?><span class="chip"><?= e($p['duracao']) ?></span><?php endif; ?>
-                <?php if (!empty($p['blocos'])): ?><span class="chip"><?= e($p['blocos']) ?></span><?php endif; ?>
-                <?php if (!empty($p['dias'])): ?><span class="chip"><?= e($p['dias']) ?></span><?php endif; ?>
-                <?php if (!empty($p['insercoes'])): ?><span class="chip"><?= e($p['insercoes']) ?></span><?php endif; ?>
-            </div>
-            <p class="card-desc"><?= e($p['resumo'] ?: mb_strimwidth(strip_tags($p['descricao'] ?? ''), 0, 120, '…')) ?></p>
-            <?php if ($demos): ?>
-                <div style="display:grid;gap:8px;margin:4px 0 8px;">
-                    <?php foreach ($demos as $d): ?>
-                        <div>
-                            <div style="font-size:.8rem;font-weight:700;margin-bottom:4px;color:var(--muted);"><?= e($d['titulo'] ?: 'Demo') ?></div>
-                            <audio controls preload="none" style="width:100%;height:36px;">
-                                <source src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($d['arquivo'], '/')) ?>" type="audio/mpeg">
-                            </audio>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+    <article class="catalog-card">
+        <a class="catalog-cover" href="<?= e($detalhe) ?>">
+            <?php if ($capa): ?><img src="<?= e(app_url($capa)) ?>" alt="<?= e($p['nome']) ?>" loading="lazy"><?php else: ?><span>🎙</span><?php endif; ?>
+        </a>
+        <div class="catalog-body">
+            <div class="catalog-badges"><span class="chip"><?= e($tipo['label']) ?></span><?php if (!empty($p['destaque'])): ?><span class="chip">Destaque</span><?php endif; ?></div>
+            <h3><a href="<?= e($detalhe) ?>"><?= e($p['nome']) ?></a></h3>
+            <?php if (!empty($p['descricao'])): ?><p class="catalog-desc"><?= e($p['descricao']) ?></p><?php endif; ?>
+            <?php if ($recursos): ?><ul class="catalog-list"><?php foreach (array_slice($recursos,0,3) as $r): ?><li><?= e($r) ?></li><?php endforeach; ?></ul><?php endif; ?>
+            <?php if (!empty($p['exibir_preco'])): ?><div class="catalog-price"><?= e(app_produto_preco_br((int)$p['valor_centavos'])) ?></div><?php endif; ?>
             <div class="card-actions">
-                <?php if ($tipo === 'produto'): ?>
-                    <a class="btn btn-primary btn-small" href="<?= e(($base === '' ? '' : $base) . '/cliente/contratar.php?produto=' . rawurlencode($p['slug'])) ?>">Comprar</a>
-                <?php else: ?>
-                    <a class="btn btn-ghost btn-small" href="<?= e($detalhe) ?>">Detalhes</a>
-                    <a class="btn btn-primary btn-small" href="<?= e(($base === '' ? '' : $base) . '/precos.php') ?>">Comprar</a>
-                <?php endif; ?>
+                <a class="btn btn-ghost btn-small" href="<?= e($detalhe) ?>">Ver detalhes</a>
+                <?php if ($whmcs): ?><a class="btn btn-primary btn-small" href="<?= e($whmcs) ?>" target="_blank" rel="noopener"><?= e($p['botao_texto'] ?: 'Contratar') ?></a><?php else: ?><a class="btn btn-primary btn-small" href="<?= e(wa_link($p['whatsapp_msg'] ?: ('Olá! Quero saber mais sobre ' . $p['nome']))) ?>" target="_blank" rel="noopener">Tenho interesse</a><?php endif; ?>
             </div>
         </div>
     </article>
     <?php
 }
+
+layout_header('', 'home');
 ?>
 <main>
-    <section class="hero container">
-        <div style="max-width:720px;margin:0 auto;text-align:center;display:grid;justify-items:center;">
+    <section class="hero container catalog-hero">
+        <div class="catalog-hero-copy">
+            <span class="catalog-eyebrow">Conteúdo profissional para emissoras</span>
             <h1><?= e($s['site_slogan'] ?? 'Tudo que sua rádio precisa em um só lugar') ?></h1>
-            <p style="font-size:1.1rem;text-align:center;"><?= e($s['sobre'] ?? 'Diários, semanais, informativos e programetes profissionais para a sua grade.') ?></p>
+            <p><?= e($s['sobre'] ?? 'Programas, informativos e conteúdos profissionais prontos para fortalecer a sua programação.') ?></p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="<?= e(app_url('produtos.php')) ?>">Conhecer produtos</a>
+                <a class="btn btn-ghost" href="<?= e(wa_link('Olá! Quero ajuda para escolher os produtos para minha rádio.')) ?>" target="_blank" rel="noopener">Falar com a equipe</a>
+            </div>
         </div>
     </section>
-
-    <?php if ($erro): ?>
-        <div class="container"><div class="alert alert-err"><?= e($erro) ?></div></div>
-    <?php endif; ?>
 
     <?php if ($banners): ?>
     <section class="section container">
@@ -102,60 +59,37 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
                 <div>
                     <h2><?= e($b['titulo'] ?: 'Destaque') ?></h2>
                     <?php if ($b['subtitulo']): ?><p style="color:var(--muted);margin-top:8px;"><?= e($b['subtitulo']) ?></p><?php endif; ?>
-                    <div class="hero-actions">
-                        <?php if ($b['link']): ?>
-                            <a class="btn btn-primary" href="<?= e($b['link']) ?>" target="_blank" rel="noopener"><?= e($b['botao_texto'] ?: 'Saiba mais') ?></a>
-                        <?php else: ?>
-                            <a class="btn btn-primary" href="<?= e(($base === '' ? '' : $base) . '/precos.php') ?>"><?= e($b['botao_texto'] ?: 'Comprar') ?></a>
-                        <?php endif; ?>
-                    </div>
+                    <?php if ($b['link']): ?><div class="hero-actions"><a class="btn btn-primary" href="<?= e($b['link']) ?>" target="_blank" rel="noopener"><?= e($b['botao_texto'] ?: 'Saiba mais') ?></a></div><?php endif; ?>
                 </div>
-                <?php if ($b['imagem']): ?>
-                    <img src="<?= e(($base === '' ? '' : $base) . '/' . ltrim($b['imagem'], '/')) ?>" alt="<?= e($b['titulo']) ?>" loading="lazy">
-                <?php endif; ?>
+                <?php if ($b['imagem']): ?><img src="<?= e(app_url($b['imagem'])) ?>" alt="<?= e($b['titulo']) ?>" loading="lazy"><?php endif; ?>
             </div>
         <?php endforeach; ?>
     </section>
     <?php endif; ?>
 
-    <?php
-    $secoes = [
-        'diario' => ['id' => 'diarios', 'sub' => 'Produções para a grade de segunda a sábado.'],
-        'semanal' => ['id' => 'semanais', 'sub' => 'Conteúdos semanais e de fim de semana.'],
-        'informativo' => ['id' => 'informativos', 'sub' => 'Jornalismo, boletins e notícias para a emissora.'],
-        'programete' => ['id' => 'programetes', 'sub' => 'Pacotes de dicas e inserções rápidas.'],
-        'produto' => ['id' => 'produtos', 'sub' => 'Produtos avulsos e pacotes com pagamento único.'],
-    ];
-    foreach ($secoes as $tipoKey => $sec):
-        $itens = $porTipo[$tipoKey] ?? [];
-        $label = $tiposMeta[$tipoKey]['label'] ?? $tipoKey;
-    ?>
-    <section class="section container" id="<?= e($sec['id']) ?>">
+    <section class="section container">
         <div class="section-head">
-            <h2><?= e($label) ?></h2>
-            <p><?= e($sec['sub']) ?></p>
+            <div><span class="catalog-eyebrow">Vitrine</span><h2>Produtos em destaque</h2></div>
+            <p>Conheça as soluções disponíveis e, quando decidir contratar, siga diretamente para o WHMCS.</p>
         </div>
-        <?php if (!$itens): ?>
-            <div class="empty">Nenhum item cadastrado ainda. Acesse o <a href="<?= e($prefix . '/admin/demonstrativos.php?tipo=' . rawurlencode($tipoKey)) ?>">admin</a> e adicione conteúdos.</div>
-        <?php else: ?>
-            <div class="grid-cards">
-                <?php foreach ($itens as $p) {
-                    render_conteudo_card($p, $base, $tipoKey);
-                } ?>
-            </div>
-        <?php endif; ?>
+        <?php if ($destaques): ?><div class="catalog-grid"><?php foreach ($destaques as $p) vitrine_card($p); ?></div><?php else: ?><div class="empty">Nenhum produto publicado na vitrine ainda.</div><?php endif; ?>
+        <?php if (count($produtos) > count($destaques)): ?><div style="text-align:center;margin-top:24px;"><a class="btn btn-ghost" href="<?= e(app_url('produtos.php')) ?>">Ver todos os produtos</a></div><?php endif; ?>
     </section>
-    <?php endforeach; ?>
+
+    <section class="section container">
+        <div class="catalog-steps">
+            <div><strong>1. Conheça</strong><p>Veja detalhes, benefícios, demonstrativos e condições de cada produto.</p></div>
+            <div><strong>2. Escolha</strong><p>Compare as opções e selecione a solução mais adequada à programação da sua emissora.</p></div>
+            <div><strong>3. Contrate</strong><p>O botão de contratação leva ao WHMCS, onde cadastro, pagamento e cobrança são processados.</p></div>
+        </div>
+    </section>
 
     <section class="section container">
         <div class="destaque">
             <div>
-                <h2>Quer montar a grade da sua rádio?</h2>
-                <p style="color:var(--muted);margin-top:8px;">Fale com a gente no WhatsApp e receba indicação de conteúdos sob medida para o seu público.</p>
-                <div class="hero-actions">
-                    <a class="btn btn-wa" href="<?= e(wa_link('Olá! Quero montar a grade da minha rádio com a ' . ($s['site_nome'] ?? 'Sucesso no Rádio'))) ?>" target="_blank">Chamar no WhatsApp</a>
-                    <a class="btn btn-ghost" href="<?= e($prefix . '/contato.php') ?>">Formulário de contato</a>
-                </div>
+                <h2>Precisa montar uma solução sob medida?</h2>
+                <p style="color:var(--muted);margin-top:8px;">Fale com a equipe e receba uma indicação objetiva dos produtos mais adequados para a sua rádio.</p>
+                <div class="hero-actions"><a class="btn btn-primary" href="<?= e(wa_link('Olá! Quero uma indicação de produtos para minha rádio.')) ?>" target="_blank" rel="noopener">Conversar no WhatsApp</a></div>
             </div>
         </div>
     </section>

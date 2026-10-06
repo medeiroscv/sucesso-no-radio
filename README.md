@@ -1,59 +1,48 @@
 # Sucesso no Rádio
 
-Site institucional + catálogo de conteúdos para rádios (diários, semanais, informativos e programetes), com **área administrativa** e deploy no **EasyPanel**.
+Vitrine comercial dos produtos do **Sucesso no Rádio**.
+
+O projeto não processa mais checkout, cobrança, Pix, boleto ou assinatura. A função pública do site é apresentar os produtos, demonstrativos, benefícios e preços; a contratação é encaminhada para o **WHMCS** através de um link configurado individualmente em cada produto.
 
 ## Stack
 
-- PHP 8.2 + Apache  
-- PostgreSQL  
-- Docker (Dockerfile na raiz)  
+- PHP 8.2 + Apache
+- PostgreSQL
+- Docker / EasyPanel
 
-## Estrutura
+## Fluxo atual
 
-```
-/
-  index.php, programa.php, contato.php   # front público
-  admin/                                 # painel (login + CRUD)
-  includes/                              # db, env, layout
-  assets/css/                            # estilos
-  uploads/                               # mídias (volume EasyPanel)
-  data/                                  # sessões (volume)
-  Dockerfile, docker-entrypoint.sh
-  EASYPANEL.md                           # guia de deploy
-```
+1. O visitante acessa a home ou o catálogo.
+2. Abre a página de um produto.
+3. Consulta descrição, recursos, preço e demonstrativos.
+4. Clica em **Contratar**.
+5. O site abre o link `whmcs_url` cadastrado no produto.
 
-## Local (opcional)
+Se o produto ainda não tiver link WHMCS, o botão usa o WhatsApp como fallback.
 
-Com Postgres rodando e variáveis `DB_*` (ou `.env` no host):
+## Administração
 
-```bash
-# subir container ou php -S com document root na pasta do projeto
-php -S localhost:8080
-```
+No painel administrativo, a operação principal fica concentrada em:
 
-Acesse:
+- Produtos
+- Banners
+- Contatos
+- Configurações
 
-- Site: http://localhost:8080/  
-- Admin: http://localhost:8080/admin/  
+Cada produto pode ter:
 
-## EasyPanel
+- nome e slug;
+- tipo e periodicidade comercial;
+- descrição;
+- lista de recursos;
+- preço opcional na vitrine;
+- imagem de capa;
+- áudios demonstrativos;
+- destaque e ordem;
+- texto do botão;
+- mensagem de WhatsApp;
+- link direto do WHMCS.
 
-Veja **[EASYPANEL.md](EASYPANEL.md)** — Postgres + volumes + `BOOTSTRAP_ADMIN_*`.
+## Compatibilidade
 
-## Financeiro (Asaas)
-
-Pix + boleto via [Asaas](https://docs.asaas.com/). Configure a API Key em Admin → Configurações → Financeiro (ou `ASAAS_*` no ambiente).  
-Webhook: `/api/asaas-webhook.php`. Detalhes em **EASYPANEL.md**.
-
-## Atualizações
-
-Admin → **Configurações → Atualização** consulta o GitHub.  
-CLI: `bash scripts/update.sh` ou `php scripts/check-update.php`. No EasyPanel, prefira **Redeploy**.
-
-## Próximos passos possíveis
-
-- Editor de páginas estáticas  
-- Upload de áudio demo por programa  
-- Multi-usuário / permissões  
-- SEO por programa (meta tags)  
-- Assinaturas recorrentes Asaas  
+As tabelas e rotinas legadas de clientes/financeiro permanecem preservadas no banco e no histórico do projeto para evitar perda de dados durante a transição, mas não fazem parte do fluxo público da vitrine.
