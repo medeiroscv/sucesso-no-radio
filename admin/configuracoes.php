@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/_layout.php';
-require_once __DIR__ . '/../includes/asaas.php';
 require_once __DIR__ . '/../includes/update.php';
 
 $pdo = app_pdo();
@@ -72,30 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         app_setting_set('form_texto_btn', trim((string)($_POST['form_texto_btn'] ?? 'Enviar texto')));
         $ok = 'Formulário de envio de texto atualizado.';
         $sec = 'formulario_texto';
-    } elseif ($secPost === 'financeiro') {
-        app_setting_set('finance_ativo', !empty($_POST['finance_ativo']) ? '1' : '0');
-        app_setting_set('finance_bloquear_atraso', !empty($_POST['finance_bloquear_atraso']) ? '1' : '0');
-        app_setting_set('asaas_sandbox', !empty($_POST['asaas_sandbox']) ? '1' : '0');
-
-        // API Key: só atualiza se preenchida (não expor no form)
-        $apiKey = trim((string)($_POST['asaas_api_key'] ?? ''));
-        if ($apiKey !== '') {
-            app_setting_set('asaas_api_key', $apiKey);
-        }
-        if (!empty($_POST['limpar_asaas_api_key'])) {
-            app_setting_set('asaas_api_key', '');
-        }
-
-        $whToken = trim((string)($_POST['asaas_webhook_token'] ?? ''));
-        if ($whToken !== '') {
-            app_setting_set('asaas_webhook_token', $whToken);
-        }
-        if (!empty($_POST['limpar_webhook_token'])) {
-            app_setting_set('asaas_webhook_token', '');
-        }
-
-        $ok = 'Configurações financeiras (Asaas) salvas.';
-        $sec = 'financeiro';
     } elseif ($secPost === 'cores') {
         if (!empty($_POST['restaurar_cores'])) {
             $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary','color_header','color_footer'];
@@ -192,8 +167,6 @@ if ($sec === ''):
                     <div class="conteudo-hub-count"><?= $qContatos ?> envio(s)<?= $qContatosNovos ? " · {$qContatosNovos} novo(s)" : '' ?></div>
                 <?php elseif ($key === 'formulario_texto'): ?>
                     <div class="conteudo-hub-count"><?= $qTextos ?> texto(s)<?= $qTextosNovos ? " · {$qTextosNovos} novo(s)" : '' ?></div>
-                <?php elseif ($key === 'financeiro'): ?>
-                    <div class="conteudo-hub-count"><?= app_finance_ativo() ? 'Módulo ativo' : 'Módulo inativo' ?> · <?= asaas_configured() ? 'Asaas ok' : 'Asaas pendente' ?></div>
                 <?php elseif ($key === 'atualizacao'): ?>
                     <div class="conteudo-hub-count"><?= e(app_update_hub_status()) ?></div>
                 <?php else: ?>
@@ -344,107 +317,6 @@ elseif ($sec === 'formulario_texto'):
         <li><strong>Título / referência</strong> (ex.: programa, campanha)</li>
         <li><strong>Texto para gravação</strong> — obrigatório (gravado no banco)</li>
     </ul>
-</div>
-<?php
-// ========== FINANCEIRO / ASAAS ==========
-elseif ($sec === 'financeiro'):
-    $webhook = app_site_url('api/asaas-webhook.php');
-    $hasKey = asaas_configured();
-    $hasWh = asaas_webhook_token() !== '';
-?>
-<div class="actions" style="margin-bottom:12px;">
-    <a class="btn btn-secondary btn-small" href="configuracoes.php">← Configurações</a>
-    <a class="btn btn-secondary btn-small" href="financeiro.php">Abrir faturas</a>
-</div>
-
-<div class="card">
-    <h3 style="margin-bottom:10px;">Módulo financeiro</h3>
-    <p class="muted" style="margin-bottom:14px;">
-        Integração com o <strong>Asaas</strong> (Pix + boleto via API). Documentação:
-        <a href="https://docs.asaas.com/" target="_blank" rel="noopener">docs.asaas.com</a>
-    </p>
-    <form method="post">
-        <input type="hidden" name="sec" value="financeiro">
-
-        <div class="field">
-            <label><input type="checkbox" name="finance_ativo" value="1" <?= app_setting('finance_ativo', '0') === '1' ? 'checked' : '' ?>> Financeiro ativo (mostra menu Financeiro para o cliente)</label>
-        </div>
-        <div class="field">
-            <label><input type="checkbox" name="finance_bloquear_atraso" value="1" <?= app_setting('finance_bloquear_atraso', '1') === '1' ? 'checked' : '' ?>> Bloquear conteúdos/textos se houver fatura vencida</label>
-        </div>
-        <?php
-        $keyEnv = asaas_key_environment();
-        $efetivoSandbox = asaas_sandbox();
-        ?>
-        <div class="field">
-            <label><input type="checkbox" name="asaas_sandbox" value="1" <?= $efetivoSandbox ? 'checked' : '' ?>> Usar ambiente de homologação (sandbox)</label>
-            <p class="muted" style="margin-top:6px;font-size:.82rem;">
-                O sistema prioriza o ambiente indicado pela própria API Key
-                (<code>$aact_hmlg_…</code> = sandbox, <code>$aact_prod_…</code> = produção),
-                para evitar o erro “chave não pertence a este ambiente”.
-            </p>
-        </div>
-
-        <h3 style="margin:20px 0 12px;font-size:1.05rem;">API Key Asaas</h3>
-        <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-            Conta Asaas → <strong>Integrações → API Key</strong>.
-            Sandbox: <a href="https://sandbox.asaas.com" target="_blank" rel="noopener">sandbox.asaas.com</a>
-            (<code>$aact_hmlg_…</code>).
-            Produção: <a href="https://www.asaas.com" target="_blank" rel="noopener">asaas.com</a>
-            (<code>$aact_prod_…</code>).
-            Variável <code>ASAAS_API_KEY</code> no EasyPanel tem prioridade se preenchida.
-        </p>
-        <?php if ($keyEnv === 'production' && app_setting('asaas_sandbox', '1') === '1'): ?>
-            <div class="alert alert-ok" style="margin-bottom:12px;">
-                Detectamos chave de <strong>produção</strong>. O sistema usará a API de produção automaticamente (mesmo com sandbox marcado no formulário).
-            </div>
-        <?php elseif ($keyEnv === 'sandbox' && app_setting('asaas_sandbox', '1') !== '1'): ?>
-            <div class="alert alert-ok" style="margin-bottom:12px;">
-                Detectamos chave de <strong>sandbox</strong>. O sistema usará a API de homologação automaticamente.
-            </div>
-        <?php endif; ?>
-        <div class="field">
-            <label>API Key</label>
-            <input type="password" name="asaas_api_key" value="" placeholder="<?= $hasKey ? '•••••••• (deixe em branco para manter)' : '$aact_hmlg_... ou $aact_prod_...' ?>" autocomplete="new-password">
-            <?php if ($hasKey): ?>
-                <label style="margin-top:8px;display:block;"><input type="checkbox" name="limpar_asaas_api_key" value="1"> Remover API Key salva</label>
-            <?php endif; ?>
-        </div>
-
-        <h3 style="margin:20px 0 12px;font-size:1.05rem;">Webhook (recomendado)</h3>
-        <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-            No painel Asaas → Integrações → Webhooks, cadastre a URL abaixo e os eventos
-            <code>PAYMENT_RECEIVED</code> e <code>PAYMENT_CONFIRMED</code>.
-            Se definir um token de autenticação no Asaas, coloque o mesmo valor aqui.
-        </p>
-        <div class="field">
-            <label>Token do webhook (opcional, header <code>asaas-access-token</code>)</label>
-            <input type="password" name="asaas_webhook_token" value="" placeholder="<?= $hasWh ? '•••••••• (deixe em branco para manter)' : 'Gere um token forte e use no Asaas' ?>" autocomplete="new-password">
-            <?php if ($hasWh): ?>
-                <label style="margin-top:8px;display:block;"><input type="checkbox" name="limpar_webhook_token" value="1"> Remover token do webhook</label>
-            <?php endif; ?>
-        </div>
-
-        <div style="background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:16px 0;">
-            <strong>Status</strong>
-            <div class="muted" style="margin-top:8px;line-height:1.7;">
-                API Key: <?= $hasKey ? '✅ configurada' : '❌ pendente' ?>
-                <?php if ($keyEnv): ?> (detectada: <?= $keyEnv === 'sandbox' ? 'sandbox' : 'produção' ?>)<?php endif; ?><br>
-                Webhook token: <?= $hasWh ? '✅ definido' : '⚠️ opcional (recomendado em produção)' ?><br>
-                Ambiente efetivo: <?= e(asaas_ambiente_label()) ?><br>
-                URL API: <code><?= e(asaas_base_url()) ?></code>
-            </div>
-            <p class="muted" style="margin-top:10px;font-size:.82rem;word-break:break-all;">
-                URL do webhook (cadastre no Asaas):<br><code><?= e($webhook) ?></code>
-            </p>
-            <p class="muted" style="margin-top:8px;font-size:.82rem;">
-                Cadastre a <strong>chave Pix</strong> na conta Asaas (menu Pix) para QR Codes estáveis.
-                Informe <strong>CPF/CNPJ</strong> no cadastro de cada cliente.
-            </p>
-        </div>
-
-        <button class="btn btn-primary" type="submit">Salvar financeiro</button>
-    </form>
 </div>
 <?php
 // ========== CORES DO SISTEMA ==========

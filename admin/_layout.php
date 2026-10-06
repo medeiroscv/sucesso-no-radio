@@ -23,17 +23,9 @@ function admin_header(string $title, string $active = ''): void {
         <div class="logo">🎙 Sucesso no Rádio</div>
         <nav>
             <a href="index.php" class="<?= $active === 'dash' ? 'active' : '' ?>">Dashboard</a>
-            <a href="demonstrativos.php" class="<?= $active === 'demonstrativos' ? 'active' : '' ?>">Demonstrativos</a>
-            <a href="conteudos.php" class="<?= $active === 'conteudos' ? 'active' : '' ?>">Programação gravada</a>
-            <a href="conteudos.php?tipo=produto" class="<?= $active === 'produtos-conteudo' ? 'active' : '' ?>">Produtos</a>
-    <a href="nextcloud.php" class="<?= $active === 'nextcloud' ? 'active' : '' ?>">Nextcloud</a>
-            <a href="clientes.php" class="<?= $active === 'clientes' ? 'active' : '' ?>">Clientes</a>
-            <a href="produtos.php" class="<?= $active === 'produtos' ? 'active' : '' ?>">Produtos / preços</a>
-            <a href="assinaturas.php" class="<?= $active === 'assinaturas' ? 'active' : '' ?>">Assinaturas</a>
-            <a href="financeiro.php" class="<?= $active === 'financeiro' ? 'active' : '' ?>">Financeiro</a>
-            <a href="textos.php" class="<?= $active === 'textos' ? 'active' : '' ?>">Textos a gravar</a>
-            <a href="contatos.php" class="<?= $active === 'contatos' ? 'active' : '' ?>">Contatos</a>
+            <a href="produtos.php" class="<?= $active === 'produtos' ? 'active' : '' ?>">Produtos</a>
             <a href="banners.php" class="<?= $active === 'banners' ? 'active' : '' ?>">Banners</a>
+            <a href="contatos.php" class="<?= $active === 'contatos' ? 'active' : '' ?>">Contatos</a>
             <a href="configuracoes.php" class="<?= $active === 'config' ? 'active' : '' ?>">Configurações</a>
             <a href="../" target="_blank">Ver site</a>
             <a href="logout.php">Sair</a>
