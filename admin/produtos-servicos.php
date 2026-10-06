@@ -23,6 +23,57 @@ function ps_by_id(int $id): ?array {
     return $row ?: null;
 }
 
+function ps_demos_from_post(): array {
+    $titulos = $_POST['demo_titulo'] ?? [];
+    $links = $_POST['demo_link'] ?? [];
+    if (!is_array($titulos)) $titulos = [];
+    if (!is_array($links)) $links = [];
+
+    $rows = [];
+    $total = max(count($titulos), count($links));
+    for ($i = 0; $i < $total; $i++) {
+        $titulo = trim((string)($titulos[$i] ?? ''));
+        $url = trim((string)($links[$i] ?? ''));
+        if ($titulo === '' && $url === '') continue;
+        $rows[] = ['titulo' => $titulo, 'url' => $url];
+    }
+    return $rows;
+}
+
+function ps_demos_validate(array $demos): string {
+    foreach ($demos as $i => $demo) {
+        $url = trim((string)($demo['url'] ?? ''));
+        if ($url === '') {
+            return 'Informe o link da demonstração ' . ($i + 1) . ' ou remova essa linha.';
+        }
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            return 'O link da demonstração ' . ($i + 1) . ' precisa ser uma URL válida.';
+        }
+    }
+    return '';
+}
+
+function ps_demos_save(int $produtoServicoId, array $demos): void {
+    if ($produtoServicoId <= 0) return;
+    $pdo = app_pdo();
+    $pdo->prepare('DELETE FROM produto_servico_demos WHERE produto_servico_id = ?')->execute([$produtoServicoId]);
+    $ins = $pdo->prepare(
+        'INSERT INTO produto_servico_demos (produto_servico_id, titulo, url, ordem, created_at)
+         VALUES (?,?,?,?,NOW())'
+    );
+    foreach ($demos as $i => $demo) {
+        $titulo = trim((string)($demo['titulo'] ?? ''));
+        $url = trim((string)($demo['url'] ?? ''));
+        if ($url === '') continue;
+        if ($titulo === '') $titulo = 'Modelo ' . ($i + 1);
+        $ins->execute([$produtoServicoId, $titulo, $url, $i]);
+    }
+
+    // Mantém a antiga coluna preenchida com o primeiro link por compatibilidade.
+    $primeiro = trim((string)($demos[0]['url'] ?? ''));
+    $pdo->prepare('UPDATE produtos_servicos SET demo_url = ? WHERE id = ?')->execute([$primeiro, $produtoServicoId]);
+}
+
 $tipos = [
     'servico' => 'Serviço',
     'produto' => 'Produto',
@@ -63,7 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $periodicidade = (string)($_POST['periodicidade'] ?? 'sob_consulta');
     if (!isset($periodicidades[$periodicidade])) $periodicidade = 'sob_consulta';
     $whmcs = trim((string)($_POST['whmcs_url'] ?? ''));
-    $demoUrl = trim((string)($_POST['demo_url'] ?? ''));
+    $demosPost = ps_demos_from_post();
+    $demoErro = ps_demos_validate($demosPost);
+    $demoUrl = trim((string)($demosPost[0]['url'] ?? ''));
     $wa = trim((string)($_POST['whatsapp_msg'] ?? ''));
     $botao = trim((string)($_POST['botao_texto'] ?? 'Saiba mais')) ?: 'Saiba mais';
     $destaque = !empty($_POST['destaque']) ? 1 : 0;
@@ -76,8 +129,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = 'Informe o nome do produto ou serviço.';
     } elseif ($whmcs !== '' && !filter_var($whmcs, FILTER_VALIDATE_URL)) {
         $err = 'O link do WHMCS precisa ser uma URL válida.';
-    } elseif ($demoUrl !== '' && !filter_var($demoUrl, FILTER_VALIDATE_URL)) {
-        $err = 'O link de demonstração precisa ser uma URL válida.';
+    } elseif ($demoErro !== '') {
+        $err = $demoErro;
     } else {
         if (!empty($_POST['remover_capa'])) {
             if ($capaAtual !== '') admin_delete_local_upload($capaAtual);
@@ -127,6 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $id = (int)$pdo->lastInsertId();
         }
+        ps_demos_save($id, $demosPost);
         header('Location: produtos-servicos.php?id=' . $id . '&ok=1');
         exit;
     }
@@ -143,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $edit['demo_url'] = $demoUrl;
     $edit['whatsapp_msg'] = $wa;
     $edit['botao_texto'] = $botao;
+    $edit['_demos'] = $demosPost;
 }
 
 if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
@@ -171,6 +226,8 @@ admin_flash($ok, $err);
 
 if ($edit):
     $valorBr = number_format(((int)($edit['preco_centavos'] ?? 0)) / 100, 2, ',', '.');
+    $demosEdit = $edit['_demos'] ?? app_produto_servico_demos((int)($edit['id'] ?? 0), $edit);
+    if (!$demosEdit) $demosEdit = [['titulo' => '', 'url' => '']];
 ?>
 <div class="actions" style="margin-bottom:12px;">
     <a class="btn btn-secondary btn-small" href="produtos-servicos.php">← Lista</a>
@@ -226,11 +283,48 @@ if ($edit):
     </div>
 
     <div class="field"><label>Link do WHMCS (opcional)</label><input type="url" name="whmcs_url" value="<?= e($edit['whmcs_url'] ?? '') ?>" placeholder="https://..."></div>
-    <div class="field">
-        <label>Link de demonstração / modelos (opcional)</label>
-        <input type="url" name="demo_url" value="<?= e($edit['demo_url'] ?? '') ?>" placeholder="https://exemplo.com/modelos">
-        <p class="muted" style="margin-top:5px;font-size:.8rem;">Use para mostrar um site de demonstração, modelos disponíveis ou outra apresentação online do produto/serviço.</p>
+    <div class="field" style="margin-top:18px;">
+        <label>Demonstrações / modelos (opcional)</label>
+        <p class="muted" style="margin:5px 0 10px;font-size:.8rem;">Adicione um ou vários links de modelos, sites de demonstração ou apresentações online.</p>
+        <div id="demoLinks" style="display:grid;gap:10px;">
+            <?php foreach ($demosEdit as $i => $demo): ?>
+                <div class="ps-demo-row" style="display:grid;grid-template-columns:minmax(150px,.7fr) minmax(260px,1.7fr) auto;gap:8px;align-items:end;">
+                    <div>
+                        <label style="font-size:.76rem;">Nome do modelo (opcional)</label>
+                        <input name="demo_titulo[]" value="<?= e($demo['titulo'] ?? '') ?>" placeholder="Ex.: Modelo 1">
+                    </div>
+                    <div>
+                        <label style="font-size:.76rem;">Link da demonstração</label>
+                        <input type="url" name="demo_link[]" value="<?= e($demo['url'] ?? '') ?>" placeholder="https://exemplo.com/modelo">
+                    </div>
+                    <button type="button" class="btn btn-danger btn-small" onclick="removeDemoRow(this)">Remover</button>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <button type="button" class="btn btn-secondary btn-small" style="margin-top:10px;" onclick="addDemoRow()">+ Adicionar demonstração</button>
     </div>
+    <script>
+    function addDemoRow() {
+        var box = document.getElementById('demoLinks');
+        if (!box) return;
+        var row = document.createElement('div');
+        row.className = 'ps-demo-row';
+        row.style.cssText = 'display:grid;grid-template-columns:minmax(150px,.7fr) minmax(260px,1.7fr) auto;gap:8px;align-items:end;';
+        row.innerHTML =
+            '<div><label style="font-size:.76rem;">Nome do modelo (opcional)</label>' +
+            '<input name="demo_titulo[]" placeholder="Ex.: Modelo ' + (box.children.length + 1) + '"></div>' +
+            '<div><label style="font-size:.76rem;">Link da demonstração</label>' +
+            '<input type="url" name="demo_link[]" placeholder="https://exemplo.com/modelo"></div>' +
+            '<button type="button" class="btn btn-danger btn-small" onclick="removeDemoRow(this)">Remover</button>';
+        box.appendChild(row);
+    }
+    function removeDemoRow(btn) {
+        var box = document.getElementById('demoLinks');
+        var row = btn.closest('.ps-demo-row');
+        if (row) row.remove();
+        if (box && box.children.length === 0) addDemoRow();
+    }
+    </script>
     <div class="field"><label>Mensagem de WhatsApp (fallback)</label><input name="whatsapp_msg" value="<?= e($edit['whatsapp_msg'] ?? '') ?>" placeholder="Olá! Quero saber mais sobre..."></div>
 
     <div class="field-row">
@@ -263,7 +357,12 @@ if ($edit):
                 <td><?= e($tipos[$item['tipo']] ?? ucfirst((string)$item['tipo'])) ?></td>
                 <td><?= e($item['categoria'] ?: '—') ?></td>
                 <td><?= e(app_produto_servico_preco($item)) ?></td>
-                <td><?php if (app_produto_servico_demo_url($item)): ?><a href="<?= e(app_produto_servico_demo_url($item)) ?>" target="_blank" rel="noopener">Abrir</a><?php else: ?>—<?php endif; ?></td>
+                <?php $demosLista = app_produto_servico_demos((int)$item['id'], $item); ?>
+                <td>
+                    <?php if ($demosLista): ?>
+                        <a href="<?= e($demosLista[0]['url']) ?>" target="_blank" rel="noopener"><?= count($demosLista) ?> modelo(s)</a>
+                    <?php else: ?>—<?php endif; ?>
+                </td>
                 <td><?= !empty($item['ativo']) ? '<span class="badge badge-ok">Ativo</span>' : '<span class="badge badge-off">Inativo</span>' ?></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="produtos-servicos.php?id=<?= (int)$item['id'] ?>">Editar</a>
