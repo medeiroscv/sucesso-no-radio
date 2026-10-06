@@ -63,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $periodicidade = (string)($_POST['periodicidade'] ?? 'sob_consulta');
     if (!isset($periodicidades[$periodicidade])) $periodicidade = 'sob_consulta';
     $whmcs = trim((string)($_POST['whmcs_url'] ?? ''));
+    $demoUrl = trim((string)($_POST['demo_url'] ?? ''));
     $wa = trim((string)($_POST['whatsapp_msg'] ?? ''));
     $botao = trim((string)($_POST['botao_texto'] ?? 'Saiba mais')) ?: 'Saiba mais';
     $destaque = !empty($_POST['destaque']) ? 1 : 0;
@@ -75,6 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = 'Informe o nome do produto ou serviço.';
     } elseif ($whmcs !== '' && !filter_var($whmcs, FILTER_VALIDATE_URL)) {
         $err = 'O link do WHMCS precisa ser uma URL válida.';
+    } elseif ($demoUrl !== '' && !filter_var($demoUrl, FILTER_VALIDATE_URL)) {
+        $err = 'O link de demonstração precisa ser uma URL válida.';
     } else {
         if (!empty($_POST['remover_capa'])) {
             if ($capaAtual !== '') admin_delete_local_upload($capaAtual);
@@ -103,24 +106,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'UPDATE produtos_servicos SET
                     nome=?, slug=?, tipo=?, categoria=?, resumo=?, descricao=?, capa=?, recursos=?,
                     preco_centavos=?, exibir_preco=?, preco_texto=?, periodicidade=?, whmcs_url=?,
-                    whatsapp_msg=?, botao_texto=?, destaque=?, ativo=?, ordem=?, updated_at=NOW()
+                    demo_url=?, whatsapp_msg=?, botao_texto=?, destaque=?, ativo=?, ordem=?, updated_at=NOW()
                  WHERE id=?'
             )->execute([
                 $nome, $slug, $tipo, $categoria, $resumo, $descricao, $capa, $recursos,
                 $precoCentavos, $exibirPreco, $precoTexto, $periodicidade, $whmcs,
-                $wa, $botao, $destaque, $ativo, $ordem, $id
+                $demoUrl, $wa, $botao, $destaque, $ativo, $ordem, $id
             ]);
         } else {
             $pdo->prepare(
                 'INSERT INTO produtos_servicos
                     (nome,slug,tipo,categoria,resumo,descricao,capa,recursos,preco_centavos,
-                     exibir_preco,preco_texto,periodicidade,whmcs_url,whatsapp_msg,botao_texto,
+                     exibir_preco,preco_texto,periodicidade,whmcs_url,demo_url,whatsapp_msg,botao_texto,
                      destaque,ativo,ordem,created_at)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())'
             )->execute([
                 $nome, $slug, $tipo, $categoria, $resumo, $descricao, $capa, $recursos,
                 $precoCentavos, $exibirPreco, $precoTexto, $periodicidade, $whmcs,
-                $wa, $botao, $destaque, $ativo, $ordem
+                $demoUrl, $wa, $botao, $destaque, $ativo, $ordem
             ]);
             $id = (int)$pdo->lastInsertId();
         }
@@ -130,13 +133,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $edit = compact(
         'id','nome','slug','tipo','categoria','resumo','descricao','capa','recursos',
-        'precoCentavos','exibirPreco','precoTexto','periodicidade','whmcs','wa','botao',
+        'precoCentavos','exibirPreco','precoTexto','periodicidade','whmcs','demoUrl','wa','botao',
         'destaque','ativo','ordem'
     );
     $edit['preco_centavos'] = $precoCentavos;
     $edit['exibir_preco'] = $exibirPreco;
     $edit['preco_texto'] = $precoTexto;
     $edit['whmcs_url'] = $whmcs;
+    $edit['demo_url'] = $demoUrl;
     $edit['whatsapp_msg'] = $wa;
     $edit['botao_texto'] = $botao;
 }
@@ -149,7 +153,7 @@ if ($edit === null && (isset($_GET['id']) || isset($_GET['novo']))) {
             'id'=>0,'nome'=>'','slug'=>'','tipo'=>'servico','categoria'=>'',
             'resumo'=>'','descricao'=>'','capa'=>'','recursos'=>'','preco_centavos'=>0,
             'exibir_preco'=>0,'preco_texto'=>'Sob consulta','periodicidade'=>'sob_consulta',
-            'whmcs_url'=>'','whatsapp_msg'=>'','botao_texto'=>'Saiba mais',
+            'whmcs_url'=>'','demo_url'=>'','whatsapp_msg'=>'','botao_texto'=>'Saiba mais',
             'destaque'=>0,'ativo'=>1,'ordem'=>0
         ];
     }
@@ -222,6 +226,11 @@ if ($edit):
     </div>
 
     <div class="field"><label>Link do WHMCS (opcional)</label><input type="url" name="whmcs_url" value="<?= e($edit['whmcs_url'] ?? '') ?>" placeholder="https://..."></div>
+    <div class="field">
+        <label>Link de demonstração / modelos (opcional)</label>
+        <input type="url" name="demo_url" value="<?= e($edit['demo_url'] ?? '') ?>" placeholder="https://exemplo.com/modelos">
+        <p class="muted" style="margin-top:5px;font-size:.8rem;">Use para mostrar um site de demonstração, modelos disponíveis ou outra apresentação online do produto/serviço.</p>
+    </div>
     <div class="field"><label>Mensagem de WhatsApp (fallback)</label><input name="whatsapp_msg" value="<?= e($edit['whatsapp_msg'] ?? '') ?>" placeholder="Olá! Quero saber mais sobre..."></div>
 
     <div class="field-row">
