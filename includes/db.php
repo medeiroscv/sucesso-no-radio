@@ -1259,6 +1259,11 @@ function app_config_secoes(): array {
             'icon' => '✉️',
             'desc' => 'Formulário padrão: nome, e-mail, telefone, WhatsApp e mensagem',
         ],
+        'formulario_texto' => [
+            'label' => 'Envio de texto',
+            'icon' => '🎙️',
+            'desc' => 'Formulário para envio de texto que será gravado',
+        ],
         'atualizacao' => [
             'label' => 'Atualização do site',
             'icon' => '🔄',
