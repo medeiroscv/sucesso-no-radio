@@ -8,7 +8,6 @@ $porTipo = [
     'semanal' => [],
     'informativo' => [],
     'programete' => [],
-    'produto' => [],
 ];
 $banners = [];
 $tiposMeta = app_conteudo_tipos();
@@ -126,7 +125,6 @@ function render_conteudo_card(array $p, string $base, string $tipo): void {
         'semanal' => ['id' => 'semanais', 'sub' => 'Conteúdos semanais e de fim de semana.'],
         'informativo' => ['id' => 'informativos', 'sub' => 'Jornalismo, boletins e notícias para a emissora.'],
         'programete' => ['id' => 'programetes', 'sub' => 'Pacotes de dicas e inserções rápidas.'],
-        'produto' => ['id' => 'produtos', 'sub' => 'Produtos avulsos e pacotes com pagamento único.'],
     ];
     foreach ($secoes as $tipoKey => $sec):
         $itens = $porTipo[$tipoKey] ?? [];

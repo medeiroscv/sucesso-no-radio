@@ -24,7 +24,8 @@ function admin_header(string $title, string $active = ''): void {
         <nav>
             <a href="index.php" class="<?= $active === 'dash' ? 'active' : '' ?>">Dashboard</a>
             <a href="demonstrativos.php" class="<?= $active === 'demonstrativos' ? 'active' : '' ?>">Demonstrativos</a>
-            <a href="produtos.php" class="<?= $active === 'produtos' ? 'active' : '' ?>">Produtos / vitrine</a>
+            <a href="produtos-servicos.php" class="<?= $active === 'produtos-servicos' ? 'active' : '' ?>">Produtos e Serviços</a>
+            <a href="produtos.php" class="<?= $active === 'produtos' ? 'active' : '' ?>">Planos / preços</a>
             <a href="contatos.php" class="<?= $active === 'contatos' ? 'active' : '' ?>">Contatos</a>
             <a href="banners.php" class="<?= $active === 'banners' ? 'active' : '' ?>">Banners</a>
             <a href="configuracoes.php" class="<?= $active === 'config' ? 'active' : '' ?>">Configurações</a>

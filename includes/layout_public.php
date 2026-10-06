@@ -46,6 +46,7 @@ function layout_header(string $title = '', string $active = ''): void {
         <link rel="apple-touch-icon" href="<?= e($favicon) ?>">
     <?php endif; ?>
     <link rel="stylesheet" href="<?= e($css) ?>">
+    <link rel="stylesheet" href="<?= e(app_url('assets/css/produtos-servicos.css')) ?>">
     <?= app_css_cores() ?>
 </head>
 <body>
@@ -68,6 +69,7 @@ function layout_header(string $title = '', string $active = ''): void {
             <a href="<?= e($home) ?>#semanais" class="<?= $active === 'semanal' ? 'active' : '' ?>">Semanais</a>
             <a href="<?= e($home) ?>#informativos" class="<?= $active === 'informativo' ? 'active' : '' ?>">Informativos</a>
             <a href="<?= e($home) ?>#programetes" class="<?= $active === 'programete' ? 'active' : '' ?>">Programetes</a>
+            <a href="<?= e(app_url('produtos-servicos.php')) ?>" class="<?= $active === 'produtos-servicos' ? 'active' : '' ?>">Produtos e Serviços</a>
             <a href="<?= e(app_url('precos.php')) ?>" class="<?= $active === 'precos' ? 'active' : '' ?>">Preços</a>
             <?php if ($formContatoAtivo): ?>
                 <a href="<?= e(app_url('contato.php')) ?>" class="<?= $active === 'contato' ? 'active' : '' ?>">Contato</a>
@@ -100,6 +102,7 @@ function layout_footer(): void {
         <div>
             <strong>Navegação</strong>
             <p><a href="<?= e($home) ?>">Início</a></p>
+            <p><a href="<?= e(app_url('produtos-servicos.php')) ?>">Produtos e Serviços</a></p>
             <p><a href="<?= e(app_url('precos.php')) ?>">Preços</a></p>
             <?php if ($formContatoAtivo): ?><p><a href="<?= e(app_url('contato.php')) ?>">Contato</a></p><?php endif; ?>
             <p><a href="<?= e(app_url('admin/')) ?>">Área admin</a></p>
