@@ -62,22 +62,21 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $capaAtual=trim((string)($_POST['capa_atual']??''));
     $capa=$capaAtual;
 
-    if(!empty($_POST['remover_capa'])){
-        if($capaAtual!=='')admin_delete_local_upload($capaAtual);
-        $capa='';
-    }else{
-        $nova=admin_upload('capa','produtos',[],900,900,84);
-        if($nova!==''){
-            if($capaAtual!=='' && $capaAtual!==$nova)admin_delete_local_upload($capaAtual);
-            $capa=$nova;
-        }
-    }
-
     if($nome===''){
         $err='Informe o nome do produto.';
     }elseif($whmcs!=='' && !filter_var($whmcs,FILTER_VALIDATE_URL)){
         $err='O link do WHMCS precisa ser uma URL válida, começando por http:// ou https://.';
     }else{
+        if(!empty($_POST['remover_capa'])){
+            if($capaAtual!=='')admin_delete_local_upload($capaAtual);
+            $capa='';
+        }else{
+            $nova=admin_upload('capa','produtos',[],900,900,84);
+            if($nova!==''){
+                if($capaAtual!=='' && $capaAtual!==$nova)admin_delete_local_upload($capaAtual);
+                $capa=$nova;
+            }
+        }
         try{
             $baseSlug=app_slug($slug!==''?$slug:$nome);
             $slugTry=$baseSlug; $n=2;
