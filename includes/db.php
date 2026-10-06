@@ -221,7 +221,7 @@ function app_bootstrap_database(PDO $pdo): void {
     try { $pdo->exec("ALTER TABLE faturas ADD COLUMN IF NOT EXISTS cobrancas_log TEXT DEFAULT '[]'"); } catch (Throwable $e) { /* ok */ }
     try { $pdo->exec('CREATE INDEX IF NOT EXISTS idx_faturas_assinatura ON faturas (assinatura_id, periodo_ref)'); } catch (Throwable $e) { /* ok */ }
 
-    // ===== Produtos / planos / pacotes / mensalidades (estilo WHMCS) =====
+    // ===== Produtos da vitrine comercial =====
     $pdo->exec("CREATE TABLE IF NOT EXISTS produtos (
         id SERIAL PRIMARY KEY,
         nome VARCHAR(200) NOT NULL,
@@ -893,11 +893,12 @@ function cliente_require_liberacao(string $redirectLogin = ''): void {
 }
 
 function app_finance_ativo(): bool {
-    return app_setting('finance_ativo', '0') === '1';
+    // Módulo financeiro local desativado: cobrança e assinaturas são responsabilidade do WHMCS.
+    return false;
 }
 
 function app_finance_bloquear_atraso(): bool {
-    return app_setting('finance_bloquear_atraso', '1') === '1';
+    return false;
 }
 
 /** Sem faturas vencidas em aberto (quando financeiro ativo e bloqueio ligado). */
@@ -1251,7 +1252,7 @@ function app_config_secoes(): array {
         'cores' => [
             'label' => 'Cores do sistema',
             'icon' => '🎨',
-            'desc' => 'Personalize a paleta de cores do site, admin e área do cliente',
+            'desc' => 'Personalize a paleta de cores do site e do painel administrativo',
         ],
         'formulario_contato' => [
             'label' => 'Formulário de contato',
