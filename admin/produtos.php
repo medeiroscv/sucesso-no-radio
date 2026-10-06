@@ -98,9 +98,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 $id=(int)$pdo->lastInsertId();
             }
             admin_salvar_produto_demonstrativos($id);
-            if (in_array($tipo, ['avulso', 'pacote'], true)) {
-                admin_salvar_produto_entregas($id);
-            }
             header('Location: produtos.php?id='.$id.'&ok=1'); exit;
         }catch(Throwable $e){
             $err='Erro ao salvar: '.$e->getMessage();
@@ -185,10 +182,6 @@ if($edit):
     </div>
 
     <?php admin_bloco_produto_demonstrativos((int)($edit['id']??0)); ?>
-
-    <?php if (in_array(($edit['tipo'] ?? ''), ['avulso', 'pacote'], true)): ?>
-        <?php admin_bloco_produto_entregas((int)($edit['id']??0)); ?>
-    <?php endif; ?>
 
     <div class="actions" style="margin-top:18px;">
         <button class="btn btn-primary" type="submit">Salvar produto</button>
