@@ -63,14 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         app_setting_set('form_contato_btn', trim((string)($_POST['form_contato_btn'] ?? 'Enviar mensagem')));
         $ok = 'Formulário de contato atualizado.';
         $sec = 'formulario_contato';
-    } elseif ($secPost === 'formulario_texto') {
-        app_setting_set('form_texto_ativo', !empty($_POST['form_texto_ativo']) ? '1' : '0');
-        app_setting_set('form_texto_titulo', trim((string)($_POST['form_texto_titulo'] ?? 'Envio de texto')));
-        app_setting_set('form_texto_intro', trim((string)($_POST['form_texto_intro'] ?? '')));
-        app_setting_set('form_texto_instrucoes', trim((string)($_POST['form_texto_instrucoes'] ?? '')));
-        app_setting_set('form_texto_btn', trim((string)($_POST['form_texto_btn'] ?? 'Enviar texto')));
-        $ok = 'Formulário de envio de texto atualizado.';
-        $sec = 'formulario_texto';
     } elseif ($secPost === 'cores') {
         if (!empty($_POST['restaurar_cores'])) {
             $cores = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary','color_header','color_footer'];
@@ -138,14 +130,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Contagens de envios
 $qContatos = 0;
-$qTextos = 0;
 $qContatosNovos = 0;
-$qTextosNovos = 0;
 try {
     $qContatos = (int)$pdo->query('SELECT COUNT(*) FROM contatos')->fetchColumn();
     $qContatosNovos = (int)$pdo->query('SELECT COUNT(*) FROM contatos WHERE lido = 0')->fetchColumn();
-    $qTextos = (int)$pdo->query('SELECT COUNT(*) FROM textos_gravacao')->fetchColumn();
-    $qTextosNovos = (int)$pdo->query('SELECT COUNT(*) FROM textos_gravacao WHERE lido = 0')->fetchColumn();
 } catch (Throwable $e) { /* ok */ }
 
 $title = $sec !== '' ? ($secoes[$sec]['label'] ?? 'Configurações') : 'Configurações';
@@ -165,8 +153,6 @@ if ($sec === ''):
                 <p><?= e($meta['desc']) ?></p>
                 <?php if ($key === 'formulario_contato'): ?>
                     <div class="conteudo-hub-count"><?= $qContatos ?> envio(s)<?= $qContatosNovos ? " · {$qContatosNovos} novo(s)" : '' ?></div>
-                <?php elseif ($key === 'formulario_texto'): ?>
-                    <div class="conteudo-hub-count"><?= $qTextos ?> texto(s)<?= $qTextosNovos ? " · {$qTextosNovos} novo(s)" : '' ?></div>
                 <?php elseif ($key === 'atualizacao'): ?>
                     <div class="conteudo-hub-count"><?= e(app_update_hub_status()) ?></div>
                 <?php else: ?>
@@ -281,44 +267,6 @@ elseif ($sec === 'formulario_contato'):
     </ul>
 </div>
 <?php
-// ========== FORM TEXTO ==========
-elseif ($sec === 'formulario_texto'):
-?>
-<div class="actions" style="margin-bottom:12px;">
-    <a class="btn btn-secondary btn-small" href="configuracoes.php">← Configurações</a>
-    <a class="btn btn-secondary btn-small" href="textos.php">Ver textos (<?= $qTextos ?>)</a>
-    <a class="btn btn-secondary btn-small" href="../texto.php" target="_blank">Abrir formulário no site</a>
-</div>
-<div class="card">
-    <p class="muted" style="margin-bottom:16px;">
-        Formulário exclusivo da <strong>área do cliente</strong> (requer login).
-        Cada envio grava o texto <strong>junto com os dados cadastrados do cliente</strong> (nome, e-mail, WhatsApp).
-        Veja em <a href="textos.php">Textos a gravar</a>.
-    </p>
-    <form method="post">
-        <input type="hidden" name="sec" value="formulario_texto">
-        <div class="field">
-            <label><input type="checkbox" name="form_texto_ativo" value="1" <?= app_setting('form_texto_ativo', '1') === '1' ? 'checked' : '' ?>> Formulário ativo no site</label>
-        </div>
-        <div class="field"><label>Título da página</label><input name="form_texto_titulo" value="<?= e(app_setting('form_texto_titulo', 'Envio de texto para gravação')) ?>"></div>
-        <div class="field"><label>Texto de introdução</label><textarea name="form_texto_intro" rows="3"><?= e(app_setting('form_texto_intro')) ?></textarea></div>
-        <div class="field"><label>Instruções (acima do campo de texto)</label><textarea name="form_texto_instrucoes" rows="3"><?= e(app_setting('form_texto_instrucoes')) ?></textarea></div>
-        <div class="field"><label>Texto do botão</label><input name="form_texto_btn" value="<?= e(app_setting('form_texto_btn', 'Enviar texto')) ?>"></div>
-        <button class="btn btn-primary" type="submit">Salvar</button>
-    </form>
-</div>
-<div class="card">
-    <h3 style="margin-bottom:10px;">Campos do formulário</h3>
-    <ul class="muted" style="margin-left:18px;line-height:1.9;">
-        <li><strong>Nome</strong> — obrigatório</li>
-        <li><strong>E-mail</strong></li>
-        <li><strong>Telefone</strong></li>
-        <li><strong>WhatsApp</strong></li>
-        <li><strong>Título / referência</strong> (ex.: programa, campanha)</li>
-        <li><strong>Texto para gravação</strong> — obrigatório (gravado no banco)</li>
-    </ul>
-</div>
-<?php
 // ========== CORES DO SISTEMA ==========
 elseif ($sec === 'cores'):
 $colorKeys = ['color_bg','color_card','color_text','color_muted','color_accent','color_line','color_danger','color_warn','color_sidebar','color_primary','color_header','color_footer'];
@@ -393,7 +341,7 @@ $paletas = [
     <form method="post">
         <input type="hidden" name="sec" value="cores">
         <h3 style="margin-bottom:14px;">Paleta de cores</h3>
-        <p class="muted" style="margin-bottom:16px;">As alterações são aplicadas automaticamente no site público, área do cliente e painel administrativo.</p>
+        <p class="muted" style="margin-bottom:16px;">As alterações são aplicadas automaticamente no site público e painel administrativo.</p>
         
         <div style="margin-bottom:20px;">
             <label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:8px;">Paletas pré-configuradas</label>

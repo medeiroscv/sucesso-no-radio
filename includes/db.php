@@ -431,12 +431,6 @@ function app_bootstrap_database(PDO $pdo): void {
         'form_contato_titulo' => 'Contato',
         'form_contato_intro' => 'Fale com a nossa equipe. Responderemos o mais breve possível.',
         'form_contato_btn' => 'Enviar mensagem',
-        // Formulário de texto para gravação
-        'form_texto_ativo' => '1',
-        'form_texto_titulo' => 'Envio de texto para gravação',
-        'form_texto_intro' => 'Envie o texto que deseja gravar. Nossa equipe receberá e entrará em contato.',
-        'form_texto_btn' => 'Enviar texto',
-        'form_texto_instrucoes' => '',
         // Financeiro / Asaas
         'finance_ativo' => '0',
         'finance_bloquear_atraso' => '1',
@@ -1260,11 +1254,6 @@ function app_config_secoes(): array {
             'label' => 'Formulário de contato',
             'icon' => '✉️',
             'desc' => 'Formulário padrão: nome, e-mail, telefone, WhatsApp e mensagem',
-        ],
-        'formulario_texto' => [
-            'label' => 'Envio de texto',
-            'icon' => '🎙️',
-            'desc' => 'Formulário para envio de texto que será gravado',
         ],
         'atualizacao' => [
             'label' => 'Atualização do site',
