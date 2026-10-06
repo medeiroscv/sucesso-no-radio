@@ -255,7 +255,7 @@ if ($edit):
         <a class="btn btn-primary" href="produtos-servicos.php?novo=1">+ Novo produto ou serviço</a>
     </div>
     <table>
-        <thead><tr><th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Demo</th><th>Status</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($lista as $item): ?>
             <tr>
@@ -263,6 +263,7 @@ if ($edit):
                 <td><?= e($tipos[$item['tipo']] ?? ucfirst((string)$item['tipo'])) ?></td>
                 <td><?= e($item['categoria'] ?: '—') ?></td>
                 <td><?= e(app_produto_servico_preco($item)) ?></td>
+                <td><?php if (app_produto_servico_demo_url($item)): ?><a href="<?= e(app_produto_servico_demo_url($item)) ?>" target="_blank" rel="noopener">Abrir</a><?php else: ?>—<?php endif; ?></td>
                 <td><?= !empty($item['ativo']) ? '<span class="badge badge-ok">Ativo</span>' : '<span class="badge badge-off">Inativo</span>' ?></td>
                 <td class="actions">
                     <a class="btn btn-secondary btn-small" href="produtos-servicos.php?id=<?= (int)$item['id'] ?>">Editar</a>
@@ -270,7 +271,7 @@ if ($edit):
                 </td>
             </tr>
         <?php endforeach; ?>
-        <?php if (!$lista): ?><tr><td colspan="6" class="muted">Nenhum produto ou serviço cadastrado.</td></tr><?php endif; ?>
+        <?php if (!$lista): ?><tr><td colspan="7" class="muted">Nenhum produto ou serviço cadastrado.</td></tr><?php endif; ?>
         </tbody>
     </table>
 </div>
